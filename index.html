@@ -1,0 +1,122 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>De Oportunidades - ¡Tu espacio seguro para tratos geniales!</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Gaegu:wght@300;400;700&family=Manrope:wght@200..800&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#20F090",
+                        "menta": "#40F7AB",
+                        "menta-dark": "#1DB37A",
+                        "background-light": "#FAFAF5",
+                        "papel": "#FCF9F2",
+                        "coral-soft": "#FF7F6E",
+                        "sky-soft": "#D1E9F6",
+                        "berry": "#8E44AD",
+                        "dark-charcoal": "#102218",
+                        "accent-yellow": "#FFD166"
+                    },
+                    fontFamily: {
+                        "display": ["Fredoka", "sans-serif"],
+                        "hand": ["Gaegu", "cursive"],
+                        "body": ["Manrope", "sans-serif"],
+                        "handwritten": ["Kalam", "cursive"]
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .organic-border {
+                border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+            }
+            .paper-texture {
+                background-color: #fcf9f2;
+                background-image: url("https://www.transparenttextures.com/patterns/handmade-paper.png");
+            }
+            .irregular-border-bottom {
+                position: relative;
+            }
+            .irregular-border-bottom::after {
+                content: '';
+                position: absolute;
+                bottom: -10px;
+                left: 0;
+                right: 0;
+                height: 20px;
+                background: radial-gradient(circle, transparent, transparent 10px, white 10px, white);
+                background-size: 20px 40px;
+                background-position: 0 -20px;
+            }
+            .parchment {
+                background-color: #fdf6e3;
+                clip-path: polygon(0% 2%, 5% 0%, 10% 2%, 15% 1%, 20% 3%, 25% 1%, 30% 2%, 35% 0%, 40% 2%, 45% 1%, 50% 3%, 55% 1%, 60% 2%, 65% 0%, 70% 2%, 75% 1%, 80% 3%, 85% 1%, 90% 2%, 95% 0%, 100% 2%, 100% 98%, 95% 100%, 90% 98%, 85% 99%, 80% 97%, 75% 99%, 70% 98%, 65% 100%, 60% 98%, 55% 99%, 50% 97%, 45% 99%, 40% 98%, 35% 100%, 30% 98%, 25% 99%, 20% 97%, 15% 99%, 10% 98%, 5% 100%, 0% 98%);
+            }
+            .celebration-bg {
+                background: radial-gradient(circle, #FFD166 2px, transparent 0);
+                background-size: 30px 30px;
+            }
+        }
+        @layer components {
+            .hand-drawn-border {
+                border: 3px solid #102218;
+                border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+            }
+            .hand-drawn-card {
+                border: 2px solid #102218;
+                border-radius: 20px 10px 25px 8px / 12px 18px 8px 15px;
+                box-shadow: 4px 4px 0px rgba(0,0,0,0.1);
+            }
+            .speech-bubble {
+                position: relative;
+                background: #fff;
+                border: 3px solid #40F7AB;
+                border-radius: 2em;
+                padding: 20px;
+            }
+            .speech-bubble:after {
+                content: "";
+                position: absolute;
+                bottom: 0;
+                left: 50%;
+                width: 0;
+                height: 0;
+                border: 20px solid transparent;
+                border-top-color: inherit;
+                border-bottom: 0;
+                border-left: 0;
+                margin-left: -10px;
+                margin-bottom: -20px;
+            }
+        }
+        body {
+            @apply font-body bg-background-light text-dark-charcoal;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
