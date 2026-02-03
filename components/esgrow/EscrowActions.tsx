@@ -1,0 +1,104 @@
+
+import React from 'react';
+import { EscrowStatus, UserRole } from '../../hooks/useEscrow';
+
+interface Props {
+    status: EscrowStatus;
+    currentUserRole: UserRole;
+    price: number;
+    onUpdateStatus: (s: EscrowStatus, msg?: string) => void;
+    onRequestMediation: () => void;
+}
+
+
+const EscrowActions: React.FC<Props> = ({ status, currentUserRole, price, onUpdateStatus, onRequestMediation }) => {
+
+    if (status === 'DISPUTA') {
+        return (
+            <div className="bg-red-50 p-10 rounded-[40px] border border-red-100 shadow-premium flex flex-col items-center gap-8 text-center animate-in fade-in duration-500">
+                <div className="size-20 bg-white text-red-500 rounded-[28px] flex items-center justify-center shadow-sm border border-red-100/50">
+                    <span className="material-symbols-outlined text-4xl font-black">gavel</span>
+                </div>
+                <div>
+                    <h3 className="text-xl font-black text-dark-800 mb-3 uppercase tracking-tight">Acquisition in Dispute</h3>
+                    <p className="text-[11px] font-bold text-gray-400 leading-relaxed uppercase tracking-wider max-w-sm">A resolution specialist is currently auditing the documented protocol evidence to determine the final settlement.</p>
+                </div>
+                {currentUserRole === 'MEDIADOR' && (
+                    <div className="flex flex-wrap justify-center gap-4 pt-8 border-t border-red-100/50 w-full mt-2">
+                        <button
+                            onClick={() => onUpdateStatus('FINALIZADO', '✅ Verdict: Refund issued to BUYER.')}
+                            className="px-8 py-5 bg-white text-red-600 border-2 border-red-200 font-black rounded-3xl hover:bg-red-50 transition-all text-[9px] uppercase tracking-[0.2em] active:scale-95"
+                        >
+                            Issue Refund
+                        </button>
+                        <button
+                            onClick={() => onUpdateStatus('FINALIZADO', '✅ Verdict: Funds released to SELLER.')}
+                            className="px-8 py-5 bg-red-600 text-white font-black rounded-3xl hover:bg-red-700 transition-all text-[9px] uppercase tracking-[0.2em] shadow-xl shadow-red-600/20 active:scale-95"
+                        >
+                            Release Funds
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    if (status === 'FINALIZADO') {
+        return (
+            <div className="bg-primary-50 p-10 rounded-[40px] border border-primary-100 shadow-premium flex flex-col items-center gap-6 text-center animate-in zoom-in duration-500">
+                <div className="size-16 bg-white text-primary-vibrant rounded-2xl flex items-center justify-center shadow-sm border border-primary-100/50">
+                    <span className="material-symbols-outlined text-3xl font-black">verified</span>
+                </div>
+                <div>
+                    <h3 className="text-xl font-black text-dark-800 uppercase tracking-tight">Protocol Terminated</h3>
+                    <p className="text-[11px] font-bold text-primary-900 leading-relaxed uppercase tracking-wider opacity-60">Capital settlement executed. All contractual obligations have been fulfilled.</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-dark-800 p-10 rounded-[40px] text-white shadow-premium-dark flex flex-col md:flex-row items-center justify-between gap-10 border border-white/5 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-vibrant/20 blur-[80px] rounded-full group-hover:bg-primary-vibrant/30 transition-all"></div>
+
+            <div className="text-center md:text-left relative z-10">
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 mb-3">Guarantee Protection Active</p>
+                <h3 className="text-2xl font-black flex items-center gap-4 justify-center md:justify-start tracking-tight">
+                    Secured Capital:
+                    <span className="text-primary-vibrant font-black tracking-tighter">${price.toLocaleString()}</span>
+                </h3>
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-4 relative z-10 w-full md:w-auto">
+                {currentUserRole === 'COMPRADOR' && status === 'ENVIADO' && (
+                    <button
+                        onClick={() => onUpdateStatus('FINALIZADO', '🎉 Buyer confirmed reception.')}
+                        className="flex-1 md:flex-none px-10 py-5 bg-primary-vibrant text-white font-black rounded-3xl hover:brightness-110 transition-all shadow-xl shadow-primary-500/20 flex items-center justify-center gap-3 text-[10px] uppercase tracking-[0.2em] active:scale-95"
+                    >
+                        <span className="material-symbols-outlined font-black">verified</span>
+                        Release Funds
+                    </button>
+                )}
+
+                {currentUserRole === 'VENDEDOR' && status === 'FONDEADO' && (
+                    <button
+                        onClick={() => onUpdateStatus('ENVIADO', '🚚 Seller confirmed item dispatch.')}
+                        className="flex-1 md:flex-none px-10 py-5 bg-primary-vibrant text-white font-black rounded-3xl hover:brightness-110 transition-all shadow-xl shadow-primary-500/20 flex items-center justify-center gap-3 text-[10px] uppercase tracking-[0.2em] active:scale-95"
+                    >
+                        <span className="material-symbols-outlined font-black">local_shipping</span>
+                        Confirm Dispatch
+                    </button>
+                )}
+
+                <button
+                    onClick={onRequestMediation}
+                    className="flex-1 md:flex-none px-10 py-5 bg-white/5 text-white font-black rounded-3xl border border-white/10 hover:bg-white/10 transition-all text-[10px] uppercase tracking-[0.2em] active:scale-95"
+                >
+                    Raise Dispute
+                </button>
+            </div>
+        </div>
+    );
+};
+
+export default EscrowActions;

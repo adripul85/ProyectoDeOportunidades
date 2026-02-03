@@ -1,108 +1,170 @@
-
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>De Oportunidades - ¡Tu espacio seguro para tratos geniales!</title>
+    <title>De Oportunidades - Marketplace Seguro & Tratos Blindados</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Gaegu:wght@300;400;700&family=Manrope:wght@200..800&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..900&family=Manrope:wght@200..800&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#20F090",
-                        "menta": "#40F7AB",
-                        "menta-dark": "#1DB37A",
-                        "background-light": "#FAFAF5",
-                        "papel": "#FCF9F2",
-                        "coral-soft": "#FF7F6E",
-                        "sky-soft": "#D1E9F6",
-                        "berry": "#8E44AD",
-                        "dark-charcoal": "#102218",
-                        "accent-yellow": "#FFD166"
+                        // VIBRANT BLUE (Premium Marketplace)
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#2563eb', // Standard Blue
+                            600: '#1d4ed8', // Darker Blue
+                            700: '#1e40af',
+                            900: '#1e3a8a',
+                            vibrant: '#2222FF', // The specific "crazy" blue
+                        },
+
+                        // LUXURY DARK
+                        dark: {
+                            900: '#030712',
+                            800: '#111827',
+                            700: '#374151',
+                            charcoal: '#0f172a',
+                        },
+
+                        // CLEAN LIGHT
+                        light: {
+                            50: '#f9fafb',
+                            100: '#f3f4f6',
+                            200: '#e5e7eb',
+                        },
+
+                        // Legacy mappings to keep layout working during transition
+                        "border-light": "#f3f4f6", // More subtle borders
+                        "dark-charcoal": "#111827",
+                        "menta-dark": "#2563eb",
+                        "menta": "#eff6ff",
                     },
                     fontFamily: {
-                        "display": ["Fredoka", "sans-serif"],
-                        "hand": ["Gaegu", "cursive"],
-                        "body": ["Manrope", "sans-serif"],
-                        "handwritten": ["Kalam", "cursive"]
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Manrope', 'sans-serif'], // Switched to Manrope for headings
+                        body: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        "premium": "0 4px 20px -1px rgba(0, 0, 0, 0.05), 0 2px 10px -1px rgba(0, 0, 0, 0.03)",
+                        "trust": "0 4px 6px -1px rgba(0, 0, 0, 0.05)",
+                        "trust-lg": "0 10px 25px -5px rgba(0, 0, 0, 0.05)",
+                    },
+                    borderRadius: {
+                        '3xl': '1.5rem',
+                        '4xl': '2rem',
                     }
                 }
             }
         }
     </script>
-    <style type="text/tailwindcss">
-        @layer utilities {
-            .organic-border {
-                border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-            }
-            .paper-texture {
-                background-color: #fcf9f2;
-                background-image: url("https://www.transparenttextures.com/patterns/handmade-paper.png");
-            }
-            .irregular-border-bottom {
-                position: relative;
-            }
-            .irregular-border-bottom::after {
-                content: '';
-                position: absolute;
-                bottom: -10px;
-                left: 0;
-                right: 0;
-                height: 20px;
-                background: radial-gradient(circle, transparent, transparent 10px, white 10px, white);
-                background-size: 20px 40px;
-                background-position: 0 -20px;
-            }
-            .parchment {
-                background-color: #fdf6e3;
-                clip-path: polygon(0% 2%, 5% 0%, 10% 2%, 15% 1%, 20% 3%, 25% 1%, 30% 2%, 35% 0%, 40% 2%, 45% 1%, 50% 3%, 55% 1%, 60% 2%, 65% 0%, 70% 2%, 75% 1%, 80% 3%, 85% 1%, 90% 2%, 95% 0%, 100% 2%, 100% 98%, 95% 100%, 90% 98%, 85% 99%, 80% 97%, 75% 99%, 70% 98%, 65% 100%, 60% 98%, 55% 99%, 50% 97%, 45% 99%, 40% 98%, 35% 100%, 30% 98%, 25% 99%, 20% 97%, 15% 99%, 10% 98%, 5% 100%, 0% 98%);
-            }
-            .celebration-bg {
-                background: radial-gradient(circle, #FFD166 2px, transparent 0);
-                background-size: 30px 30px;
-            }
+    <style>
+        :root {
+            --primary-vibrant: #2222FF;
+            --primary-50: #eff6ff;
+            --primary-100: #dbeafe;
+            --dark-800: #111827;
+            --light-50: #f9fafb;
+            --light-100: #f3f4f6;
+            --light-200: #e5e7eb;
+            --shadow-premium: 0 4px 20px -1px rgba(0, 0, 0, 0.05), 0 2px 10px -1px rgba(0, 0, 0, 0.03);
         }
-        @layer components {
-            .hand-drawn-border {
-                border: 3px solid #102218;
-                border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
-            }
-            .hand-drawn-card {
-                border: 2px solid #102218;
-                border-radius: 20px 10px 25px 8px / 12px 18px 8px 15px;
-                box-shadow: 4px 4px 0px rgba(0,0,0,0.1);
-            }
-            .speech-bubble {
-                position: relative;
-                background: #fff;
-                border: 3px solid #40F7AB;
-                border-radius: 2em;
-                padding: 20px;
-            }
-            .speech-bubble:after {
-                content: "";
-                position: absolute;
-                bottom: 0;
-                left: 50%;
-                width: 0;
-                height: 0;
-                border: 20px solid transparent;
-                border-top-color: inherit;
-                border-bottom: 0;
-                border-left: 0;
-                margin-left: -10px;
-                margin-bottom: -20px;
-            }
-        }
+
         body {
-            @apply font-body bg-background-light text-dark-charcoal;
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--light-50);
+            color: var(--dark-800);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .trust-card {
+            background-color: white;
+            border: 1px solid var(--light-200);
+            border-radius: 2rem;
+            box-shadow: var(--shadow-premium);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-vibrant);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 10px 15px -3px rgba(34, 34, 255, 0.2);
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: var(--dark-800);
+            border: 2px solid var(--light-200);
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--light-50);
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+        }
+
+        .search-input {
+            background-color: var(--light-100);
+            border: 2px solid transparent;
+            border-radius: 1rem;
+            padding: 1rem 1.5rem;
+            font-weight: 700;
+            color: var(--dark-800);
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .search-input:focus {
+            background-color: white;
+            border-color: var(--primary-100);
+            box-shadow: 0 0 0 4px var(--primary-50);
+        }
+
+        .search-input::placeholder {
+            color: #9ca3af;
         }
     </style>
-<script type="importmap">
+    <script type="importmap">
 {
   "imports": {
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
@@ -113,10 +175,11 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
+
 <body>
     <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>

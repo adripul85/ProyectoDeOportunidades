@@ -9,10 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-dom": "^19.2.3",
+    "@google/genai": "^1.38.0",
+    "@mercadopago/sdk-react": "^1.0.7",
+    "firebase": "^12.8.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.3",
-    "react-router-dom": "^7.13.0",
-    "@google/genai": "^1.38.0"
+    "react-dom": "^19.2.3",
+    "react-router-dom": "^7.13.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

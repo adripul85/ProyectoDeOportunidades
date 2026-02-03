@@ -1,101 +1,240 @@
-
-import React from 'react';
+import React, { useState, useRef } from 'react';
+import { useAuth } from '../lib/auth';
+import { useNotification } from '../App';
+import { uploadFile } from '../lib/storage';
+import { updateUserProfile } from '../lib/users';
+import { useNavigate } from 'react-router-dom';
+import { serverTimestamp } from 'firebase/firestore';
 
 const Verification = () => {
+  const { user, userProfile } = useAuth();
+  const { notify } = useNotification();
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [previews, setPreviews] = useState({
+    dniFront: '',
+    dniBack: '',
+    selfie: ''
+  });
+  const [files, setFiles] = useState<{ [key: string]: File | null }>({
+    dniFront: null,
+    dniBack: null,
+    selfie: null
+  });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFiles(prev => ({ ...prev, [key]: file }));
+      setPreviews(prev => ({ ...prev, [key]: URL.createObjectURL(file) }));
+    }
+  };
+
+  const handleNext = () => {
+    if (step === 1 && (!files.dniFront || !files.dniBack)) {
+      notify({ type: 'warning', title: 'Documentos Faltantes', message: 'Por favor sube ambos lados de tu ID.', icon: 'warning' });
+      return;
+    }
+    if (step === 2 && !files.selfie) {
+      notify({ type: 'warning', title: 'Selfie Requerida', message: 'Por favor provee una selfie clara para verificación.', icon: 'warning' });
+      return;
+    }
+    setStep(prev => prev + 1);
+  };
+
+  const handleSubmit = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const uploadPromises = Object.entries(files).map(async ([key, file]) => {
+        if (!file) return null;
+        const path = `verifications/${user.uid}/${key}_${Date.now()}`;
+        const url = await uploadFile(file as File, path);
+        return { key, url };
+      });
+
+      const results = await Promise.all(uploadPromises);
+      const evidence: any = {
+        submittedAt: serverTimestamp(),
+        status: 'pending'
+      };
+
+      results.forEach(res => {
+        if (res) evidence[res.key] = res.url;
+      });
+
+      await updateUserProfile(user.uid, {
+        verificationEvidence: evidence
+      });
+
+      notify({
+        type: 'success',
+        title: 'Solicitud Enviada',
+        message: 'Tus documentos están siendo revisados por nuestro equipo de seguridad.',
+        icon: 'verified'
+      });
+      navigate('/dashboard');
+    } catch (error) {
+      console.error(error);
+      notify({ type: 'error', title: 'Fallo en la Carga', message: 'No se pudo completar el proceso. Inténtalo de nuevo.', icon: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="max-w-6xl mx-auto w-full py-8 px-4 flex flex-col items-center">
-      <div className="w-full flex justify-center items-center gap-6 mb-12">
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-10 h-14 bg-primary-coral rounded-full rotate-12 flex items-center justify-center text-white shadow-lg">
-            <span className="material-symbols-outlined">description</span>
+    <div className="max-w-[1200px] mx-auto w-full py-16 px-6 bg-light-50 min-h-screen">
+      <div className="mb-12 text-center max-w-2xl mx-auto">
+        <h1 className="text-3xl font-black text-dark-800 mb-4">Verificación de Identidad</h1>
+        <p className="text-sm font-bold text-gray-400">Completa estos pasos para desbloquear capacidades completas de venta y ganar confianza del comprador.</p>
+      </div>
+
+      {/* Stepper Header */}
+      <div className="w-full flex justify-center items-center gap-6 mb-20">
+        <div className={`flex flex-col items-center gap-4 ${step < 1 ? 'opacity-30' : ''}`}>
+          <div className={`size-14 ${step >= 1 ? 'bg-primary-vibrant text-white shadow-xl shadow-primary-500/20' : 'bg-white border-2 border-light-200 text-gray-400'} rounded-2xl flex items-center justify-center transition-all duration-500`}>
+            <span className="material-symbols-outlined text-2xl font-black">badge</span>
           </div>
-          <span className="text-xs font-bold text-primary-coral">Paso 1</span>
+          <span className={`text-[10px] font-black uppercase tracking-widest ${step >= 1 ? 'text-dark-800' : 'text-gray-400'}`}>ID Estándar</span>
         </div>
-        <div className="h-1 w-12 bg-coral-soft rounded-full"></div>
-        <div className="flex flex-col items-center gap-2 opacity-40">
-          <div className="w-10 h-14 bg-slate-300 rounded-full -rotate-12 flex items-center justify-center text-white">
-            <span className="material-symbols-outlined">face</span>
+        <div className={`h-1 w-16 rounded-full transition-all duration-500 ${step >= 2 ? 'bg-primary-vibrant' : 'bg-light-200'}`}></div>
+        <div className={`flex flex-col items-center gap-4 ${step < 2 ? 'opacity-30' : ''}`}>
+          <div className={`size-14 ${step >= 2 ? 'bg-primary-vibrant text-white shadow-xl shadow-primary-500/20' : 'bg-white border-2 border-light-200 text-gray-400'} rounded-2xl flex items-center justify-center transition-all duration-500`}>
+            <span className="material-symbols-outlined text-2xl font-black">face</span>
           </div>
-          <span className="text-xs font-bold text-slate-400">Paso 2</span>
+          <span className={`text-[10px] font-black uppercase tracking-widest ${step >= 2 ? 'text-dark-800' : 'text-gray-400'}`}>Biometría</span>
         </div>
-        <div className="h-1 w-12 bg-slate-200 rounded-full"></div>
-        <div className="flex flex-col items-center gap-2 opacity-40">
-          <div className="w-10 h-14 bg-slate-300 rounded-full rotate-6 flex items-center justify-center text-white">
-            <span className="material-symbols-outlined">task_alt</span>
+        <div className={`h-1 w-16 rounded-full transition-all duration-500 ${step >= 3 ? 'bg-primary-vibrant' : 'bg-light-200'}`}></div>
+        <div className={`flex flex-col items-center gap-4 ${step < 3 ? 'opacity-30' : ''}`}>
+          <div className={`size-14 ${step >= 3 ? 'bg-primary-vibrant text-white shadow-xl shadow-primary-500/20' : 'bg-white border-2 border-light-200 text-gray-400'} rounded-2xl flex items-center justify-center transition-all duration-500`}>
+            <span className="material-symbols-outlined text-2xl font-black">task_alt</span>
           </div>
-          <span className="text-xs font-bold text-slate-400">Final</span>
+          <span className={`text-[10px] font-black uppercase tracking-widest ${step >= 3 ? 'text-dark-800' : 'text-gray-400'}`}>Finalizar</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 w-full items-start">
-        <div className="lg:col-span-4 flex flex-col items-center lg:items-end gap-6">
-          <div className="relative bg-white p-6 shadow-xl border-4 border-coral-soft rounded-3xl max-w-sm">
-            <div className="absolute left-[-10px] top-1/2 -translate-y-1/2 w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-r-[10px] border-r-white lg:hidden"></div>
-            <h2 className="text-xl font-bold mb-3 font-display">¡Hola! Soy Capi.</h2>
-            <p className="text-gray-600 leading-relaxed font-medium">
-              Para empezar, necesito una fotito del frente de tu DNI. Asegúrate de que haya buena luz.
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+        <div className="lg:col-span-4 space-y-8">
+          <div className="bg-white p-10 rounded-4xl border border-light-200 shadow-premium">
+            <h2 className="text-2xl font-black text-dark-800 mb-6">
+              {step === 1 ? 'Escaneo de Documento' : step === 2 ? 'Prueba de Vida' : 'Confirmación'}
+            </h2>
+            <p className="text-sm font-bold text-gray-400 leading-relaxed mb-10">
+              {step === 1 ? 'Sube fotos de alta resolución de tu ID emitido por el gobierno o pasaporte.' : step === 2 ? 'Toma una selfie en vivo con buena iluminación para verificar que coincides con tu ID.' : 'Por favor revisa tus documentos subidos antes de enviar para revisión oficial.'}
             </p>
-            <div className="mt-4 flex items-center gap-2 text-emerald-500 font-bold">
-              <span className="material-symbols-outlined">verified</span>
-              <span className="text-sm">Estamos cuidando tu identidad.</span>
-            </div>
-          </div>
-          <div className="relative">
-            <div className="w-48 h-48 bg-sky-soft rounded-full flex items-center justify-center shadow-inner overflow-hidden">
-              <img alt="Capi" className="w-40 h-40" src="https://picsum.photos/300/300?avatar" />
+            <div className="flex items-center gap-4 p-6 bg-primary-50 rounded-[32px] border border-primary-100/50">
+              <span className="material-symbols-outlined text-primary-vibrant text-3xl font-black">shield</span>
+              <div>
+                <p className="text-[10px] font-black text-primary-900 uppercase tracking-widest mb-1">Encriptación de Extremo a Extremo</p>
+                <p className="text-[9px] font-bold text-primary-600/70 uppercase">Protegido por Seguridad de Nivel Bancario</p>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="lg:col-span-8">
-          <div className="bg-white/60 backdrop-blur-md p-6 rounded-[2.5rem] shadow-2xl border border-white/40">
-            <div className="relative bg-slate-100 aspect-[4/3] overflow-hidden rounded-3xl border-8 border-primary-coral">
-              <div className="absolute inset-0 bg-center bg-cover opacity-50" style={{ backgroundImage: "url('https://picsum.photos/800/600?workspace')" }}></div>
-              <div className="absolute inset-0 flex items-center justify-center p-10">
-                <div className="w-full h-full max-w-sm max-h-56 border-4 border-dashed border-white/60 rounded-3xl flex flex-col items-center justify-center bg-white/10 backdrop-blur-sm">
-                  <span className="material-symbols-outlined text-6xl text-white mb-2">badge</span>
-                  <p className="text-white font-bold text-center px-4">Pon tu documento aquí</p>
+          <div className="bg-white p-10 rounded-[40px] shadow-premium border border-light-200 animate-in fade-in slide-in-from-bottom-5 duration-700">
+            {step === 1 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {['dniFront', 'dniBack'].map(key => (
+                  <div key={key} className="relative aspect-video rounded-[32px] overflow-hidden border-2 border-dashed border-light-200 bg-light-50 flex items-center justify-center group cursor-pointer hover:border-primary-200 transition-all" onClick={() => fileInputRef.current?.click()}>
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileSelect(e, key)} />
+                    {previews[key as keyof typeof previews] ? (
+                      <div className="w-full h-full relative group">
+                        <img src={previews[key as keyof typeof previews]} className="w-full h-full object-cover" alt="" />
+                        <div className="absolute inset-0 bg-dark-800/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                          <span className="text-[10px] font-black uppercase tracking-widest">Cambiar Imagen</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center group-hover:scale-110 transition-transform duration-500">
+                        <div className="size-14 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                          <span className="material-symbols-outlined text-3xl text-primary-vibrant">add_a_photo</span>
+                        </div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{key === 'dniFront' ? 'Frente del ID' : 'Dorso del ID'}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="flex flex-col items-center">
+                <div className="size-80 rounded-full overflow-hidden border-4 border-dashed border-light-200 bg-light-50 flex items-center justify-center relative group cursor-pointer hover:border-primary-200 transition-all" onClick={() => fileInputRef.current?.click()}>
+                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileSelect(e, 'selfie')} />
+                  {previews.selfie ? (
+                    <img src={previews.selfie} className="w-full h-full object-cover" alt="" />
+                  ) : (
+                    <div className="text-center group-hover:scale-110 transition-transform duration-500">
+                      <div className="size-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-md">
+                        <span className="material-symbols-outlined text-5xl text-primary-vibrant">face</span>
+                      </div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Capture Selfie</p>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-10">Ensure your face is centered and clearly visible</p>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-10 py-10">
+                <div className="p-12 bg-emerald-50 rounded-[40px] border-2 border-emerald-100/50 text-center">
+                  <div className="size-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-sm">
+                    <span className="material-symbols-outlined text-emerald-500 text-5xl font-black animate-in zoom-in duration-500">verified</span>
+                  </div>
+                  <h3 className="text-3xl font-black text-emerald-900 mb-4">Toda la Documentación Lista</h3>
+                  <p className="text-sm font-bold text-emerald-700/70 max-w-md mx-auto leading-relaxed">
+                    Al enviar, nuestro equipo de seguridad verificará tus datos dentro de 24-48 horas hábiles. Recibirás una notificación una vez aprobado.
+                  </p>
                 </div>
               </div>
-              <div className="absolute bottom-8 left-0 right-0 flex justify-center">
-                <button className="bg-primary-coral hover:bg-primary-coral/90 text-white w-20 h-20 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 border-4 border-white">
-                  <span className="material-symbols-outlined text-4xl">photo_camera</span>
+            )}
+
+            <div className="flex justify-between items-center mt-12 pt-8 border-t border-light-100">
+              {step > 1 ? (
+                <button onClick={() => setStep(prev => prev - 1)} className="px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-dark-800 transition-all flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">arrow_back</span>
+                  Anterior
                 </button>
-              </div>
-              <div className="absolute top-6 left-6 bg-emerald-400 px-4 py-2 rounded-full flex items-center gap-2 shadow-sm">
-                <div className="size-2 bg-white rounded-full animate-pulse"></div>
-                <span className="text-white text-xs font-black tracking-widest uppercase">¡Todo Listo!</span>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row justify-between items-center mt-8 gap-4 px-2">
-              <button className="text-slate-500 font-bold flex items-center gap-2 hover:text-primary-coral transition-colors px-4 py-2 rounded-full hover:bg-primary-coral/10">
-                <span className="material-symbols-outlined">upload_file</span>
-                Prefiero subir un archivo
-              </button>
-              <div className="flex gap-4">
-                <button className="px-8 py-3 rounded-full bg-slate-100 font-bold text-slate-500 hover:bg-slate-200 transition-all">Volver</button>
-                <button className="px-10 py-3 rounded-full bg-primary-mint font-bold text-white shadow-lg hover:shadow-primary-mint/30 transition-all hover:-translate-y-1">Continuar</button>
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
-            <div className="flex items-center gap-4 p-4 bg-white/40 border-2 border-lemon-soft rounded-2xl">
-              <div className="size-10 bg-lemon-soft/30 rounded-full flex items-center justify-center text-yellow-600">
-                <span className="material-symbols-outlined">light_mode</span>
-              </div>
-              <p className="text-sm font-semibold text-slate-600">Busca un lugar con luz natural</p>
-            </div>
-            <div className="flex items-center gap-4 p-4 bg-white/40 border-2 border-mint-soft rounded-2xl">
-              <div className="size-10 bg-mint-soft/30 rounded-full flex items-center justify-center text-emerald-600">
-                <span className="material-symbols-outlined">lock</span>
-              </div>
-              <p className="text-sm font-semibold text-slate-600">Privacidad sagrada</p>
+              ) : <div></div>}
+
+              {step < 3 ? (
+                <button onClick={handleNext} className="btn-primary !rounded-full !py-5 !px-12 text-xs">
+                  CONTINUAR
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="px-12 py-5 rounded-full bg-dark-800 text-white text-xs font-black uppercase tracking-widest shadow-2xl hover:bg-dark-700 transition-all active:scale-95 flex items-center gap-3 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                      ENVIANDO...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                      ENVIAR SOLICITUD
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
+        const key = step === 1 ? (files.dniFront ? 'dniBack' : 'dniFront') : 'selfie';
+        handleFileSelect(e, key);
+      }} />
     </div>
   );
 };
