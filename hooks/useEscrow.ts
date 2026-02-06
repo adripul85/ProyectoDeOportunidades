@@ -129,7 +129,7 @@ export const useEscrow = (id: string | undefined) => {
     };
 
     const releaseEscrow = async (qrToken?: string) => {
-        if (!id) return;
+        if (!id) return { success: false, error: 'ID perdido' };
         setIsTyping(true);
         const result = await releaseFunds(id, qrToken);
         setIsTyping(false);
@@ -139,6 +139,7 @@ export const useEscrow = (id: string | undefined) => {
         } else {
             notify({ type: 'error', title: 'Fallo de Liberación', message: result.error || 'Verifica el token o las condiciones.', icon: 'lock_open' });
         }
+        return result;
     };
 
     const registerTracking = async (trackingId: string, courier: string) => {
@@ -161,7 +162,7 @@ export const useEscrow = (id: string | undefined) => {
             const url = await uploadFile(file, `escrow/${id}`);
             await submitEvidence(id, url, type, `Evidencia cargada por el ${currentUserRole}`);
 
-            // Mensaje automático al chat del protocolo
+            // MENSAJE AUTOMÁTICO: Notifica al comprador que la validación está lista
             await sendEscrowNote(id, 'sistema', `📸 El ${currentUserRole.toLowerCase()} ha certificado una nueva evidencia. El proceso de liberación ya está disponible.`, user?.uid);
 
             notify({ type: 'success', title: 'Evidencia Cargada', message: 'La foto ha sido adjunta al registro seguro.', icon: 'auto_awesome' });

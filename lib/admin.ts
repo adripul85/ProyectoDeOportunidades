@@ -156,3 +156,56 @@ export const getDisputedTransactions = async () => {
         return [];
     }
 };
+
+/**
+ * DEV TOOL: Reset Platform Data (Wipe Transactions, Reset Wallets, Restore Items)
+ */
+export const resetPlatformData = async () => {
+    try {
+        const { writeBatch, collection, getDocs, doc, query, where, serverTimestamp } = await import("firebase/firestore");
+        const batch = writeBatch(db);
+        let operationCount = 0;
+
+        // 1. Delete ALL Transactions
+        const txDocs = await getDocs(collection(db, "transactions"));
+        txDocs.forEach((doc) => {
+            batch.delete(doc.ref);
+            operationCount++;
+        });
+
+        // 2. Reset ALL User Wallets
+        const userDocs = await getDocs(collection(db, "users"));
+        userDocs.forEach((userDoc) => {
+            batch.update(userDoc.ref, {
+                "wallet.available": 0,
+                "wallet.inEscrow": 0,
+                "wallet.pending": 0,
+                "wallet.lastUpdated": serverTimestamp()
+            });
+            operationCount++;
+        });
+
+        // 3. Restore SOLD Items to AVAILABLE
+        const itemsRef = collection(db, "items");
+        const soldItemsQuery = query(itemsRef, where("status", "==", "SOLD"));
+        const soldItemsDocs = await getDocs(soldItemsQuery);
+
+        soldItemsDocs.forEach((itemDoc) => {
+            batch.update(itemDoc.ref, {
+                status: 'AVAILABLE',
+                updatedAt: serverTimestamp()
+            });
+            operationCount++;
+        });
+
+        // Commit Batch
+        if (operationCount > 0) {
+            await batch.commit();
+        }
+
+        return { success: true, count: operationCount };
+    } catch (error: any) {
+        console.error("Error resetting platform:", error);
+        return { success: false, error: error.message };
+    }
+};

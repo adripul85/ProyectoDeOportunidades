@@ -22,6 +22,8 @@ export default function Checkout() {
 
   const { productId, productTitle, productPrice, sellerId } = location.state || {}; // Initial state
   const [isDeleted, setIsDeleted] = useState(false);
+  const [showModoModal, setShowModoModal] = useState(false);
+  const [currentTransactionId, setCurrentTransactionId] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (productId) {
@@ -61,8 +63,20 @@ export default function Checkout() {
     );
   }
 
-  const SERVICE_FEE_PERCENTAGE = 0.05;
-  const serviceFee = productPrice * SERVICE_FEE_PERCENTAGE;
+  // Dynamic Service Fee
+  const [serviceFeePercentage, setServiceFeePercentage] = useState(0.20); // Default fallback
+
+  React.useEffect(() => {
+    import('../../lib/settings').then(({ getPlatformSettings }) => {
+      getPlatformSettings().then(settings => {
+        if (settings.escrowFeePercentage) {
+          setServiceFeePercentage(settings.escrowFeePercentage);
+        }
+      });
+    });
+  }, []);
+
+  const serviceFee = productPrice * serviceFeePercentage;
   const total = productPrice + serviceFee;
 
   const handlePayment = async () => {
@@ -111,8 +125,7 @@ export default function Checkout() {
         if (window.location.hostname === "localhost") {
           notify({ type: 'warning', title: 'Modo de Depuración', message: 'Bypass del emulador: Simulando pago exitoso.', icon: 'developer_mode' });
           setTimeout(() => {
-            const mockSuccessUrl = `http://localhost:5173/#/success?collection_status=approved&external_reference=${result.id}&payment_type=credit_card`;
-            window.location.href = mockSuccessUrl;
+            navigate(`/success?collection_status=approved&external_reference=${result.id}&payment_type=credit_card`);
           }, 1500);
           return;
         }
@@ -123,8 +136,19 @@ export default function Checkout() {
         return;
       }
 
+    } else if (selectedMethod === 'MODO') {
+      setCurrentTransactionId(result.id);
+      setShowModoModal(true);
+      setLoading(false);
+      return;
     } else {
       navigate(`/success?collection_status=pending&external_reference=${result.id}&payment_method=${selectedMethod}`);
+    }
+  };
+
+  const confirmModoPayment = () => {
+    if (currentTransactionId) {
+      navigate(`/success?collection_status=approved&external_reference=${currentTransactionId}&payment_type=modo`);
     }
   };
 
@@ -147,7 +171,7 @@ export default function Checkout() {
           <div className="bg-dark-800 px-10 py-12 text-white relative overflow-hidden">
             <div className="absolute top-0 right-0 size-48 bg-primary-vibrant/20 blur-[100px] -mr-10 -mt-10"></div>
             <p className="text-primary-vibrant text-[10px] uppercase font-black tracking-[0.3em] mb-4 relative z-10">Objetivo de Adquisición</p>
-            <h2 className="text-3xl font-black relative z-10 tracking-tight">{productTitle}</h2>
+            <h2 className="text-3xl font-black relative z-10 tracking-tight capitalize">{productTitle}</h2>
           </div>
 
           <div className="p-10 md:p-14 space-y-12">
@@ -159,17 +183,20 @@ export default function Checkout() {
                 <span className="text-xl font-black text-dark-800">$ {productPrice.toLocaleString()}</span>
               </div>
 
-              <div className="flex justify-between items-center text-primary-vibrant bg-primary-50 p-8 rounded-[32px] border border-primary-100/50 shadow-sm">
-                <div className="flex items-center gap-5">
-                  <div className="size-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-                    <span className="material-symbols-outlined text-2xl font-black">verified_user</span>
+              <div className="flex justify-between items-center text-primary-vibrant bg-primary-50 p-6 rounded-[24px] border border-primary-100 shadow-sm relative overflow-hidden group">
+                {/* Decorative background element */}
+                <div className="absolute top-0 right-0 w-20 h-20 bg-primary-200/20 rounded-full -mr-6 -mt-6 group-hover:scale-110 transition-transform"></div>
+
+                <div className="flex items-center gap-5 relative z-10">
+                  <div className="size-12 bg-white rounded-xl flex items-center justify-center shadow-sm border border-primary-100">
+                    <span className="material-symbols-outlined text-2xl font-black">gpp_good</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest block mb-0.5">Seguro y Garantía</span>
-                    <span className="text-[9px] font-bold text-primary-600/60 uppercase tracking-widest">Tarifa de Protección de Protocolo</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest block mb-0.5 text-primary-700">Zona Segura</span>
+                    <span className="text-[9px] font-bold text-primary-600/60 uppercase tracking-widest">Garantía de Satisfacción 100%</span>
                   </div>
                 </div>
-                <span className="font-black text-lg">$ {serviceFee.toLocaleString()}</span>
+                <span className="font-black text-lg relative z-10 text-dark-800">$ {serviceFee.toLocaleString()}</span>
               </div>
             </div>
 
@@ -250,7 +277,8 @@ export default function Checkout() {
                   <span className="material-symbols-outlined font-black text-lg">account_balance_wallet</span>
                   <span className="uppercase tracking-[0.2em] text-xs font-black">
                     {selectedMethod === 'MERCADO_PAGO' ? 'Autorizar vía Mercado Pago' :
-                      selectedMethod === 'TRANSFER' ? 'Confirmar Transferencia Bancaria' : 'Finalizar Adquisición'}
+                      selectedMethod === 'TRANSFER' ? 'Confirmar Transferencia Bancaria' :
+                        selectedMethod === 'MODO' ? 'Generar QR de Pago' : 'Finalizar Adquisición'}
                   </span>
                 </>
               )}
@@ -264,6 +292,64 @@ export default function Checkout() {
           </div>
         </div>
       </div>
-    </div>
+
+
+      {/* MODO QR MODAL */}
+      {
+        showModoModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-dark-900/80 backdrop-blur-sm" onClick={() => setShowModoModal(false)}></div>
+            <div className="bg-white rounded-3xl p-8 max-w-sm w-full relative z-10 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+              <button
+                onClick={() => setShowModoModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-dark-800 transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+
+              <div className="text-center mb-8">
+                <img
+                  src="https://www.modo.com.ar/brand/MODO_Brand_Assets-Isologo_Vert-Green.png"
+                  alt="MODO"
+                  className="h-12 mx-auto mb-4 object-contain"
+                />
+                <h3 className="text-xl font-black text-dark-800">Escanea para Pagar</h3>
+                <p className="text-xs text-gray-500 font-bold mt-2">Usa tu App Bancaria o MODO</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border-2 border-dashed border-emerald-500/30 mb-8 flex justify-center relative group">
+                <div className="absolute inset-0 bg-emerald-500/5 animate-pulse rounded-xl pointer-events-none"></div>
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://modo.com.ar"
+                  alt="QR MODO"
+                  className="size-48 mix-blend-multiply"
+                />
+                <div className="absolute bottom-2 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full border border-emerald-100 shadow-sm">
+                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1">
+                    <span className="size-1.5 bg-emerald-500 rounded-full animate-bounce"></span>
+                    Esperando pago...
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-center space-y-3">
+                <p className="text-2xl font-black text-dark-800">$ {total.toLocaleString()}</p>
+
+                <button
+                  onClick={confirmModoPayment}
+                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
+                >
+                  Simular Pago Aprobado
+                </button>
+
+                <p className="text-[9px] text-gray-400 font-bold max-w-[200px] mx-auto pt-2">
+                  Al escanear aceptas los términos y condiciones de MODO.
+                </p>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 }

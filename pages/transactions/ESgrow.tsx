@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useNotification } from '../../App';
+import confetti from 'canvas-confetti';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Hooks
 import { useEscrow, UserRole } from '../../hooks/useEscrow';
@@ -12,7 +14,6 @@ import EscrowStatusDisplay from '../../components/esgrow/EscrowStatus';
 import EscrowChat from '../../components/esgrow/EscrowChat';
 import EscrowEvidence from '../../components/esgrow/EscrowEvidence';
 import EscrowActions from '../../components/esgrow/EscrowActions';
-import { TransactionQR } from '../../components/TransactionQR';
 
 const ESgrow = () => {
   const { id } = useParams();
@@ -34,24 +35,56 @@ const ESgrow = () => {
 
   const [trackingId, setTrackingId] = useState('');
   const [courier, setCourier] = useState('Correo Argentino');
-  const [showScanner, setShowScanner] = useState(false);
   const hasEvidence = evidence && evidence.length > 0;
+  const sellerInputRef = React.useRef<HTMLInputElement>(null);
+  const buyerInputRef = React.useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (showScanner) {
-      const scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 }, false);
-
-      scanner.render((decodedText) => {
-        actions.releaseEscrow(decodedText);
-        setShowScanner(false);
-        scanner.clear();
-      }, (error) => {
-        // Error silencioso
-      });
-
-      return () => scanner.clear();
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
+    if (e.target.files && e.target.files[0]) {
+      actions.uploadEvidence(e.target.files[0], type);
     }
-  }, [showScanner]);
+  };
+
+  const triggerSuccessEffects = () => {
+    // 1. Vibración Hápica
+    if ('vibrate' in navigator) {
+      navigator.vibrate([100, 50, 200]);
+    }
+    // 2. Confeti
+    const duration = 3 * 1000;
+    const end = Date.now() + duration;
+    const frame = () => {
+      confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#00C853', '#1a1a1a'] });
+      confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#00C853', '#1a1a1a'] });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    };
+    frame();
+  };
+
+  const downloadTicket = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.text("Comprobante de Transacción Segura", 14, 22);
+    doc.setFontSize(10);
+    doc.text(`ID de Protocolo: ${dealData.id}`, 14, 30);
+    doc.text(`Fecha: ${new Date().toLocaleString()}`, 14, 35);
+    autoTable(doc, {
+      startY: 45,
+      head: [['Concepto', 'Detalle']],
+      body: [
+        ['Producto', dealData.title],
+        ['Monto Liberado', `$${dealData.price}`],
+        ['Vendedor ID', transaction?.sellerId || 'Verificado'],
+        ['Comprador ID', transaction?.buyerId || 'Verificado'],
+        ['Estado Final', 'COMPLETADO / FONDOS LIBERADOS'],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [26, 26, 26] }
+    });
+    doc.save(`Ticket_Escrow_${dealData.id}.pdf`);
+  };
+
+
 
   const handleDownload = () => {
     const content = `=== REGISTRO DE TRANSACCIÓN ===\nTrato: #${dealData.id}\nEstado: ${status}\n\n` +
@@ -112,22 +145,39 @@ const ESgrow = () => {
             deadline={deadline}
           />
 
-          {/* BUYER VIEW: QR Security Code */}
+          {/* BUYER VIEW: Confirm Receipt */}
           {currentUserRole === 'COMPRADOR' && (status === 'PAID_HELD' || status === 'SHIPPED') && (
             <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium mb-6 text-center animate-in fade-in zoom-in duration-500">
               <div className="size-16 bg-primary-50 text-primary-vibrant rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="material-symbols-outlined text-3xl">key</span>
+                <span className="material-symbols-outlined text-3xl">check_circle</span>
               </div>
-              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-2">Código de Recepción</h3>
+              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-2">Confirmar Recepción</h3>
               <p className="text-[11px] text-gray-500 mb-6">
-                Entrega este código al vendedor **únicamente** cuando recibas el producto y estés conforme.
+                Al confirmar, los fondos se liberarán al vendedor. Hazlo solo si tienes el producto.
               </p>
 
-              <div className="w-full max-w-[280px] mx-auto bg-white p-4 rounded-3xl border border-light-100 shadow-sm">
-                <TransactionQR
-                  value={transaction?.qrCode || 'Cargando...'}
-                  label={transaction?.qrCode}
-                />
+              <input
+                type="file"
+                accept="image/*"
+                ref={buyerInputRef}
+                className="hidden"
+                onChange={(e) => handleFileUpload(e, 'RECEPCION')}
+              />
+              <div className="flex gap-4">
+                <button
+                  onClick={() => buyerInputRef.current?.click()}
+                  className="flex-1 btn-secondary py-4 flex items-center justify-center gap-2 border border-light-200"
+                >
+                  <span className="material-symbols-outlined">add_a_photo</span>
+                  Subir Foto
+                </button>
+                <button
+                  onClick={() => actions.releaseEscrow()}
+                  className="flex-[2] btn-primary py-4 flex items-center justify-center gap-2 shadow-lg shadow-primary-vibrant/20"
+                >
+                  <span className="material-symbols-outlined">thumb_up</span>
+                  Ya recibí el producto
+                </button>
               </div>
             </div>
           )}
@@ -135,7 +185,29 @@ const ESgrow = () => {
           {/* New Section: Tracking Input for Seller */}
           {currentUserRole === 'VENDEDOR' && status === 'PAID_HELD' && (
             <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium animate-in slide-in-from-bottom-4 duration-500">
-              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-6">Registrar Envío</h3>
+              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-6">Registrar Envío / Entrega</h3>
+
+              {/* Evidence Warning */}
+              {!hasEvidence && (
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-4 mb-6 cursor-pointer hover:bg-amber-100 transition-colors" onClick={() => sellerInputRef.current?.click()}>
+                  <span className="material-symbols-outlined text-amber-600">add_a_photo</span>
+                  <div>
+                    <p className="text-[10px] font-black text-amber-900 uppercase tracking-tight">Foto Requerida - Toca para subir</p>
+                    <p className="text-[9px] text-amber-700 mt-1 leading-relaxed">
+                      Sube una foto del paquete o producto antes de confirmar el envío.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <input
+                type="file"
+                accept="image/*"
+                ref={sellerInputRef}
+                className="hidden"
+                onChange={(e) => handleFileUpload(e, 'ENVIO')}
+              />
+
               <div className="space-y-4">
                 <select
                   value={courier}
@@ -145,85 +217,43 @@ const ESgrow = () => {
                   <option>Correo Argentino</option>
                   <option>Andreani</option>
                   <option>OCASA</option>
-                  <option>Personal (En mano)</option>
+                  <option>Personal (Entregado en mano)</option>
                 </select>
-                <input
-                  type="text"
-                  placeholder="Número de Tracking"
-                  value={trackingId}
-                  onChange={(e) => setTrackingId(e.target.value)}
-                  className="w-full bg-light-50 border border-light-200 rounded-2xl py-4 px-6 font-bold text-xs outline-none"
-                />
+
+                {courier !== 'Personal (Entregado en mano)' && (
+                  <input
+                    type="text"
+                    placeholder="Número de Tracking"
+                    value={trackingId}
+                    onChange={(e) => setTrackingId(e.target.value)}
+                    className="w-full bg-light-50 border border-light-200 rounded-2xl py-4 px-6 font-bold text-xs outline-none"
+                  />
+                )}
+
                 <button
-                  onClick={() => actions.registerTracking(trackingId, courier)}
-                  disabled={!trackingId}
-                  className="w-full btn-primary py-4 text-[10px] font-black tracking-widest uppercase disabled:opacity-50"
+                  onClick={() => actions.registerTracking(trackingId || 'ENTREGA_PERSONAL', courier)}
+                  disabled={!hasEvidence}
+                  className="w-full btn-primary py-4 text-[10px] font-black tracking-widest uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Confirmar Despacho
+                  Confirmar Envío / Entrega
                 </button>
               </div>
             </div>
           )}
 
-          {/* SELLER VIEW: Final Delivery Validation */}
-          {currentUserRole === 'VENDEDOR' && (status === 'PAID_HELD' || status === 'SHIPPED') && (
-            <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium mt-6">
-              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-4">Finalizar Entrega</h3>
-
-              {!hasEvidence ? (
-                <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl flex items-start gap-4">
-                  <span className="material-symbols-outlined text-amber-600">report_problem</span>
-                  <div>
-                    <p className="text-xs font-black text-amber-900 uppercase tracking-tight">Registro Obligatorio</p>
-                    <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
-                      ⚠️ Debes subir una foto de evidencia (producto/paquete) antes de poder validar el código de entrega.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                  {showScanner ? (
-                    <div id="reader" className="overflow-hidden rounded-2xl border-2 border-primary-vibrant"></div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      <button
-                        onClick={() => setShowScanner(true)}
-                        className="w-full btn-primary py-4 flex items-center justify-center gap-2 shadow-lg shadow-primary-vibrant/20"
-                      >
-                        <span className="material-symbols-outlined">qr_code_scanner</span>
-                        Escanear QR del Comprador
-                      </button>
-
-                      <div className="relative py-4 flex items-center">
-                        <div className="flex-grow border-t border-light-200"></div>
-                        <span className="flex-shrink mx-4 text-[10px] font-black text-gray-400 uppercase">O ingresar manual</span>
-                        <div className="flex-grow border-t border-light-200"></div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="CÓDIGO DE 8 DÍGITOS"
-                          id="escrow-token-input"
-                          className="flex-1 bg-light-50 border border-light-200 rounded-2xl py-4 px-6 font-mono font-bold text-center text-lg outline-none focus:ring-2 focus:ring-primary-vibrant"
-                          onChange={(e) => {
-                            if (e.target.value.length === 8) actions.releaseEscrow(e.target.value);
-                          }}
-                        />
-                        <button
-                          onClick={() => {
-                            const input = document.getElementById('escrow-token-input') as HTMLInputElement;
-                            if (input.value) actions.releaseEscrow(input.value);
-                          }}
-                          className="px-6 bg-dark-800 text-white rounded-2xl font-black uppercase tracking-widest text-[10px]"
-                        >
-                          Validar
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+          {/* COMPLETED VIEW: Download Ticket */}
+          {status === 'COMPLETED' && (
+            <div className="bg-emerald-50 p-8 rounded-[32px] border border-emerald-100 text-center animate-in zoom-in shadow-premium mt-6">
+              <span className="material-symbols-outlined text-emerald-600 text-5xl mb-4">task_alt</span>
+              <h3 className="text-xl font-black text-emerald-900 uppercase tracking-tight">Transacción Exitosa</h3>
+              <p className="text-xs text-emerald-700 mb-6 font-bold">El activo ha sido entregado y los fondos transferidos.</p>
+              <button
+                onClick={downloadTicket}
+                className="btn-primary bg-dark-800 w-full py-4 flex items-center justify-center gap-2 shadow-lg shadow-dark-800/20"
+              >
+                <span className="material-symbols-outlined">download</span>
+                Descargar Ticket Legal (PDF)
+              </button>
             </div>
           )}
         </div>
@@ -240,7 +270,7 @@ const ESgrow = () => {
           <EscrowEvidence
             evidence={evidence}
             isVerifyingAI={isVerifyingAI}
-            onUpload={actions.uploadEvidence}
+            onUpload={() => sellerInputRef.current?.click()}
           />
 
           <EscrowActions

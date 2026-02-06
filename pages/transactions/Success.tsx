@@ -18,13 +18,38 @@ const Success = () => {
 
   React.useEffect(() => {
     if (transactionId && transactionId !== 'N/A') {
-      import('../../lib/transactions').then(({ getTransaction }) => {
-        getTransaction(transactionId).then(data => {
-          if (data) setTransactionData(data);
+      import('../../lib/transactions').then(({ getTransaction, updateTransactionStatus }) => {
+        import('../../lib/items').then(({ updateItem }) => {
+          getTransaction(transactionId).then(data => {
+            if (data) {
+              setTransactionData(data);
+              // AUTO-FIX: Ensure status moves to PAID_HELD if payment approved
+              if (status === 'approved' && data.status === 'PENDING_PAYMENT') {
+                Promise.all([
+                  updateTransactionStatus(transactionId, 'PAID_HELD'),
+                  updateItem(data.itemId, { status: 'SOLD' }) // Mark item as SOLD
+                ]).then(() => {
+                  setTransactionData((prev: any) => ({ ...prev, status: 'PAID_HELD' }));
+                });
+              }
+            }
+          });
         });
       });
     }
-  }, [transactionId]);
+  }, [transactionId, status]);
+
+  React.useEffect(() => {
+    if (status === 'approved') {
+      import('canvas-confetti').then((confetti) => {
+        confetti.default({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      });
+    }
+  }, [status]);
 
   const { title, total } = location.state || {
     title: 'Objetivo de Adquisición',

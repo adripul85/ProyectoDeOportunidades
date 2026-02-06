@@ -13,6 +13,7 @@ export interface ItemData {
     sellerId: string; // ID del usuario que vende
     brand?: string;
     color?: string;
+    status?: 'AVAILABLE' | 'SOLD';
 }
 
 export const CATEGORIES = [

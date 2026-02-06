@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useNotification } from '../App';
 import { getAllUsers, updateUserVerification, updateUserRole, updateUserWallet, deleteUserByAdmin, getPlatformStats } from '../lib/admin';
+import { getPlatformSettings, updatePlatformSettings, PlatformSettings } from '../lib/settings';
 import { UserProfile } from '../lib/users';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -15,13 +16,14 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isUpdating, setIsUpdating] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'users' | 'finance' | 'disputes'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'finance' | 'disputes' | 'config'>('users');
     const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
     const [stats, setStats] = useState<any>(null);
     const [disputes, setDisputes] = useState<any[]>([]);
     const [selectedDispute, setSelectedDispute] = useState<any | null>(null);
     const [disputeMessages, setDisputeMessages] = useState<any[]>([]);
     const [disputeEvidence, setDisputeEvidence] = useState<any[]>([]);
+    const [settings, setSettings] = useState<PlatformSettings | null>(null);
 
     useEffect(() => {
         if (!user || (userProfile?.role !== 'admin' && userProfile?.role !== 'moderator')) {
@@ -52,15 +54,17 @@ export default function AdminDashboard() {
     const loadData = async () => {
         setLoading(true);
         const { getDisputedTransactions } = await import('../lib/admin');
-        const [usersData, statsData, disputesData] = await Promise.all([
+        const [usersData, statsData, disputesData, settingsData] = await Promise.all([
             getAllUsers(),
             getPlatformStats(),
-            getDisputedTransactions()
+            getDisputedTransactions(),
+            getPlatformSettings()
         ]);
         setUsers(usersData);
         setFilteredUsers(usersData);
         setStats(statsData);
         setDisputes(disputesData);
+        setSettings(settingsData);
         setLoading(false);
     };
 
@@ -182,6 +186,18 @@ export default function AdminDashboard() {
         setIsUpdating(null);
     };
 
+    const handleUpdateSettings = async (newSettings: Partial<PlatformSettings>) => {
+        setIsUpdating('settings');
+        const result = await updatePlatformSettings(newSettings);
+        if (result.success) {
+            setSettings(prev => prev ? { ...prev, ...newSettings } : null);
+            notify({ type: 'success', title: 'Configuración Guardada', message: 'Los parámetros del sistema han sido actualizados.', icon: 'save_as' });
+        } else {
+            notify({ type: 'error', title: 'Error de Guardado', message: 'No se pudo actualizar la configuración.', icon: 'error' });
+        }
+        setIsUpdating(null);
+    };
+
     if (loading) return <LoadingSpinner size="lg" text="Sincronizando Núcleo Administrativo..." />;
 
     return (
@@ -211,6 +227,12 @@ export default function AdminDashboard() {
                             className={`px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'disputes' ? 'bg-primary-vibrant text-white shadow-xl shadow-primary-500/20' : 'bg-white text-gray-400 border border-light-200'}`}
                         >
                             Tribunal de Disputas
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('config')}
+                            className={`px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'config' ? 'bg-primary-vibrant text-white shadow-xl shadow-primary-500/20' : 'bg-white text-gray-400 border border-light-200'}`}
+                        >
+                            Configuración
                         </button>
                     </div>
                 </div>
@@ -375,6 +397,79 @@ export default function AdminDashboard() {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            ) : activeTab === 'config' ? (
+                <div className="bg-white rounded-[40px] border border-light-200 shadow-premium overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-700 p-12">
+                    <div className="flex items-center gap-4 mb-10">
+                        <div className="size-16 bg-dark-800 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-dark-800/20">
+                            <span className="material-symbols-outlined text-3xl font-black animate-spin-slow">settings</span>
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-black text-dark-800 uppercase tracking-tight">Variables de Entorno Global</h3>
+                            <p className="text-xs font-bold text-gray-400 mt-1">Modifica los parámetros operativos de todo el marketplace en tiempo real.</p>
+                        </div>
+                    </div>
+
+                    <div className="max-w-2xl">
+                        <div className="bg-light-50 p-10 rounded-[40px] border border-light-200 shadow-inner">
+                            <div className="flex items-center justify-between mb-8">
+                                <div>
+                                    <h4 className="text-lg font-black text-dark-800 uppercase tracking-tight mb-2">Comisión de Escrow (Seguro)</h4>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed max-w-sm">
+                                        Porcentaje aplicado sobre el valor del ítem para cubrir costos de garantía y operación de plataforma.
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-4xl font-black text-primary-vibrant tracking-tighter">
+                                        {((settings?.escrowFeePercentage || 0) * 100).toFixed(0)}%
+                                    </p>
+                                    <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mt-1">Valor Actual</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest mb-3">Ajustar Porcentaje (0.01 - 1.00)</label>
+                                    <div className="flex gap-4">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            max="1"
+                                            value={settings?.escrowFeePercentage || 0}
+                                            onChange={(e) => setSettings(prev => prev ? { ...prev, escrowFeePercentage: parseFloat(e.target.value) } : null)}
+                                            className="flex-1 bg-white border border-light-200 rounded-2xl px-6 py-4 font-black text-lg outline-none focus:ring-4 focus:ring-primary-100 transition-all text-center"
+                                        />
+                                        <button
+                                            onClick={() => settings && handleUpdateSettings({ escrowFeePercentage: settings.escrowFeePercentage })}
+                                            disabled={isUpdating === 'settings'}
+                                            className="px-8 bg-dark-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center gap-2"
+                                        >
+                                            {isUpdating === 'settings' ? <span className="material-symbols-outlined animate-spin text-sm">sync</span> : <span className="material-symbols-outlined text-sm">save</span>}
+                                            Guardar Cambios
+                                        </button>
+                                    </div>
+                                    <p className="mt-4 text-[9px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-sm">warning</span>
+                                        Advertencia: Este cambio afecta inmediatamente a todos los nuevos Checkouts.
+                                    </p>
+                                </div>
+
+                                <div className="pt-8 border-t border-light-200/50 grid grid-cols-2 gap-4">
+                                    <div className="bg-white p-4 rounded-2xl border border-light-200">
+                                        <p className="text-[9px] text-gray-400 font-bold uppercase mb-1">Ejemplo: Ítem $10.000</p>
+                                        <p className="text-xl font-black text-dark-800">${(10000 * (settings?.escrowFeePercentage || 0)).toLocaleString()}</p>
+                                        <p className="text-[8px] text-primary-vibrant font-black uppercase tracking-widest">Fee de Plataforma</p>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-2xl border border-light-200">
+                                        <p className="text-[9px] text-gray-400 font-bold uppercase mb-1">Ejemplo: Ítem $150.000</p>
+                                        <p className="text-xl font-black text-dark-800">${(150000 * (settings?.escrowFeePercentage || 0)).toLocaleString()}</p>
+                                        <p className="text-[8px] text-primary-vibrant font-black uppercase tracking-widest">Fee de Plataforma</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : (

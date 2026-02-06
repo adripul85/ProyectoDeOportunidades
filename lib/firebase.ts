@@ -26,6 +26,7 @@ export const functions = getFunctions(app); // Funciones Cloud
 export const googleProvider = new GoogleAuthProvider();
 
 // Conectar emuladores si estamos en localhost
-if (typeof window !== "undefined" && typeof location !== "undefined" && location.hostname === "localhost") {
-    connectFunctionsEmulator(functions, "127.0.0.1", 5001);
-}
+// Conectar emuladores si estamos en localhost
+// if (typeof window !== "undefined" && typeof location !== "undefined" && location.hostname === "localhost") {
+//     connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+// }

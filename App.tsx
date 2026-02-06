@@ -184,7 +184,7 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const { user, logout } = useAuth();
+  const { user, userProfile, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -275,6 +275,7 @@ const Header = () => {
                   <div className="space-y-1">
                     {[
                       { to: '/dashboard', label: 'Panel de Control', icon: 'grid_view' },
+                      ...(userProfile?.role === 'admin' ? [{ to: '/admin', label: 'Panel Admin', icon: 'admin_panel_settings' }] : []),
                       { to: '/settings', label: 'Configuración', icon: 'settings' },
                       { to: '/wallet', label: 'Billetera Segura', icon: 'account_balance_wallet' },
                       { to: '/profile', label: 'Perfil Público', icon: 'account_circle' },

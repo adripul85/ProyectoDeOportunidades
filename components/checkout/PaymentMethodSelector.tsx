@@ -15,8 +15,8 @@ const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) =>
             <div
                 onClick={() => onSelect('MERCADO_PAGO')}
                 className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-4 hover:shadow-md ${selectedMethod === 'MERCADO_PAGO'
-                        ? 'border-blue-500 bg-blue-50/50'
-                        : 'border-border-light bg-white hover:border-gray-300'
+                    ? 'border-blue-500 bg-blue-50/50'
+                    : 'border-border-light bg-white hover:border-gray-300'
                     }`}
             >
                 <div className="size-10 rounded-full bg-white border border-gray-100 flex items-center justify-center shrink-0 p-1">
@@ -37,12 +37,38 @@ const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) =>
                 </div>
             </div>
 
+            {/* MODO */}
+            <div
+                onClick={() => onSelect('MODO')}
+                className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-4 hover:shadow-md ${selectedMethod === 'MODO'
+                    ? 'border-emerald-600 bg-emerald-50/50'
+                    : 'border-border-light bg-white hover:border-gray-300'
+                    }`}
+            >
+                <div className="size-10 rounded-full bg-white border border-gray-100 flex items-center justify-center shrink-0 overflow-hidden p-0.5">
+                    <img
+                        src="https://www.modo.com.ar/brand/MODO_Brand_Assets-Isologo_Vert-Green.png"
+                        alt="MODO"
+                        className="w-full h-full object-contain"
+                    />
+                </div>
+                <div className="flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                        <h4 className="font-bold text-dark-charcoal">MODO</h4>
+                        {selectedMethod === 'MODO' && <span className="material-symbols-outlined text-emerald-600">check_circle</span>}
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                        Paga con QR usando tu app bancaria o billetera favorita. Sin comisiones extra.
+                    </p>
+                </div>
+            </div>
+
             {/* Transferencia */}
             <div
                 onClick={() => onSelect('TRANSFER')}
                 className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-4 hover:shadow-md ${selectedMethod === 'TRANSFER'
-                        ? 'border-dark-charcoal bg-gray-50'
-                        : 'border-border-light bg-white hover:border-gray-300'
+                    ? 'border-dark-charcoal bg-gray-50'
+                    : 'border-border-light bg-white hover:border-gray-300'
                     }`}
             >
                 <div className="size-10 rounded-full bg-light-50 border border-border-light flex items-center justify-center shrink-0 text-dark-charcoal">
@@ -63,8 +89,8 @@ const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) =>
             <div
                 onClick={() => onSelect('CASH')}
                 className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-4 hover:shadow-md ${selectedMethod === 'CASH'
-                        ? 'border-emerald-500 bg-emerald-50/50'
-                        : 'border-border-light bg-white hover:border-gray-300'
+                    ? 'border-emerald-500 bg-emerald-50/50'
+                    : 'border-border-light bg-white hover:border-gray-300'
                     }`}
             >
                 <div className="size-10 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-emerald-600">

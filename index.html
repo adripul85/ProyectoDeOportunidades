@@ -164,6 +164,32 @@
             color: #9ca3af;
         }
     </style>
+    <style>
+        /* Premium Scanner Integration */
+        #reader {
+            border: none !important;
+            border-radius: 2rem !important;
+            overflow: hidden;
+            background-color: var(--light-50) !important;
+            box-shadow: var(--shadow-premium);
+        }
+
+        #reader video {
+            border-radius: 2rem !important;
+            object-fit: cover !important;
+        }
+
+        /* Hide unnecessary elements from html5-qrcode */
+        #reader__dashboard_section_csr span,
+        #reader__dashboard_section_swaplink,
+        #reader img {
+            display: none !important;
+        }
+
+        #reader__scan_region {
+            background: transparent !important;
+        }
+    </style>
     <script type="importmap">
 {
   "imports": {
