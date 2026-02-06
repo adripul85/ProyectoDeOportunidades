@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useNotification } from '../../App';
 import { useAuth } from '../../lib/auth';
 import { createTransaction, PaymentMethod } from '../../lib/transactions';
+import { getProduct } from '../../lib/items';
 import { httpsCallable } from 'firebase/functions'; // Use Firebase Cloud Functions
 import { functions } from '../../lib/firebase';
 import PaymentMethodSelector from '../../components/checkout/PaymentMethodSelector';
@@ -14,8 +15,22 @@ export default function Checkout() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('MERCADO_PAGO');
+  const [deliveryMethod, setDeliveryMethod] = useState<'SHIPPING' | 'MEETING'>('MEETING');
+  const [shippingAvailable, setShippingAvailable] = useState<boolean>(true); // Default true until fetched
 
   const { productId, productTitle, productPrice, sellerId } = location.state || {};
+
+  React.useEffect(() => {
+    if (productId) {
+      getProduct(productId).then(item => {
+        if (item && item.shippingAvailable !== undefined) {
+          setShippingAvailable(item.shippingAvailable);
+          // If shipping not available, enforce MEETING
+          if (!item.shippingAvailable) setDeliveryMethod('MEETING');
+        }
+      });
+    }
+  }, [productId]);
 
   if (!productId) {
     return (
@@ -55,7 +70,8 @@ export default function Checkout() {
       amount: productPrice,
       platformFee: serviceFee,
       total: total,
-      paymentMethod: selectedMethod
+      paymentMethod: selectedMethod,
+      deliveryMethod: deliveryMethod
     });
 
     if (!result.success || !result.id) {
@@ -161,17 +177,39 @@ export default function Checkout() {
               </div>
             </div>
 
-            {/* Delivery Method */}
+            {/* Delivery Method Selector */}
             <div className="bg-light-50 p-8 rounded-[32px] border border-light-200">
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-300 mb-6 ml-1">Protocolo de Logística</h3>
-              <div className="flex items-center gap-6 p-6 bg-white border border-light-200 rounded-2xl shadow-sm group">
-                <div className="size-14 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0 text-primary-vibrant group-hover:scale-110 transition-transform">
-                  <span className="material-symbols-outlined text-2xl font-black">handshake</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div
+                  onClick={() => setDeliveryMethod('MEETING')}
+                  className={`flex items-center gap-4 p-6 border rounded-2xl shadow-sm cursor-pointer transition-all ${deliveryMethod === 'MEETING' ? 'bg-white border-primary-vibrant ring-2 ring-primary-100' : 'bg-white border-light-200 hover:bg-light-100'}`}
+                >
+                  <div className={`size-12 rounded-xl flex items-center justify-center shrink-0 ${deliveryMethod === 'MEETING' ? 'bg-primary-50 text-primary-vibrant' : 'bg-light-100 text-gray-400'}`}>
+                    <span className="material-symbols-outlined text-xl font-black">handshake</span>
+                  </div>
+                  <div>
+                    <span className={`text-xs font-black uppercase tracking-widest block mb-1 ${deliveryMethod === 'MEETING' ? 'text-dark-800' : 'text-gray-500'}`}>Entrega Directa</span>
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none">Punto de encuentro seguro.</span>
+                  </div>
+                  {deliveryMethod === 'MEETING' && <span className="material-symbols-outlined text-primary-vibrant ml-auto">check_circle</span>}
                 </div>
-                <div className="flex-1">
-                  <span className="text-xs font-black text-dark-800 uppercase tracking-widest block mb-1">Entrega Directa</span>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed">Intercambio físico seguro con validación QR.</span>
-                </div>
+
+                {shippingAvailable && (
+                  <div
+                    onClick={() => setDeliveryMethod('SHIPPING')}
+                    className={`flex items-center gap-4 p-6 border rounded-2xl shadow-sm cursor-pointer transition-all ${deliveryMethod === 'SHIPPING' ? 'bg-white border-primary-vibrant ring-2 ring-primary-100' : 'bg-white border-light-200 hover:bg-light-100'}`}
+                  >
+                    <div className={`size-12 rounded-xl flex items-center justify-center shrink-0 ${deliveryMethod === 'SHIPPING' ? 'bg-primary-50 text-primary-vibrant' : 'bg-light-100 text-gray-400'}`}>
+                      <span className="material-symbols-outlined text-xl font-black">local_shipping</span>
+                    </div>
+                    <div>
+                      <span className={`text-xs font-black uppercase tracking-widest block mb-1 ${deliveryMethod === 'SHIPPING' ? 'text-dark-800' : 'text-gray-500'}`}>Envío Certificado</span>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none">Seguimiento digital.</span>
+                    </div>
+                    {deliveryMethod === 'SHIPPING' && <span className="material-symbols-outlined text-primary-vibrant ml-auto">check_circle</span>}
+                  </div>
+                )}
               </div>
             </div>
 

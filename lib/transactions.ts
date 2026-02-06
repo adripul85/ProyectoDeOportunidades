@@ -1,15 +1,17 @@
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, getDocs, query, where, orderBy } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc, getDocs, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "./firebase";
 
-// Transaction states following escrow flow
+// Transaction states following strict FSM
 export type TransactionStatus =
-    | "PENDING_PAYMENT"  // Waiting for buyer to pay
-    | "PAID"             // Payment confirmed, waiting for shipment
-    | "IN_TRANSIT"       // Item shipped, in delivery
-    | "DELIVERED"        // Buyer received item
-    | "COMPLETED"        // Buyer confirmed, funds released to seller
-    | "DISPUTED"         // Issue reported
-    | "CANCELLED";       // Transaction cancelled
+    | "PENDING_PAYMENT"            // Waiting for buyer to pay
+    | "PAID_HELD"                  // Payment confirmed, funds in escrow
+    | "SHIPPED"                    // Item shipped (has tracking)
+    | "DELIVERED_PENDING_REVIEW"   // Buyer received, 48h timer starts
+    | "COMPLETED"                  // Funds released to seller
+    | "DISPUTED"                   // Issue reported, funds locked
+    | "REFUNDED"                   // Funds returned to buyer
+    | "CANCELLED";                 // Transaction cancelled before payment
 
 export type PaymentMethod = 'MERCADO_PAGO' | 'TRANSFER' | 'CASH';
 
@@ -18,27 +20,52 @@ export interface TransactionData {
     sellerId: string;
     itemId: string;
     itemTitle: string;
-    amount: number;         // Product price
-    platformFee: number;    // Platform commission (e.g., 5%)
-    total: number;          // Total charged to buyer
+    amount: number;
+    platformFee: number;
+    total: number;
     status: TransactionStatus;
     paymentMethod: PaymentMethod;
-    deliveryMethod: 'MEETING'; // Enforce meeting
-    qrCode?: string;        // Secret token for release
-    mpPaymentId?: string;   // Mercado Pago payment ID (when integrated)
+    deliveryMethod: 'SHIPPING' | 'MEETING';
+    trackingId?: string;
+    courier?: string;
+    qrCode?: string;
+    mpPaymentId?: string;
     escrowReleased: boolean;
+    evidenceCount?: number;
+    lastSystemMessage?: string;
+    disputeStartedAt?: any;
     createdAt: any;
     updatedAt: any;
 }
 
+export interface EscrowMessage {
+    id?: string;
+    role: 'comprador' | 'vendedor' | 'sistema' | 'moderador';
+    text: string;
+    createdAt: any;
+    senderId?: string;
+}
+
+export interface EscrowEvidence {
+    id?: string;
+    url: string;
+    type: string;
+    description?: string;
+    uploadedBy: string;
+    aiVerified: boolean;
+    createdAt: any;
+}
+
+const functions = getFunctions();
+
 // Create a new transaction
-export const createTransaction = async (data: Omit<TransactionData, 'status' | 'escrowReleased' | 'createdAt' | 'updatedAt' | 'qrCode' | 'deliveryMethod'>) => {
+export const createTransaction = async (data: Omit<TransactionData, 'status' | 'escrowReleased' | 'createdAt' | 'updatedAt' | 'qrCode'>) => {
     try {
-        const qrCode = Math.random().toString(36).substring(2, 10).toUpperCase(); // Simple random token
+        const qrCode = Math.random().toString(36).substring(2, 10).toUpperCase();
 
         const docRef = await addDoc(collection(db, "transactions"), {
             ...data,
-            deliveryMethod: 'MEETING',
+            // deliveryMethod is now passed in data
             qrCode: qrCode,
             status: "PENDING_PAYMENT" as TransactionStatus,
             escrowReleased: false,
@@ -70,92 +97,130 @@ export const getTransaction = async (id: string): Promise<(TransactionData & { i
     }
 };
 
-// Update transaction status
-export const updateTransactionStatus = async (id: string, status: TransactionStatus) => {
+/**
+ * SECURE: Update transaction status through Cloud Functions
+ */
+export const updateTransactionStatus = async (id: string, status: TransactionStatus, extraData?: any) => {
     try {
-        const docRef = doc(db, "transactions", id);
-        await updateDoc(docRef, {
-            status,
-            updatedAt: serverTimestamp(),
-        });
-        return { success: true };
+        const setStatus = httpsCallable(functions, 'updateTransactionStatus');
+        const result = await setStatus({ transactionId: id, status, ...extraData });
+        return result.data as { success: boolean, error?: string };
     } catch (error) {
-        console.error("Error updating transaction status:", error);
+        console.error("Error calling setStatus function:", error);
         return { success: false, error };
     }
 };
 
-
-// Release escrow funds to seller (Triggered by QR Scan)
-export const releaseFunds = async (id: string, qrToken: string) => {
+/**
+ * SECURE: Release funds via Cloud Function
+ */
+export const releaseFunds = async (id: string, qrToken?: string) => {
     try {
-        const docRef = doc(db, "transactions", id);
-        const docSnap = await getDoc(docRef);
-
-        if (!docSnap.exists()) return { success: false, error: 'Transaction not found' };
-
-        const data = docSnap.data() as TransactionData;
-
-        if (data.qrCode !== qrToken) {
-            return { success: false, error: 'Invalid QR Code' };
-        }
-
-        if (data.status === 'COMPLETED') {
-            return { success: false, error: 'Funds already released' };
-        }
-
-        await updateDoc(docRef, {
-            status: "COMPLETED" as TransactionStatus,
-            escrowReleased: true,
-            updatedAt: serverTimestamp(),
-        });
-
-        // In a real backend, here we would call Mercado Pago to split payments
-        console.log("💰 RELEASE FUNDS TRIGGERED -> MP SPLIT PAYMENT EXECUTED");
-
-        return { success: true };
+        const release = httpsCallable(functions, 'releaseFunds');
+        const result = await release({ transactionId: id, qrToken });
+        return result.data as { success: boolean, error?: string };
     } catch (error) {
-        console.error("Error releasing escrow:", error);
+        console.error("Error calling releaseFunds function:", error);
         return { success: false, error };
     }
 };
 
-// Get all transactions for a user (both purchases and sales)
+/**
+ * SECURE: Update tracking information
+ */
+export const updateTracking = async (id: string, trackingId: string, courier: string) => {
+    try {
+        const update = httpsCallable(functions, 'updateTracking');
+        const result = await update({ transactionId: id, trackingId, courier });
+        return result.data as { success: boolean, error?: string };
+    } catch (error) {
+        console.error("Error calling updateTracking function:", error);
+        return { success: false, error };
+    }
+};
+
+// Get all transactions for a user
 export const getUserTransactions = async (userId: string) => {
     try {
         const transactionsRef = collection(db, "transactions");
 
-        // 1. Fetch purchases (where user is buyer)
-        const qBuy = query(
-            transactionsRef,
-            where("buyerId", "==", userId),
-            orderBy("createdAt", "desc")
-        );
-
-        // 2. Fetch sales (where user is seller)
-        const qSell = query(
-            transactionsRef,
-            where("sellerId", "==", userId),
-            orderBy("createdAt", "desc")
-        );
+        const qBuy = query(transactionsRef, where("buyerId", "==", userId), orderBy("createdAt", "desc"));
+        const qSell = query(transactionsRef, where("sellerId", "==", userId), orderBy("createdAt", "desc"));
 
         const [buySnap, sellSnap] = await Promise.all([getDocs(qBuy), getDocs(qSell)]);
 
-        const compras = buySnap.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            type: 'compra'
-        })) as (TransactionData & { id: string, type: 'compra' })[];
-
-        const ventas = sellSnap.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            type: 'venta'
-        })) as (TransactionData & { id: string, type: 'venta' })[];
+        const compras = buySnap.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'compra' })) as (TransactionData & { id: string, type: 'compra' })[];
+        const ventas = sellSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'venta' })) as (TransactionData & { id: string, type: 'venta' })[];
 
         return { compras, ventas };
     } catch (error) {
         console.error("Error fetching user transactions:", error);
         return { compras: [], ventas: [] };
+    }
+};
+
+// Subscribe to real-time transaction updates
+export const subscribeToTransaction = (id: string, callback: (data: any) => void) => {
+    const docRef = doc(db, "transactions", id);
+    return onSnapshot(docRef, (doc) => {
+        if (doc.exists()) {
+            callback({ id: doc.id, ...doc.data() });
+        }
+    });
+};
+
+/**
+ * Real-time Escrow Chat subscription
+ */
+export const subscribeToEscrowMessages = (transactionId: string, callback: (messages: EscrowMessage[]) => void) => {
+    const q = query(
+        collection(db, "transactions", transactionId, "messages"),
+        orderBy("createdAt", "asc")
+    );
+    return onSnapshot(q, (snapshot) => {
+        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as EscrowMessage[];
+        callback(messages);
+    });
+};
+
+/**
+ * Real-time Evidence subscription
+ */
+export const subscribeToEvidence = (transactionId: string, callback: (evidence: EscrowEvidence[]) => void) => {
+    const q = query(
+        collection(db, "transactions", transactionId, "evidence"),
+        orderBy("createdAt", "desc")
+    );
+    return onSnapshot(q, (snapshot) => {
+        const evidence = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as EscrowEvidence[];
+        callback(evidence);
+    });
+};
+
+/**
+ * Send a message within the escrow context
+ */
+export const sendEscrowNote = async (transactionId: string, role: EscrowMessage['role'], text: string, senderId?: string) => {
+    try {
+        const sendNote = httpsCallable(functions, 'addEscrowNote');
+        const result = await sendNote({ transactionId, role, text, senderId });
+        return result.data as { success: boolean, error?: string };
+    } catch (error) {
+        console.error("Error calling addEscrowNote function:", error);
+        return { success: false, error };
+    }
+};
+
+/**
+ * Register evidence (photo) for a transaction
+ */
+export const submitEvidence = async (transactionId: string, url: string, type: string, description?: string) => {
+    try {
+        const submit = httpsCallable(functions, 'submitEvidence');
+        const result = await submit({ transactionId, url, type, description });
+        return result.data as { success: boolean, error?: string };
+    } catch (error) {
+        console.error("Error calling submitEvidence function:", error);
+        return { success: false, error };
     }
 };

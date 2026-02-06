@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { publishItem, ItemData, CATEGORIES } from '../../lib/items';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { publishItem, ItemData, CATEGORIES, getProduct, updateItem } from '../../lib/items';
 import { useNotification } from '../../App';
 import { useAuth } from '../../lib/auth';
 import { uploadFile } from '../../lib/storage';
@@ -9,22 +9,53 @@ export default function Publish() {
     const navigate = useNavigate();
     const { notify } = useNotification();
     const { user } = useAuth();
+    const [searchParams] = useSearchParams();
+    const editId = searchParams.get('edit');
+
     const [loading, setLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<string>('');
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
+    const [existingImages, setExistingImages] = useState<string[]>([]);
 
-    // Form state
     const [form, setForm] = useState({
         title: '',
         price: '',
         description: '',
         category: 'Tecnología',
-        condition: 'like_new' as const
+        condition: 'like_new' as const,
+        brand: '',
+        color: '',
+        shippingAvailable: true
     });
 
+    // Load existing data if editing
+    React.useEffect(() => {
+        if (editId) {
+            setLoading(true);
+            getProduct(editId).then(item => {
+                if (item) {
+                    setForm({
+                        title: item.title,
+                        price: item.price.toString(),
+                        description: item.description,
+                        category: item.category,
+                        condition: item.condition,
+                        brand: item.brand || '',
+                        color: item.color || '',
+                        shippingAvailable: item.shippingAvailable !== undefined ? item.shippingAvailable : true
+                    });
+                    setExistingImages(item.images || []);
+                    setPreviews(item.images || []);
+                }
+                setLoading(false);
+            });
+        }
+    }, [editId]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
+        const value = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value;
+        setForm({ ...form, [e.target.name]: value });
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,48 +81,84 @@ export default function Publish() {
         e.preventDefault();
         setLoading(true);
 
-        if (!form.title || !form.price) {
-            notify({ type: 'warning', title: 'Datos Faltantes', message: 'Por favor, proporciona un título y precio para tu ítem.', icon: 'edit' });
-            setLoading(false);
-            return;
-        }
-
-        if (!user) {
-            notify({ type: 'error', title: 'Acceso Denegado', message: 'Debes iniciar sesión para publicar ítems.', icon: 'lock' });
-            setLoading(false);
-            return;
-        }
-
-        const uploadedImages: string[] = [];
-        for (let i = 0; i < selectedFiles.length; i++) {
-            const file = selectedFiles[i];
-            try {
-                setUploadProgress(`Subiendo imagen ${i + 1} de ${selectedFiles.length}...`);
-                const url = await uploadFile(file, `items/${user.uid}/${Date.now()}_${file.name}`);
-                uploadedImages.push(url);
-            } catch (err) {
-                console.error("Error uploading image:", err);
+        try {
+            if (!form.title || !form.price) {
+                notify({ type: 'warning', title: 'Datos Faltantes', message: 'Por favor, proporciona un título y precio para tu ítem.', icon: 'edit' });
+                return;
             }
-        }
-        setUploadProgress('');
 
-        const result = await publishItem({
-            title: form.title,
-            price: parseFloat(form.price),
-            description: form.description,
-            category: form.category,
-            condition: form.condition,
-            images: uploadedImages.length > 0 ? uploadedImages : ["https://picsum.photos/400/400?random=1"],
-            sellerId: user.uid
-        });
+            const parsedPrice = parseFloat(form.price);
+            if (isNaN(parsedPrice) || parsedPrice <= 0) {
+                notify({ type: 'warning', title: 'Precio Inválido', message: 'Por favor ingresa un precio válido.', icon: 'payments' });
+                return;
+            }
 
-        setLoading(false);
+            if (!user) {
+                notify({ type: 'error', title: 'Acceso Denegado', message: 'Debes iniciar sesión para publicar ítems.', icon: 'lock' });
+                return;
+            }
 
-        if (result.success) {
-            notify({ type: 'success', title: '¡Publicado!', message: 'Tu ítem ya está en el marketplace.', icon: 'rocket_launch' });
-            navigate(`/product/${result.id}`);
-        } else {
-            notify({ type: 'error', title: 'Error', message: 'Fallo al guardar tu ítem. Inténtalo de nuevo.', icon: 'cloud_off' });
+            const uploadedImages: string[] = [];
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                try {
+                    setUploadProgress(`Subiendo (${i + 1}/${selectedFiles.length})...`);
+                    const url = await uploadFile(file, `items/${user.uid}/${Date.now()}_${file.name}`);
+                    uploadedImages.push(url);
+                } catch (err) {
+                    console.error("Error uploading image:", err);
+                    notify({ type: 'warning', title: 'Error de Imagen', message: `No se pudo subir la imagen ${i + 1}.`, icon: 'warning' });
+                }
+            }
+            setUploadProgress('Finalizando...');
+
+            setUploadProgress('Finalizando...');
+
+            let result;
+            const finalImages = [...existingImages, ...uploadedImages];
+
+            if (editId) {
+                // Update existing item
+                const updateResult = await updateItem(editId, {
+                    title: form.title,
+                    price: parsedPrice,
+                    description: form.description,
+                    category: form.category,
+                    condition: form.condition,
+                    brand: form.brand,
+                    color: form.color,
+                    shippingAvailable: form.shippingAvailable,
+                    images: finalImages.length > 0 ? finalImages : ["https://picsum.photos/400/400?random=1"]
+                });
+                result = { success: updateResult.success, id: editId };
+            } else {
+                // Publish new item
+                result = await publishItem({
+                    title: form.title,
+                    price: parsedPrice,
+                    description: form.description,
+                    category: form.category,
+                    condition: form.condition,
+                    brand: form.brand,
+                    color: form.color,
+                    shippingAvailable: form.shippingAvailable,
+                    images: finalImages.length > 0 ? finalImages : ["https://picsum.photos/400/400?random=1"],
+                    sellerId: user.uid
+                });
+            }
+
+            if (result.success) {
+                notify({ type: 'success', title: editId ? 'Actualizado' : '¡Publicado!', message: editId ? 'Tu publicación ha sido actualizada.' : 'Tu ítem ya está en el marketplace.', icon: 'rocket_launch' });
+                navigate(editId ? '/dashboard' : `/product/${result.id}`);
+            } else {
+                notify({ type: 'error', title: 'Error de Firebase', message: 'Fallo al guardar en la base de datos.', icon: 'cloud_off' });
+            }
+        } catch (error: any) {
+            console.error("Critical error in handleSubmit:", error);
+            notify({ type: 'error', title: 'Error Crítico', message: error.message || 'Ocurrió un fallo inesperado al publicar.', icon: 'bug_report' });
+        } finally {
+            setLoading(false);
+            setUploadProgress('');
         }
     };
 
@@ -103,9 +170,9 @@ export default function Publish() {
                 {/* --- LEFT COLUMN: INPUT FORM --- */}
                 <div className="lg:col-span-4 space-y-10">
                     <div className="space-y-2">
-                        <h1 className="text-3xl font-black text-dark-800 tracking-tighter">Crear Nueva Publicación</h1>
+                        <h1 className="text-3xl font-black text-dark-800 tracking-tighter">{editId ? 'Editar Publicación' : 'Crear Nueva Publicación'}</h1>
                         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed">
-                            Los ítems publicados en el Marketplace son visibles para todos.
+                            {editId ? 'Actualiza los detalles de tu producto existente.' : 'Los ítems publicados en el Marketplace son visibles para todos.'}
                         </p>
                     </div>
 
@@ -211,6 +278,30 @@ export default function Publish() {
                                 </div>
                             </div>
 
+                            {/* Brand & Color Grid */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 ml-1">Marca</label>
+                                    <input
+                                        name="brand"
+                                        value={form.brand}
+                                        onChange={handleChange}
+                                        placeholder="Ej: Apple, Nike"
+                                        className="w-full bg-white border border-light-200 rounded-2xl py-4 px-6 font-bold text-dark-800 outline-none focus:ring-2 focus:ring-primary-100 transition-all placeholder:text-gray-300"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 ml-1">Color</label>
+                                    <input
+                                        name="color"
+                                        value={form.color}
+                                        onChange={handleChange}
+                                        placeholder="Ej: Rojo, Negro"
+                                        className="w-full bg-white border border-light-200 rounded-2xl py-4 px-6 font-bold text-dark-800 outline-none focus:ring-2 focus:ring-primary-100 transition-all placeholder:text-gray-300"
+                                    />
+                                </div>
+                            </div>
+
                             {/* Description Input */}
                             <div>
                                 <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 ml-1">Descripción</label>
@@ -225,14 +316,39 @@ export default function Publish() {
                             </div>
                         </div>
 
+                        {/* Shipping Toggle */}
+                        <div className="bg-white p-6 rounded-2xl border border-light-200">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h4 className="font-black text-dark-800 text-sm mb-1">Habilitar Envíos</h4>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">¿Estás dispuesto a enviar este producto?</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="shippingAvailable"
+                                        checked={form.shippingAvailable}
+                                        onChange={handleChange}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-vibrant"></div>
+                                </label>
+                            </div>
+                        </div>
+
                         {/* Submit Buttons */}
                         <div className="flex gap-4 pt-4">
                             <button
                                 onClick={handleSubmit}
                                 disabled={loading}
-                                className="flex-1 bg-primary-vibrant text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-primary-vibrant/20 transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+                                className="flex-1 bg-primary-vibrant text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-primary-vibrant/20 transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
                             >
-                                {loading ? 'Publicando...' : 'Publicar'}
+                                {loading ? (
+                                    <>
+                                        <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                                        {uploadProgress || (editId ? 'Guardando...' : 'Publicando...')}
+                                    </>
+                                ) : (editId ? 'Guardar Cambios' : 'Publicar')}
                             </button>
                             <button className="flex-1 bg-light-200 text-dark-800 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:bg-light-300 active:scale-95">
                                 Guardar Borrador
@@ -344,6 +460,6 @@ export default function Publish() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

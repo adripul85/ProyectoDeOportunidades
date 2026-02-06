@@ -1,41 +1,53 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNotification } from '../App';
 import { useAuth } from '../lib/auth';
-import { GoogleGenAI } from '@google/genai';
+import {
+    TransactionData,
+    TransactionStatus,
+    subscribeToTransaction,
+    updateTransactionStatus,
+    releaseFunds,
+    updateTracking,
+    subscribeToEscrowMessages,
+    subscribeToEvidence,
+    sendEscrowNote,
+    submitEvidence,
+    EscrowMessage,
+    EscrowEvidence
+} from '../lib/transactions';
+import { uploadFile } from '../lib/storage';
 
-export type EscrowStatus = 'PACTADO' | 'FONDEADO' | 'ENVIADO' | 'RECIBIDO' | 'FINALIZADO' | 'DISPUTA';
 export type UserRole = 'COMPRADOR' | 'VENDEDOR' | 'MEDIADOR';
-
 
 export const useEscrow = (id: string | undefined) => {
     const { notify } = useNotification();
     const { user } = useAuth();
 
     // --- Core States ---
+    const [transaction, setTransaction] = useState<TransactionData & { id: string } | null>(null);
     const [currentUserRole, setCurrentUserRole] = useState<UserRole>('COMPRADOR');
-    const [status, setStatus] = useState<EscrowStatus>('FONDEADO');
-    const [deadline, setDeadline] = useState<Date | null>(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000));
     const [isVerifyingAI, setIsVerifyingAI] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
 
-    const [messages, setMessages] = useState([
-        { role: 'vendedor', text: '¡Hola! Ya tengo el iPhone listo. Lo embalé con doble burbuja para que llegue perfecto. 📦', time: '10:30 AM' },
-        { role: 'comprador', text: '¡Genial! Muchas gracias. Quedo atento al envío.', time: '10:45 AM' }
-    ]);
+    const [messages, setMessages] = useState<EscrowMessage[]>([]);
+    const [evidence, setEvidence] = useState<EscrowEvidence[]>([]);
 
-    const [evidence, setEvidence] = useState([
-        { id: 1, url: 'https://picsum.photos/400/400?tech=1', type: 'Envío', user: 'Juan Pérez', aiVerified: true },
-        { id: 2, url: 'https://picsum.photos/400/400?tech=2', type: 'Detalle', user: 'Juan Pérez', aiVerified: false }
-    ]);
+    // Derived values
+    const status = transaction?.status || 'PENDING_PAYMENT';
+    const deadline = useMemo(() => {
+        if (!transaction?.createdAt) return null;
+        const start = transaction.createdAt.toDate ? transaction.createdAt.toDate() : new Date();
+        return new Date(start.getTime() + 3 * 24 * 60 * 60 * 1000);
+    }, [transaction]);
 
-    const dealData = {
-        id: id || 'TRX-8829',
-        title: "iPhone 13 Pro Max - 128GB",
-        price: 450000,
-        startDate: '12 de Octubre',
+    const dealData = useMemo(() => ({
+        id: id || '...',
+        title: transaction?.itemTitle || "Cargando protocolo...",
+        price: transaction?.amount || 0,
+        startDate: transaction?.createdAt?.toDate ? transaction.createdAt.toDate().toLocaleDateString() : '...',
         seller: {
-            name: "Juan Pérez",
+            name: "Vendedor #" + (transaction?.sellerId?.substring(0, 4) || '...'),
             avatar: "https://picsum.photos/400/400?person=1",
             reputation: "9.8",
             points: "1,240",
@@ -43,14 +55,48 @@ export const useEscrow = (id: string | undefined) => {
         },
         buyer: {
             name: user?.displayName || user?.email?.split('@')[0] || "Comprador",
-            avatar: user?.photoURL || "https://picsum.photos/100/100?avatar=current",
+            avatar: user?.photoURL || "https://ui-avatars.com/api/?name=User",
             points: "450",
             level: "Buen Vecino"
+        }
+    }), [transaction, id, user]);
+
+    // --- Subscription ---
+    useEffect(() => {
+        if (!id) return;
+
+        // Main Transaction Subscription
+        const unsubTx = subscribeToTransaction(id, (data) => {
+            setTransaction(data);
+        });
+
+        // Messages Subscription
+        const unsubMsgs = subscribeToEscrowMessages(id, (data) => {
+            setMessages(data);
+            setTimeout(scrollToBottom, 100);
+        });
+
+        // Evidence Subscription
+        const unsubEvidence = subscribeToEvidence(id, (data) => {
+            setEvidence(data);
+        });
+
+        return () => {
+            unsubTx();
+            unsubMsgs();
+            unsubEvidence();
+        };
+    }, [id]);
+
+    const scrollToBottom = () => {
+        const chatContainer = document.getElementById('escrow-chat-container');
+        if (chatContainer) {
+            chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
         }
     };
 
     // --- Actions ---
-    const addSystemMessage = useCallback((text: string, type: 'info' | 'warning' = 'info') => {
+    const addSystemMessage = useCallback((text: string) => {
         setMessages(prev => [...prev, {
             role: 'sistema',
             text,
@@ -58,62 +104,69 @@ export const useEscrow = (id: string | undefined) => {
         }]);
     }, []);
 
-    const sendMessage = (text: string) => {
-        if (!text.trim()) return;
-        setMessages(prev => [...prev, {
-            role: currentUserRole.toLowerCase(),
-            text: text.trim(),
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
-
-        // Simulate a polite automated response or AI check
-        setIsTyping(true);
-        setTimeout(() => {
-            setIsTyping(false);
-            if (status === 'FONDEADO' && text.toLowerCase().includes('envio')) {
-                addSystemMessage('🔔 Recordatorio: El vendedor debe cargar la guía de seguimiento para validar el despacho.');
-            }
-        }, 1500);
+    const sendMessage = async (text: string) => {
+        if (!text.trim() || !id) return;
+        const role = currentUserRole.toLowerCase() as EscrowMessage['role'];
+        await sendEscrowNote(id, role, text.trim(), user?.uid);
     };
 
     const toggleRole = (role: UserRole) => {
         setCurrentUserRole(role);
-        notify({ type: 'info', title: `Vista de ${role}`, message: 'Cambiando perspectiva...', icon: 'sync' });
-
-        // Organic simulation
-        setIsTyping(true);
-        setTimeout(() => setIsTyping(false), 800);
+        notify({ type: 'info', title: `Simulación de ${role}`, message: 'Cambiando rol local...', icon: 'sync' });
     };
 
-    const updateStatus = (newStatus: EscrowStatus, adminMessage?: string) => {
-        setStatus(newStatus);
+    const updateStatus = async (newStatus: TransactionStatus, adminMessage?: string) => {
+        if (!id) return;
         setIsTyping(true);
-        setTimeout(() => {
-            setIsTyping(false);
+        const result = await updateTransactionStatus(id, newStatus);
+        setIsTyping(false);
+
+        if (result.success) {
             if (adminMessage) addSystemMessage(adminMessage);
-        }, 1000);
+        } else {
+            notify({ type: 'error', title: 'Error de Protocolo', message: result.error || 'No se pudo actualizar el estado.', icon: 'error' });
+        }
     };
 
-    const uploadEvidence = async () => {
+    const releaseEscrow = async (qrToken?: string) => {
+        if (!id) return;
+        setIsTyping(true);
+        const result = await releaseFunds(id, qrToken);
+        setIsTyping(false);
+
+        if (result.success) {
+            notify({ type: 'success', title: 'Fondos Liberados', message: 'El capital ha sido transferido al vendedor.', icon: 'payments' });
+        } else {
+            notify({ type: 'error', title: 'Fallo de Liberación', message: result.error || 'Verifica el token o las condiciones.', icon: 'lock_open' });
+        }
+    };
+
+    const registerTracking = async (trackingId: string, courier: string) => {
+        if (!id) return;
+        setIsTyping(true);
+        const result = await updateTracking(id, trackingId, courier);
+        setIsTyping(false);
+
+        if (result.success) {
+            notify({ type: 'success', title: 'Tracking Registrado', message: 'El envío ha sido validado.', icon: 'local_shipping' });
+        } else {
+            notify({ type: 'error', title: 'Error de Seguimiento', message: result.error || 'ID de seguimiento inválido.', icon: 'error' });
+        }
+    };
+
+    const uploadEvidence = async (file: File, type: string = 'General') => {
+        if (!id) return;
         setIsVerifyingAI(true);
-        const newId = Date.now();
-        const newUrl = `https://picsum.photos/400/400?random=${newId}`;
-
-        setEvidence(prev => [...prev, {
-            id: newId,
-            url: newUrl,
-            type: currentUserRole === 'VENDEDOR' ? 'Envío' : 'Recepción',
-            user: currentUserRole === 'VENDEDOR' ? dealData.seller.name : 'Tú',
-            aiVerified: false
-        }]);
-
-        // Simulate AI analysis
-        setTimeout(() => {
-            setEvidence(prev => prev.map(e => e.id === newId ? { ...e, aiVerified: true } : e));
+        try {
+            const url = await uploadFile(file, `escrow/${id}`);
+            await submitEvidence(id, url, type, `Evidencia cargada por el ${currentUserRole}`);
+            notify({ type: 'success', title: 'Evidencia Cargada', message: 'La foto ha sido adjunta al registro seguro.', icon: 'auto_awesome' });
+        } catch (error) {
+            console.error("Error uploading evidence:", error);
+            notify({ type: 'error', title: 'Error de Carga', message: 'No se pudo subir la evidencia.', icon: 'error' });
+        } finally {
             setIsVerifyingAI(false);
-            notify({ type: 'success', title: 'IA: Foto Validada', message: 'Evidencia confirmada.', icon: 'auto_awesome' });
-            addSystemMessage(`📸 Nueva evidencia cargada por ${currentUserRole === 'VENDEDOR' ? 'el Vendedor' : 'el Comprador'}.`);
-        }, 2000);
+        }
     };
 
     return {
@@ -129,6 +182,8 @@ export const useEscrow = (id: string | undefined) => {
             toggleRole,
             sendMessage,
             updateStatus,
+            releaseEscrow,
+            registerTracking,
             uploadEvidence,
             addSystemMessage
         }

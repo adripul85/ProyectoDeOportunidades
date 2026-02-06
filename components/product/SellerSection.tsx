@@ -11,6 +11,9 @@ interface Seller {
         totalReviews: number;
     };
     profileComplete: boolean;
+    verificationBadges?: {
+        identityVerified: boolean;
+    };
 }
 
 interface Props {
@@ -18,12 +21,16 @@ interface Props {
 }
 
 const SellerSection: React.FC<Props> = ({ seller }) => {
+    const isVerified = seller.verificationBadges?.identityVerified;
+
     return (
         <div className="bg-white p-10 rounded-[40px] shadow-premium border border-light-200/50 relative overflow-hidden">
             {/* Header Badge */}
-            <div className="absolute top-0 right-0 py-2 px-6 bg-primary-vibrant/5 text-primary-vibrant text-[9px] font-black uppercase tracking-[0.3em] rounded-bl-3xl border-l border-b border-primary-vibrant/10">
-                Comerciante Verificado
-            </div>
+            {isVerified && (
+                <div className="absolute top-0 right-0 py-2 px-6 bg-primary-vibrant text-white text-[9px] font-black uppercase tracking-[0.3em] rounded-bl-3xl border-l border-b border-primary-vibrant/10 shadow-lg animate-in slide-in-from-top duration-700">
+                    Vendedor Verificado ✅
+                </div>
+            )}
 
             <h3 className="text-[9px] font-black text-gray-400 uppercase tracking-[0.4em] mb-8 ml-1">Inteligencia del Comerciante</h3>
 
@@ -34,9 +41,11 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
                         alt={seller.displayName}
                         className="size-20 rounded-[24px] object-cover border-4 border-light-50 shadow-premium transition-transform group-hover:scale-105 duration-500"
                     />
-                    <div className="absolute -bottom-1 -right-1 size-7 bg-white rounded-xl flex items-center justify-center shadow-premium border border-light-100">
-                        <span className="material-symbols-outlined text-primary-vibrant text-lg font-black">verified</span>
-                    </div>
+                    {isVerified && (
+                        <div className="absolute -bottom-1 -right-1 size-7 bg-white rounded-xl flex items-center justify-center shadow-premium border border-light-100 animate-in zoom-in duration-1000">
+                            <span className="material-symbols-outlined text-primary-vibrant text-lg font-black">verified</span>
+                        </div>
+                    )}
                 </Link>
                 <div className="flex-1 min-w-0">
                     <Link to={`/profile/${seller.uid}`} className="text-2xl font-black text-dark-800 hover:text-primary-vibrant truncate block transition-colors leading-tight">

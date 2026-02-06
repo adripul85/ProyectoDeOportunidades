@@ -15,9 +15,13 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isUpdating, setIsUpdating] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'users' | 'finance'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'finance' | 'disputes'>('users');
     const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
     const [stats, setStats] = useState<any>(null);
+    const [disputes, setDisputes] = useState<any[]>([]);
+    const [selectedDispute, setSelectedDispute] = useState<any | null>(null);
+    const [disputeMessages, setDisputeMessages] = useState<any[]>([]);
+    const [disputeEvidence, setDisputeEvidence] = useState<any[]>([]);
 
     useEffect(() => {
         if (!user || (userProfile?.role !== 'admin' && userProfile?.role !== 'moderator')) {
@@ -47,14 +51,65 @@ export default function AdminDashboard() {
 
     const loadData = async () => {
         setLoading(true);
-        const [usersData, statsData] = await Promise.all([
+        const { getDisputedTransactions } = await import('../lib/admin');
+        const [usersData, statsData, disputesData] = await Promise.all([
             getAllUsers(),
-            getPlatformStats()
+            getPlatformStats(),
+            getDisputedTransactions()
         ]);
         setUsers(usersData);
         setFilteredUsers(usersData);
         setStats(statsData);
+        setDisputes(disputesData);
         setLoading(false);
+    };
+
+    const handleInspectDispute = async (dispute: any) => {
+        setSelectedDispute(dispute);
+        setLoading(true);
+        const { getDocs, collection, query, orderBy } = await import('firebase/firestore');
+        const { db } = await import('../lib/firebase');
+
+        try {
+            const [msgSnap, evSnap] = await Promise.all([
+                getDocs(query(collection(db, "transactions", dispute.id, "messages"), orderBy("createdAt", "asc"))),
+                getDocs(collection(db, "transactions", dispute.id, "evidence"))
+            ]);
+
+            setDisputeMessages(msgSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            setDisputeEvidence(evSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } catch (error) {
+            console.error("Error inspecting dispute:", error);
+        }
+        setLoading(false);
+    };
+
+    const handleResolveDispute = async (txId: string, result: 'release' | 'refund') => {
+        const { releaseFunds } = await import('../lib/transactions');
+        const { httpsCallable, getFunctions } = await import('firebase/functions');
+        const functions = getFunctions();
+
+        setIsUpdating(txId);
+        try {
+            let res;
+            if (result === 'release') {
+                res = await releaseFunds(txId);
+            } else {
+                const refund = httpsCallable(functions, 'refundFunds');
+                const callRes = await refund({ transactionId: txId });
+                res = callRes.data as any;
+            }
+
+            if (res.success) {
+                notify({ type: 'success', title: 'Disputa Resuelta', message: `Fondos ${result === 'release' ? 'liberados' : 'reembolsados'}.`, icon: 'gavel' });
+                setDisputes(prev => prev.filter(d => d.id !== txId));
+            } else {
+                notify({ type: 'error', title: 'Error', message: res.error || 'No se pudo resolver la disputa.', icon: 'error' });
+            }
+        } catch (error) {
+            console.error(error);
+        }
+        setIsUpdating(null);
     };
 
     const handleToggleBadge = async (uid: string, badge: 'identityVerified' | 'addressVerified' | 'phoneVerified', currentVal: boolean) => {
@@ -151,6 +206,12 @@ export default function AdminDashboard() {
                         >
                             Activos Globales
                         </button>
+                        <button
+                            onClick={() => setActiveTab('disputes')}
+                            className={`px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'disputes' ? 'bg-primary-vibrant text-white shadow-xl shadow-primary-500/20' : 'bg-white text-gray-400 border border-light-200'}`}
+                        >
+                            Tribunal de Disputas
+                        </button>
                     </div>
                 </div>
 
@@ -204,15 +265,22 @@ export default function AdminDashboard() {
                                             </div>
                                         </td>
                                         <td className="px-10 py-8">
-                                            <select
-                                                value={u.role || 'user'}
-                                                onChange={(e) => handleChangeRole(u.uid, e.target.value as any)}
-                                                className="bg-light-100 border border-light-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary-100 transition-all cursor-pointer"
-                                            >
-                                                <option value="user">Operador</option>
-                                                <option value="moderator">Moderador</option>
-                                                <option value="admin">Administrador</option>
-                                            </select>
+                                            <div className="flex flex-col gap-2">
+                                                <select
+                                                    value={u.role || 'user'}
+                                                    onChange={(e) => handleChangeRole(u.uid, e.target.value as any)}
+                                                    className="bg-light-100 border border-light-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary-100 transition-all cursor-pointer w-full"
+                                                >
+                                                    <option value="user">Operador</option>
+                                                    <option value="moderator">Moderador</option>
+                                                    <option value="admin">Administrador</option>
+                                                </select>
+                                                {u.verificationEvidence?.status === 'pending' && (
+                                                    <span className="text-[8px] font-black bg-amber-100 text-amber-600 px-2 py-1 rounded-md border border-amber-200 animate-pulse text-center">
+                                                        SOLICITUD KYC PENDIENTE
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-10 py-8">
                                             <div className="flex justify-center gap-2">
@@ -235,6 +303,76 @@ export default function AdminDashboard() {
                                         </td>
                                     </tr>
                                 ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ) : activeTab === 'disputes' ? (
+                <div className="bg-white rounded-[40px] border border-light-200 shadow-premium overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-700">
+                    <div className="p-10 border-b border-light-100 flex items-center justify-between">
+                        <div>
+                            <h3 className="text-xl font-black text-dark-800 uppercase tracking-tight">Colas de Arbitraje</h3>
+                            <p className="text-xs font-bold text-gray-400 mt-1">Transacciones con protocolos de seguridad bloqueados por disputa.</p>
+                        </div>
+                        <div className="px-6 py-2 bg-red-50 text-red-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-100">
+                            {disputes.length} Casos Activos
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-light-50 text-gray-400 text-[9px] font-black uppercase tracking-[0.2em]">
+                                    <th className="px-10 py-6">ID Trato</th>
+                                    <th className="px-10 py-6">Monto</th>
+                                    <th className="px-10 py-6">Vendedor / Comprador</th>
+                                    <th className="px-10 py-6 text-right">Resolución de Arbitraje</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-light-100">
+                                {disputes.map((d) => (
+                                    <tr key={d.id} className={`hover:bg-light-50/50 transition-colors ${isUpdating === d.id ? 'opacity-50 blur-[2px]' : ''}`}>
+                                        <td className="px-10 py-8 font-mono font-black text-xs text-primary-vibrant">#{d.id.slice(0, 8)}</td>
+                                        <td className="px-10 py-8 font-black text-dark-800">${d.amount?.toLocaleString()}</td>
+                                        <td className="px-10 py-8">
+                                            <div className="flex flex-col gap-1">
+                                                <p className="text-[10px] font-black text-dark-800 uppercase tracking-widest">V: {d.sellerId?.slice(0, 10)}...</p>
+                                                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">C: {d.buyerId?.slice(0, 10)}...</p>
+                                            </div>
+                                        </td>
+                                        <td className="px-10 py-8 text-right">
+                                            <div className="flex justify-end gap-3">
+                                                <button
+                                                    onClick={() => handleInspectDispute(d)}
+                                                    className="size-12 bg-white hover:bg-dark-800 text-dark-800 hover:text-white rounded-2xl transition-all shadow-sm border border-light-100 flex items-center justify-center group"
+                                                >
+                                                    <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">visibility</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleResolveDispute(d.id, 'refund')}
+                                                    className="px-6 py-3 bg-red-50 text-red-500 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-100"
+                                                >
+                                                    Fallo a favor del COMPRADOR
+                                                </button>
+                                                <button
+                                                    onClick={() => handleResolveDispute(d.id, 'release')}
+                                                    className="px-6 py-3 bg-primary-50 text-primary-vibrant rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-primary-vibrant hover:text-white transition-all shadow-sm border border-primary-100"
+                                                >
+                                                    Fallo a favor del VENDEDOR
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {disputes.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="px-10 py-32 text-center">
+                                            <div className="size-20 bg-emerald-50 text-emerald-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                                                <span className="material-symbols-outlined text-4xl">verified_user</span>
+                                            </div>
+                                            <p className="text-xs font-black text-gray-300 uppercase tracking-widest">No hay disputas activas en la red.</p>
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -328,14 +466,56 @@ export default function AdminDashboard() {
                                         </div>
                                     </div>
 
-                                    <div className="pt-4">
-                                        <button
-                                            onClick={() => handleDeleteUser(selectedUser.uid)}
-                                            className="w-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white py-6 rounded-[32px] font-black text-[10px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-red-200 active:scale-95 border-2 border-red-100"
-                                        >
-                                            Revocar Acceso de Nodo (Terminar)
-                                        </button>
+                                </div>
+
+                                {/* Bank Details View */}
+                                {selectedUser.bankDetails && (
+                                    <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-sm mt-6">
+                                        <p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] mb-6">Datos de Pago (Vendedor)</p>
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-[9px] text-gray-400 font-bold uppercase mb-1">Banco</p>
+                                                    <p className="text-xs font-black text-dark-800 truncate">{selectedUser.bankDetails.bankName || 'N/A'}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9px] text-gray-400 font-bold uppercase mb-1">Titular</p>
+                                                    <p className="text-xs font-bold text-dark-800 truncate">{selectedUser.bankDetails.holderName || 'N/A'}</p>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] text-gray-400 font-bold uppercase mb-1">CBU / CVU</p>
+                                                <p className="text-[10px] font-mono font-bold text-dark-800 bg-light-50 p-3 rounded-xl block text-center tracking-widest">{selectedUser.bankDetails.cbu || 'N/A'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] text-gray-400 font-bold uppercase mb-1">Alias</p>
+                                                <p className="text-xs font-black text-primary-vibrant uppercase bg-primary-50/50 p-2 rounded-lg text-center">{selectedUser.bankDetails.alias || 'N/A'}</p>
+                                            </div>
+                                            <div className="pt-2">
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(
+                                                            `Banco: ${selectedUser.bankDetails?.bankName}\nCBU: ${selectedUser.bankDetails?.cbu}\nAlias: ${selectedUser.bankDetails?.alias}\nTitular: ${selectedUser.bankDetails?.holderName}`
+                                                        );
+                                                        notify({ type: 'success', title: 'Copiado', message: 'Datos bancarios copiados al portapapeles.', icon: 'content_copy' });
+                                                    }}
+                                                    className="w-full py-3 rounded-xl bg-dark-800 text-white text-[10px] font-black uppercase tracking-widest hover:bg-dark-900 transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">content_copy</span>
+                                                    Copiar Datos
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
+                                )}
+
+                                <div className="pt-4">
+                                    <button
+                                        onClick={() => handleDeleteUser(selectedUser.uid)}
+                                        className="w-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white py-6 rounded-[32px] font-black text-[10px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-red-200 active:scale-95 border-2 border-red-100"
+                                    >
+                                        Revocar Acceso de Nodo (Terminar)
+                                    </button>
                                 </div>
                             </div>
 
@@ -401,6 +581,67 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             )}
+
+            {/* Dispute Inspection Modal */}
+            {
+                selectedDispute && (
+                    <div className="fixed inset-0 bg-dark-800/80 backdrop-blur-xl z-[200] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                        <div className="bg-white w-full max-w-6xl rounded-[48px] shadow-2xl relative overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-500">
+                            <button onClick={() => setSelectedDispute(null)} className="absolute top-8 right-8 size-12 flex items-center justify-center bg-light-50 hover:bg-light-100 rounded-2xl transition-all z-20 shadow-sm border border-light-200 text-dark-800">
+                                <span className="material-symbols-outlined font-black">close</span>
+                            </button>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-y-auto">
+                                {/* Chat History */}
+                                <div className="lg:col-span-5 bg-light-50 p-12 border-r border-light-200 flex flex-col h-full">
+                                    <h3 className="text-xl font-black text-dark-800 uppercase tracking-tight mb-8">Auditoría de Chat</h3>
+                                    <div className="space-y-4 flex-1 overflow-y-auto pr-2 pb-10">
+                                        {disputeMessages.map((msg, idx) => (
+                                            <div key={idx} className={`p-6 rounded-3xl ${msg.role === 'sistema' ? 'bg-amber-50 text-amber-700 border border-amber-100 mx-auto w-[90%] text-center' : 'bg-white border border-light-200 shadow-sm'}`}>
+                                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2">{msg.role} - {msg.createdAt?.toDate()?.toLocaleTimeString()}</p>
+                                                <p className="text-sm font-bold text-dark-700 leading-relaxed">{msg.text}</p>
+                                            </div>
+                                        ))}
+                                        {disputeMessages.length === 0 && <p className="text-center text-gray-400 py-20 uppercase font-black text-[10px]">Sin registros de chat</p>}
+                                    </div>
+                                </div>
+
+                                {/* Evidence Gallery */}
+                                <div className="lg:col-span-7 p-12">
+                                    <h3 className="text-xl font-black text-dark-800 uppercase tracking-tight mb-8">Evidencia de Transacción</h3>
+                                    <div className="grid grid-cols-2 gap-6 mb-12">
+                                        {disputeEvidence.map((ev, idx) => (
+                                            <div key={idx} className="group relative">
+                                                <img src={ev.url} className="aspect-video w-full rounded-3xl object-cover shadow-lg group-hover:scale-[1.02] transition-transform" />
+                                                <div className="absolute inset-0 bg-dark-800/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-center justify-center p-6 text-center">
+                                                    <p className="text-white text-[10px] font-black uppercase tracking-widest">{ev.type}: {ev.description}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {disputeEvidence.length === 0 && (
+                                            <div className="col-span-2 py-32 bg-light-50 rounded-[40px] border-2 border-dashed border-light-200 flex flex-col items-center justify-center text-gray-300">
+                                                <span className="material-symbols-outlined text-5xl mb-4">no_photography</span>
+                                                <p className="text-[10px] font-black uppercase tracking-widest">Sin evidencia fotográfica</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="bg-red-50 rounded-[40px] p-10 border border-red-100 flex flex-col gap-8">
+                                        <div>
+                                            <h4 className="text-lg font-black text-red-900 uppercase">Resolución del Juez</h4>
+                                            <p className="text-sm font-bold text-red-700/70 mt-1">Como administrador, tu fallo es final y moverá los fondos de la cuenta de garantía global.</p>
+                                        </div>
+                                        <div className="flex gap-4">
+                                            <button onClick={() => handleResolveDispute(selectedDispute.id, 'refund')} className="flex-1 bg-white text-red-500 py-6 rounded-3xl font-black text-[10px] uppercase tracking-widest border border-red-200 shadow-xl hover:bg-red-500 hover:text-white transition-all active:scale-95">Fallar a favor del Comprador (Refund)</button>
+                                            <button onClick={() => handleResolveDispute(selectedDispute.id, 'release')} className="flex-1 bg-primary-vibrant text-white py-6 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary-500/20 hover:scale-[1.02] transition-all active:scale-95">Fallar a favor del Vendedor (Liberar)</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
         </div>
     );
 }

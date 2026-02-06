@@ -55,7 +55,8 @@ const Login = () => {
       notify({ type: 'success', title: 'Autenticación Exitosa', message: 'Identidad validada vía Google.', icon: 'verified_user' });
       navigate('/dashboard');
     } catch (err: any) {
-      notify({ type: 'error', title: 'Error de Inicio de Sesión Social', message: 'No se pudo completar la autenticación.', icon: 'error' });
+      console.error("Google Login Error:", err);
+      notify({ type: 'error', title: 'Error de Inicio de Sesión Social', message: err.message || 'No se pudo completar la autenticación.', icon: 'error' });
     }
   };
 

@@ -9,6 +9,7 @@ import Wallet from './pages/Wallet';
 import Verification from './pages/Verification';
 import Login from './pages/Login';
 import Publish from './pages/publish/Publish';
+import Messages from './pages/Messages';
 import NewDeal from './pages/publish/NewDeal';
 import ProductDetail from './pages/marketplace/ProductDetail';
 import Search from './pages/marketplace/Search';
@@ -20,6 +21,9 @@ import PaymentFailure from './pages/transactions/PaymentFailure';
 import ESgrow from './pages/transactions/ESgrow';
 import CompleteProfile from './pages/CompleteProfile';
 import AdminDashboard from './pages/AdminDashboard';
+import Settings from './pages/Settings';
+import EscrowInfo from './pages/EscrowInfo';
+import VerifyDelivery from './pages/VerifyDelivery';
 import RequireProfile from './components/RequireProfile';
 import { AuthProvider, useAuth } from './lib/auth';
 
@@ -172,13 +176,25 @@ const NotificationItem: React.FC<{ notification: Notification; onDismiss: (id: n
 };
 
 
+import { subscribeToChats, Chat } from './lib/chat';
+
 const Header = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isVoiceSearchOpen, setIsVoiceSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeToChats(user.uid, (chats) => {
+      const count = chats.reduce((acc, chat) => acc + (chat.unreadCount?.[user.uid] || 0), 0);
+      setUnreadCount(count);
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   const handleSearch = (e?: React.FormEvent, term?: string) => {
     if (e) e.preventDefault();
@@ -195,10 +211,10 @@ const Header = () => {
       <div className="max-w-[1440px] mx-auto px-6 h-20 flex items-center justify-between gap-8">
         <div className="flex items-center gap-10 flex-1">
           <Link to="/" className="flex items-center gap-3 group shrink-0">
-            <div className="size-10 bg-primary-vibrant text-white rounded-[14px] flex items-center justify-center transition-all group-hover:scale-105 shadow-lg shadow-primary-vibrant/20">
-              <span className="material-symbols-outlined text-2xl font-black">verified</span>
+            <div className="size-10 bg-red-600 text-white rounded-[14px] flex items-center justify-center transition-all group-hover:scale-105 shadow-lg shadow-red-600/20">
+              <span className="material-symbols-outlined text-2xl font-black">target</span>
             </div>
-            <h2 className="text-xl font-black tracking-tighter text-dark-800 hidden md:block">MarketTrust</h2>
+            <h2 className="text-xl font-black tracking-tighter text-red-600 hidden md:block">De Oportunidades 🎯</h2>
           </Link>
 
           <form onSubmit={(e) => handleSearch(e)} className="hidden lg:flex flex-1 max-w-xl group relative">
@@ -228,11 +244,14 @@ const Header = () => {
         <div className="flex items-center gap-4">
           <button className="relative size-11 rounded-2xl bg-light-50 flex items-center justify-center text-dark-700 hover:bg-light-100 transition-all group">
             <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">notifications</span>
-            <div className="absolute top-2.5 right-2.5 size-2.5 bg-primary-vibrant border-2 border-white rounded-full shadow-sm" />
+            {/* Notification Dot Placeholder - Logic to be implemented */}
           </button>
 
-          <button className="relative size-11 rounded-2xl bg-light-50 flex items-center justify-center text-dark-700 hover:bg-light-100 transition-all group">
+          <button onClick={() => navigate('/messages')} className="relative size-11 rounded-2xl bg-light-50 flex items-center justify-center text-dark-700 hover:bg-light-100 transition-all group">
             <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">chat_bubble</span>
+            {unreadCount > 0 && (
+              <div className="absolute top-2.5 right-2.5 size-2.5 bg-primary-vibrant border-2 border-white rounded-full shadow-sm animate-pulse" />
+            )}
           </button>
 
           {user ? (
@@ -256,6 +275,7 @@ const Header = () => {
                   <div className="space-y-1">
                     {[
                       { to: '/dashboard', label: 'Panel de Control', icon: 'grid_view' },
+                      { to: '/settings', label: 'Configuración', icon: 'settings' },
                       { to: '/wallet', label: 'Billetera Segura', icon: 'account_balance_wallet' },
                       { to: '/profile', label: 'Perfil Público', icon: 'account_circle' },
                       { to: '/verification', label: 'Estado de Identidad', icon: 'verified' },
@@ -357,9 +377,9 @@ const Header = () => {
 const Footer = () => (
   <footer className="mt-40 py-24 bg-white border-t border-light-200">
     <div className="max-w-[1440px] mx-auto px-6 flex flex-col items-center">
-      <div className="flex items-center gap-2 mb-10 opacity-40 grayscale">
-        <span className="material-symbols-outlined text-3xl font-black">verified</span>
-        <h2 className="text-xl font-black tracking-tighter text-dark-800">MarketTrust</h2>
+      <div className="flex items-center gap-2 mb-10 opacity-40 grayscale group-hover:grayscale-0 transition-all">
+        <span className="material-symbols-outlined text-3xl font-black text-red-600">target</span>
+        <h2 className="text-xl font-black tracking-tighter text-red-600">De Oportunidades 🎯</h2>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 text-[10px] font-black uppercase tracking-[0.3em] text-gray-300 mb-12">
         <Link className="hover:text-dark-800 transition-colors" to="/">Protocolos</Link>
@@ -368,11 +388,20 @@ const Footer = () => (
         <Link className="hover:text-dark-800 transition-colors" to="/">Nodo de Soporte</Link>
       </div>
       <p className="text-[9px] font-bold text-gray-300 uppercase tracking-[0.4em] text-center">
-        © 2026 MarketTrust Inc. Transacciones seguras mediante protocolos encriptados.
+        © 2026 De Oportunidades Inc. Transacciones seguras mediante protocolos encriptados.
       </p>
     </div>
   </footer>
 );
+
+const PageTransition = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
+  return (
+    <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {children}
+    </div>
+  );
+};
 
 function App() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -394,29 +423,38 @@ function App() {
             </div>
             <Header />
             <main className="flex-grow">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/search" element={<Search />} />
-                <Route path="/product/:id" element={<ProductDetail />} />
-                <Route path="/publish" element={<RequireProfile><Publish /></RequireProfile>} />
-                <Route path="/new-trato" element={<RequireProfile><NewDeal /></RequireProfile>} />
-                <Route path="/transaction/:id" element={<TransactionDetail />} />
+              <PageTransition>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/product/:id" element={<ProductDetail />} />
+                  <Route path="/publish" element={<RequireProfile><Publish /></RequireProfile>} />
+                  <Route path="/new-trato" element={<RequireProfile><NewDeal /></RequireProfile>} />
+                  <Route path="/new-trato" element={<RequireProfile><NewDeal /></RequireProfile>} />
+                  <Route path="/transaction/:id" element={<RequireProfile><ESgrow /></RequireProfile>} />
 
-                <Route path="/dashboard" element={<RequireProfile><Dashboard /></RequireProfile>} />
-                <Route path="/wallet" element={<Wallet />} />
-                <Route path="/profile/:uid?" element={<Profile />} />
-                <Route path="/complete-profile" element={<CompleteProfile />} />
-                <Route path="/login" element={<Login />} />
+                  <Route path="/dashboard" element={<RequireProfile><Dashboard /></RequireProfile>} />
+                  <Route path="/messages" element={<RequireProfile><Messages /></RequireProfile>} />
+                  <Route path="/messages/:chatId" element={<RequireProfile><Messages /></RequireProfile>} />
+                  <Route path="/wallet" element={<Wallet />} />
+                  <Route path="/profile/:uid?" element={<Profile />} />
+                  <Route path="/complete-profile" element={<CompleteProfile />} />
+                  <Route path="/settings" element={<RequireProfile><Settings /></RequireProfile>} />
+                  <Route path="/login" element={<Login />} />
 
-                <Route path="/checkout" element={<Checkout />} />
-                <Route path="/success" element={<Success />} />
-                <Route path="/payment/success" element={<PaymentSuccess />} />
-                <Route path="/payment/failure" element={<PaymentFailure />} />
-                <Route path="/payment/pending" element={<PaymentSuccess />} />
-                <Route path="/dispute" element={<Dispute />} />
-                <Route path="/verification" element={<Verification />} />
-                <Route path="/admin" element={<AdminDashboard />} />
-              </Routes>
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/success" element={<Success />} />
+                  <Route path="/payment/success" element={<PaymentSuccess />} />
+                  <Route path="/payment/failure" element={<PaymentFailure />} />
+                  <Route path="/payment/pending" element={<PaymentSuccess />} />
+                  <Route path="/dispute" element={<Dispute />} />
+                  <Route path="/verification" element={<Verification />} />
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/escrow-info" element={<EscrowInfo />} />
+                  <Route path="/verify-delivery" element={<VerifyDelivery />} />
+                </Routes>
+              </PageTransition>
             </main>
             <Footer />
           </div>

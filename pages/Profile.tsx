@@ -88,7 +88,7 @@ const Profile = () => {
       {/* --- TOP BANNER --- */}
       <div className="h-48 md:h-80 w-full relative overflow-hidden">
         <img
-          src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=2670"
+          src={targetProfile.coverImage || "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=2670"}
           className="w-full h-full object-cover"
           alt="Network Banner"
         />
@@ -132,14 +132,18 @@ const Profile = () => {
           </div>
 
           <div className="flex items-center gap-4 pb-4">
-            <button className="h-14 px-8 rounded-2xl bg-white text-dark-800 border-2 border-light-200 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-light-100 transition-all shadow-premium flex items-center gap-3 active:scale-95 group">
-              <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">person_add</span>
-              Seguir
-            </button>
-            <button className="h-14 px-8 rounded-2xl bg-primary-vibrant text-white font-black text-[10px] uppercase tracking-[0.3em] hover:shadow-lg shadow-primary-vibrant/20 transition-all flex items-center gap-3 active:scale-95">
-              <span className="material-symbols-outlined text-xl">chat_bubble</span>
-              Mensaje
-            </button>
+            {!isOwnProfile && (
+              <>
+                <button className="h-14 px-8 rounded-2xl bg-white text-dark-800 border-2 border-light-200 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-light-100 transition-all shadow-premium flex items-center gap-3 active:scale-95 group">
+                  <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">person_add</span>
+                  Seguir
+                </button>
+                <button className="h-14 px-8 rounded-2xl bg-primary-vibrant text-white font-black text-[10px] uppercase tracking-[0.3em] hover:shadow-lg shadow-primary-vibrant/20 transition-all flex items-center gap-3 active:scale-95">
+                  <span className="material-symbols-outlined text-xl">chat_bubble</span>
+                  Mensaje
+                </button>
+              </>
+            )}
           </div>
         </div>
 

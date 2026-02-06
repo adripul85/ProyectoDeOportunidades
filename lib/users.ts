@@ -15,6 +15,7 @@ export interface UserProfile {
     };
     bio?: string;
     avatar: string;
+    coverImage?: string;
     profileComplete: boolean;
     certifications?: string[];
     verificationBadges?: {
@@ -37,6 +38,13 @@ export interface UserProfile {
         pending: number;
         currency: string;
         lastUpdated: any;
+    };
+    bankDetails?: {
+        cbu: string;
+        alias: string;
+        bankName: string;
+        holderName: string;
+        accountType: string;
     };
     reputation?: {
         averageRating: number;

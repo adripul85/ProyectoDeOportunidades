@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useNotification } from '../../App';
 
@@ -29,21 +29,24 @@ const ESgrow = () => {
     actions
   } = useEscrow(id);
 
+  const [trackingId, setTrackingId] = useState('');
+  const [courier, setCourier] = useState('Correo Argentino');
+
   const handleDownload = () => {
-    const content = `=== TRANSACTION LOG ===\nDeal: #${dealData.id}\nStatus: ${status}\n\n` +
+    const content = `=== REGISTRO DE TRANSACCIÓN ===\nTrato: #${dealData.id}\nEstado: ${status}\n\n` +
       messages.map(m => `[${m.time}] ${m.role.toUpperCase()}: ${m.text}`).join('\n');
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Escrow_Log_${dealData.id}.txt`;
+    link.download = `Registro_Protocolo_${dealData.id}.txt`;
     link.click();
     notify({ type: 'info', title: 'Registro Exportado', message: 'El historial de transacciones ha sido guardado.', icon: 'description' });
   };
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-16 min-h-screen bg-light-50">
-      {/* HEADER: Transaction Title & Management */}
+      {/* HEADER: Protocolo de Transacción */}
       <div className="flex flex-col xl:flex-row items-center justify-between gap-8 mb-16 bg-white p-10 rounded-[40px] border border-light-200 shadow-premium">
         <div className="flex items-center gap-8">
           <button onClick={() => navigate(-1)} className="size-14 bg-light-50 rounded-2xl border border-light-200 hover:bg-white hover:shadow-sm transition-all flex items-center justify-center group">
@@ -87,6 +90,39 @@ const ESgrow = () => {
             status={status}
             deadline={deadline}
           />
+
+          {/* New Section: Tracking Input for Seller */}
+          {currentUserRole === 'VENDEDOR' && status === 'PAID_HELD' && (
+            <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium animate-in slide-in-from-bottom-4 duration-500">
+              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-6">Registrar Envío</h3>
+              <div className="space-y-4">
+                <select
+                  value={courier}
+                  onChange={(e) => setCourier(e.target.value)}
+                  className="w-full bg-light-50 border border-light-200 rounded-2xl py-4 px-6 font-bold text-xs outline-none"
+                >
+                  <option>Correo Argentino</option>
+                  <option>Andreani</option>
+                  <option>OCASA</option>
+                  <option>Personal (En mano)</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Número de Tracking"
+                  value={trackingId}
+                  onChange={(e) => setTrackingId(e.target.value)}
+                  className="w-full bg-light-50 border border-light-200 rounded-2xl py-4 px-6 font-bold text-xs outline-none"
+                />
+                <button
+                  onClick={() => actions.registerTracking(trackingId, courier)}
+                  disabled={!trackingId}
+                  className="w-full btn-primary py-4 text-[10px] font-black tracking-widest uppercase disabled:opacity-50"
+                >
+                  Confirmar Despacho
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-8 space-y-10">
@@ -109,7 +145,8 @@ const ESgrow = () => {
             currentUserRole={currentUserRole}
             price={dealData.price}
             onUpdateStatus={actions.updateStatus}
-            onRequestMediation={() => actions.updateStatus('DISPUTA', '⚖️ Mediation protocol initiated by user.')}
+            onReleaseFunds={() => actions.releaseEscrow()}
+            onRequestMediation={() => actions.updateStatus('DISPUTED', '⚖️ Protocolo de mediación iniciado por el usuario.')}
           />
         </div>
       </div>

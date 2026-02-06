@@ -19,7 +19,7 @@ export default function PaymentSuccess() {
             }
 
             if (status === 'approved') {
-                await updateTransactionStatus(externalReference, 'PAID');
+                await updateTransactionStatus(externalReference, 'PAID_HELD');
             } else if (status === 'pending') {
                 await updateTransactionStatus(externalReference, 'PENDING_PAYMENT');
             }
@@ -44,7 +44,7 @@ export default function PaymentSuccess() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-light-50 p-6">
             <div className="max-w-md w-full bg-white rounded-[48px] shadow-premium border border-light-200 p-12 text-center relative overflow-hidden animate-in zoom-in duration-700">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary-vibrant to-blue-400"></div>
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-600 to-red-400"></div>
 
                 {/* Success Icon */}
                 <div className="size-28 bg-emerald-50 text-emerald-500 rounded-[40px] flex items-center justify-center mx-auto mb-10 shadow-sm border border-emerald-100 animate-bounce">
@@ -97,7 +97,7 @@ export default function PaymentSuccess() {
                     </button>
                 </div>
 
-                <p className="mt-12 text-[8px] font-black text-gray-300 uppercase tracking-[0.5em]">MarketTrust SecLayer V4.2</p>
+                <p className="mt-12 text-[8px] font-black text-gray-300 uppercase tracking-[0.5em]">De Oportunidades 🎯 SecLayer V4.5</p>
             </div>
         </div>
     );

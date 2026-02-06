@@ -64,12 +64,12 @@ export default function PaymentFailure() {
                 )}
 
                 {/* Help Box */}
-                <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100/50 mb-10 text-left">
+                <div className="bg-red-50/50 p-6 rounded-3xl border border-red-100/50 mb-10 text-left">
                     <div className="flex items-start gap-4">
-                        <span className="material-symbols-outlined text-blue-500 font-black">verified</span>
+                        <span className="material-symbols-outlined text-red-500 font-black">verified</span>
                         <div>
-                            <p className="text-[10px] font-black text-blue-900 mb-3 uppercase tracking-widest">Resoluciones</p>
-                            <ul className="text-[10px] text-blue-800 space-y-2 font-bold uppercase tracking-tight opacity-70">
+                            <p className="text-[10px] font-black text-red-900 mb-3 uppercase tracking-widest">Resoluciones</p>
+                            <ul className="text-[10px] text-red-800 space-y-2 font-bold uppercase tracking-tight opacity-70">
                                 <li>• Verificar credenciales de facturación</li>
                                 <li>• Comprobar disponibilidad de saldo</li>
                                 <li>• Seleccionar proveedor alternativo</li>
@@ -95,7 +95,7 @@ export default function PaymentFailure() {
                     </button>
                 </div>
 
-                <p className="mt-12 text-[8px] font-black text-gray-300 uppercase tracking-[0.5em]">MarketTrust SecLayer V4.2</p>
+                <p className="mt-12 text-[8px] font-black text-gray-300 uppercase tracking-[0.5em]">De Oportunidades 🎯 SecLayer V4.5</p>
             </div>
         </div>
     );

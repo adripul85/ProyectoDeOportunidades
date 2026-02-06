@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
+import { startChat } from '../../lib/chat';
 
 // Hooks
 import { useProduct } from '../../hooks/useProduct';
@@ -27,9 +28,10 @@ const ProductDetail = () => {
     isShareModalOpen,
     setIsShareModalOpen,
     imageRef,
-    handleMouseMove,
-    startDeal
+    handleMouseMove
   } = useProduct();
+
+  const navigate = useNavigate();
 
   const { user } = useAuth();
   const { notify } = useNotification();
@@ -42,7 +44,7 @@ const ProductDetail = () => {
   // Dynamic Title Update
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = `${product.title} | MarketTrust`;
+    document.title = `${product.title} | De Oportunidades 🎯`;
     return () => { document.title = prevTitle; };
   }, [product.title]);
 
@@ -68,13 +70,48 @@ const ProductDetail = () => {
   };
 
   const handleSendOffer = () => {
-    if (!user) {
-      notify('Debes iniciar sesión para ofertar', 'error');
-      return;
-    }
     if (!offerAmount) return;
     notify(`Oferta de $${offerAmount} enviada al vendedor`, 'success');
     setOfferAmount('');
+  };
+
+  const handleContactSeller = async () => {
+    if (!user) {
+      notify({ type: 'error', title: 'Acceso Denegado', message: 'Inicia sesión para contactar al vendedor.', icon: 'lock' });
+      return;
+    }
+    if (user.uid === product.seller.id) {
+      notify({ type: 'warning', title: 'Es tu producto', message: 'No puedes enviarte mensajes a ti mismo.', icon: 'person' });
+      return;
+    }
+
+    try {
+      const chatId = await startChat(user.uid, product.seller.id, {
+        displayName: product.seller.name || 'Vendedor',
+        photoURL: product.seller.image || `https://ui-avatars.com/api/?name=${product.seller.name || 'V'}&background=random`
+      });
+      navigate(`/messages/${chatId}`);
+    } catch (error) {
+      console.error("Error contact seller:", error);
+      notify({ type: 'error', title: 'Error', message: 'No se pudo iniciar el chat.', icon: 'error' });
+    }
+  };
+
+  const handleBuyNow = () => {
+    if (!user) {
+      notify({ type: 'error', title: 'Acceso Denegado', message: 'Inicia sesión para comprar.', icon: 'lock' });
+      return;
+    }
+    navigate(`/new-trato?itemId=${product.id}`, {
+      state: {
+        productId: product.id,
+        productTitle: product.title,
+        productPrice: product.price,
+        sellerName: product.seller.displayName || product.seller.name,
+        sellerAvatar: product.seller.avatar,
+        sellerId: product.seller.id
+      }
+    });
   };
 
   return (
@@ -164,60 +201,61 @@ const ProductDetail = () => {
               <p className="text-4xl font-black text-dark-800 tracking-tight">${product.price.toLocaleString()}</p>
             </div>
 
-            <div className="space-y-3 mb-8">
+            <div className="grid grid-cols-2 gap-4 mb-8">
               <button
-                onClick={startDeal}
-                className="w-full bg-primary-vibrant text-white py-4 rounded-2xl font-black text-base hover:opacity-90 transition-all flex items-center justify-center gap-3 shadow-lg shadow-primary-500/10"
+                onClick={handleBuyNow}
+                className="bg-primary-vibrant text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-500/10 active:scale-95 group"
               >
-                <span className="material-symbols-outlined">chat_bubble</span>
-                Mensaje al Vendedor
+                <span className="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">shopping_cart</span>
+                Comprar
               </button>
-              <div className="grid grid-cols-2 gap-3">
-                <button className="btn-secondary !py-3 !px-4 !rounded-2xl !text-xs">
-                  <span className="material-symbols-outlined text-lg">favorite</span>
-                  Guardar
-                </button>
-                <button className="btn-secondary !py-3 !px-4 !rounded-2xl !text-xs">
-                  <span className="material-symbols-outlined text-lg">share</span>
-                  Compartir
-                </button>
-              </div>
+              <button
+                onClick={handleContactSeller}
+                className="bg-white text-dark-800 border-2 border-light-200 py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-light-50 transition-all flex items-center justify-center gap-2 shadow-premium active:scale-95 group"
+              >
+                <span className="material-symbols-outlined text-primary-vibrant text-lg group-hover:scale-110 transition-transform">chat_bubble</span>
+                Mensaje
+              </button>
             </div>
+          </div>
 
-            <div className="border-t border-light-100 pt-8 mb-8">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-6">Detalles</h4>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-6">
-                <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Condición</p>
-                  <p className="text-sm font-bold text-dark-800">Usado - Excelente</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Marca</p>
-                  <p className="text-sm font-bold text-dark-800">Apple</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Color</p>
-                  <p className="text-sm font-bold text-dark-800">Silver</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Categoría</p>
-                  <p className="text-sm font-bold text-dark-800">{product.category}</p>
-                </div>
-              </div>
-            </div>
-
-            <SellerSection seller={product.seller} />
-
-            <div className="mt-6 bg-primary-50 rounded-2xl p-5 border border-primary-100 flex gap-4">
-              <span className="material-symbols-outlined text-primary-vibrant">verified_user</span>
+          <div className="border-t border-light-100 pt-8 mb-8">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-6">Detalles</h4>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6">
               <div>
-                <h5 className="text-[10px] font-black uppercase tracking-widest text-primary-600 mb-1">Consejos de Seguridad</h5>
-                <ul className="text-[10px] font-bold text-primary-800/70 space-y-1 list-disc pl-3">
-                  <li>Encuéntrese en un lugar público y bien iluminado</li>
-                  <li>Inspeccione el artículo antes de pagar</li>
-                  <li>Nunca envíe dinero por transferencia bancaria directa</li>
-                </ul>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Condición</p>
+                <p className="text-sm font-bold text-dark-800 capitalize">
+                  {product.condition === 'new' ? 'Nuevo' :
+                    product.condition === 'like_new' ? 'Como Nuevo' :
+                      product.condition === 'good' ? 'Bueno' : 'Regular'}
+                </p>
               </div>
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Marca</p>
+                <p className="text-sm font-bold text-dark-800">{product.brand || 'No especificada'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Color</p>
+                <p className="text-sm font-bold text-dark-800">{product.color || 'No especificado'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Categoría</p>
+                <p className="text-sm font-bold text-dark-800">{product.category}</p>
+              </div>
+            </div>
+          </div>
+
+          <SellerSection seller={product.seller} />
+
+          <div className="mt-6 bg-primary-50 rounded-2xl p-5 border border-primary-100 flex gap-4">
+            <span className="material-symbols-outlined text-primary-vibrant">verified_user</span>
+            <div>
+              <h5 className="text-[10px] font-black uppercase tracking-widest text-primary-600 mb-1">Consejos de Seguridad</h5>
+              <ul className="text-[10px] font-bold text-primary-800/70 space-y-1 list-disc pl-3">
+                <li>Encuéntrese en un lugar público y bien iluminado</li>
+                <li>Inspeccione el artículo antes de pagar</li>
+                <li>Nunca envíe dinero por transferencia bancaria directa</li>
+              </ul>
             </div>
           </div>
         </div>

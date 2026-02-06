@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useNotification } from '../../App';
 
 
@@ -44,7 +43,15 @@ const NewDeal = () => {
     });
 
     setTimeout(() => {
-      navigate('/checkout', { state: { title, amount, sellerName: seller.sellerName } });
+      navigate('/checkout', {
+        state: {
+          productTitle: title,
+          productPrice: Number(amount),
+          sellerName: seller.sellerName,
+          sellerId: state.sellerId,
+          productId: state.productId || 'custom-deal-' + Date.now() // Fallback ID if custom deal
+        }
+      });
     }, 1000);
   };
 
@@ -143,7 +150,7 @@ const NewDeal = () => {
               <div className="mt-6 flex items-start gap-3 bg-light-50 p-4 rounded-xl border border-border-light">
                 <span className="material-symbols-outlined text-gray-400 text-sm mt-0.5">info</span>
                 <p className="text-[10px] font-bold text-gray-500 leading-normal">
-                  Al confirmar, estarás utilizando nuestro sistema de Escrow. El dinero será retenido en una cuenta segura y solo se liberará al vendedor cuando confirmes la recepción conforme.
+                  Al confirmar, estarás utilizando nuestro <Link to="/escrow-info" className="text-primary-vibrant hover:underline">sistema de Escrow</Link>. El dinero será retenido en una cuenta segura y solo se liberará al vendedor cuando confirmes la recepción conforme.
                 </p>
               </div>
             </div>

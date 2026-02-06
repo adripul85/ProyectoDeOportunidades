@@ -227,6 +227,11 @@ const Search = () => {
                         {p.condition}
                       </span>
                     </div>
+                    {p.trust > 9.7 && (
+                      <div className="absolute top-4 right-4 size-8 bg-white/95 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg border border-white/20 animate-in zoom-in duration-1000">
+                        <span className="material-symbols-outlined text-primary-vibrant text-lg font-black">verified</span>
+                      </div>
+                    )}
                     <div className="absolute bottom-4 right-4 bg-emerald-500 text-white size-10 rounded-xl flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
                       <span className="material-symbols-outlined text-lg">arrow_forward</span>
                     </div>

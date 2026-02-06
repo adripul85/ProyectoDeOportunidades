@@ -140,3 +140,19 @@ export const getPlatformStats = async () => {
         return null;
     }
 };
+
+/**
+ * Fetch all transactions in dispute
+ */
+export const getDisputedTransactions = async () => {
+    try {
+        const { where, query } = await import("firebase/firestore");
+        const txRef = collection(db, "transactions");
+        const q = query(txRef, where("status", "==", "DISPUTED"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.error("Error fetching disputes:", error);
+        return [];
+    }
+};

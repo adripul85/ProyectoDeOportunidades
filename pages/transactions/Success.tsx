@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { TransactionQR } from '../../components/TransactionQR';
 
 
 
@@ -12,6 +13,18 @@ const Success = () => {
   const status = queryParams.get('collection_status') || 'approved';
   const paymentMethod = queryParams.get('payment_method') || 'MERCADO_PAGO';
   const transactionId = queryParams.get('external_reference') || 'N/A';
+  const [transactionData, setTransactionData] = React.useState<any>(null);
+  const qrUrl = transactionData?.qrCode ? `${window.location.protocol}//${window.location.host}/#/verify-delivery?token=${transactionData.qrCode}&txId=${transactionData.id}` : '';
+
+  React.useEffect(() => {
+    if (transactionId && transactionId !== 'N/A') {
+      import('../../lib/transactions').then(({ getTransaction }) => {
+        getTransaction(transactionId).then(data => {
+          if (data) setTransactionData(data);
+        });
+      });
+    }
+  }, [transactionId]);
 
   const { title, total } = location.state || {
     title: 'Objetivo de Adquisición',
@@ -49,7 +62,7 @@ const Success = () => {
               <div className="size-24 bg-primary-50 text-primary-vibrant border border-primary-100 rounded-[32px] flex items-center justify-center mx-auto mb-8 shadow-sm">
                 <span className="material-symbols-outlined text-5xl font-black">verified</span>
               </div>
-              <h1 className="text-4xl font-black text-dark-800 mb-4 uppercase tracking-tight">Pago Asegurado</h1>
+              <h1 className="text-4xl font-black text-red-600 mb-4 uppercase tracking-tight">Pago Asegurado 🎯</h1>
               <p className="text-sm font-bold text-gray-400">Transacción verificada. Los activos están ahora en garantía (escrow) segura.</p>
             </div>
           )}
@@ -77,12 +90,12 @@ const Success = () => {
                 </div>
                 <div className="flex justify-between items-center px-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-300">Nombre de la Entidad</span>
-                  <span className="text-sm font-black text-dark-800">MarketTrust S.A.</span>
+                  <span className="text-sm font-black text-dark-800">De Oportunidades 🎯 S.A.</span>
                 </div>
               </div>
-              <div className="mt-8 p-6 bg-primary-50 rounded-2xl flex gap-4 text-primary-950 text-[10px] font-bold border border-primary-100/50 uppercase tracking-widest">
+              <div className="mt-8 p-6 bg-red-50 rounded-2xl flex gap-4 text-red-950 text-[10px] font-bold border border-red-100/50 uppercase tracking-widest">
                 <span className="material-symbols-outlined text-lg">info</span>
-                <p>Envía el comprobante a <strong className="text-primary-vibrant">pagos@markettrust.com</strong> con tu ID de Transacción.</p>
+                <p>Envía el comprobante a <strong className="text-red-600">pagos@deoportunidades.com</strong> con tu ID de Transacción.</p>
               </div>
             </div>
           )}
@@ -121,6 +134,43 @@ const Success = () => {
                 )}
               </div>
             </div>
+
+            {/* QR Code Section - ONLY if meeting in person */}
+            {transactionData?.qrCode && transactionData.deliveryMethod !== 'SHIPPING' && (
+              <div className="mt-10 pt-10 border-t border-light-100 flex flex-col md:flex-row items-center gap-10">
+                <div className="flex-1">
+                  <div className="inline-flex items-center gap-2 bg-dark-800 text-white px-4 py-2 rounded-full mb-4">
+                    <span className="material-symbols-outlined text-sm">qr_code_scanner</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Token de Entrega</span>
+                  </div>
+                  <h3 className="text-2xl font-black text-dark-800 mb-2">Escanea para Liberar Fondos</h3>
+                  <p className="text-xs font-bold text-gray-400 leading-relaxed uppercase tracking-wide">
+                    Muestra este código al vendedor. Al escanearlo, se abrirá un enlace seguro para confirmar la recepción y liberar el pago.
+                  </p>
+                  <div className="mt-6 flex items-center gap-3 text-amber-600 bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                    <span className="material-symbols-outlined">timer</span>
+                    <p className="text-[10px] font-black uppercase tracking-widest">Autoliberación en 48hs si no hay reclamos.</p>
+                  </div>
+                </div>
+                <div className="shrink-0 bg-white p-6 rounded-[32px] border-2 border-dashed border-light-200 shadow-sm relative group">
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 bg-red-500/20 blur-sm animate-pulse z-10 pointer-events-none"></div>
+                  <TransactionQR value={qrUrl} label={transactionData.qrCode} />
+                </div>
+              </div>
+            )}
+
+            {/* Shipping Status Section */}
+            {transactionData?.deliveryMethod === 'SHIPPING' && (
+              <div className="mt-10 pt-10 border-t border-light-100 text-center">
+                <div className="size-20 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="material-symbols-outlined text-4xl">local_shipping</span>
+                </div>
+                <h3 className="text-2xl font-black text-dark-800 mb-2">Envío Certificado Pendiente</h3>
+                <p className="text-sm font-bold text-gray-400 max-w-lg mx-auto">
+                  El vendedor está preparando tu paquete. Recibirás el código de seguimiento aquí y por email apenas sea despachado.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

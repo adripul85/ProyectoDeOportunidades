@@ -27,7 +27,7 @@ const SupportChat = () => {
   }, [messages, isTyping]);
 
   const downloadChatHistory = () => {
-    const header = `--- REGISTRO DE MEDIACIÓN OFICIAL - MARKETTRUST ---\n`;
+    const header = `--- REGISTRO DE MEDIACIÓN OFICIAL - DE OPORTUNIDADES 🎯 ---\n`;
     const dealInfo = `Transacción: #TRX-8829\nFecha: ${new Date().toLocaleString()}\n`;
     const separator = `--------------------------------------------------\n\n`;
 
@@ -72,7 +72,7 @@ const SupportChat = () => {
       const chat = ai.chats.create({
         model: 'gemini-2.0-flash-exp',
         config: {
-          systemInstruction: `Eres un Mediador Profesional para la plataforma "MarketTrust".
+          systemInstruction: `Eres un Mediador Profesional para la plataforma "De Oportunidades 🎯".
           Tu objetivo es resolver disputas de manera imparcial, técnica y eficiente.
           Tono: Profesional, neutral y decisivo. Evita el uso excesivo de emojis.
           Contexto: Trato #TRX-8829 (monitor dañado en tránsito).
@@ -119,12 +119,12 @@ const SupportChat = () => {
         <div className="fixed bottom-28 right-10 z-[60] w-[90vw] max-w-[440px] h-[650px] bg-white rounded-[40px] flex flex-col shadow-premium border border-light-200 overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
           <div className="p-8 border-b border-light-100 bg-light-50/50 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="size-12 bg-dark-800 text-primary-vibrant rounded-2xl flex items-center justify-center shadow-sm">
+              <div className="size-12 bg-dark-800 text-red-600 rounded-2xl flex items-center justify-center shadow-sm">
                 <span className="material-symbols-outlined text-2xl font-black">shield_lock</span>
               </div>
               <div>
                 <p className="font-black text-xs text-dark-800 uppercase tracking-widest leading-none">Vínculo de Mediación</p>
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary-600 mt-2">Conexión Asegurada</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-red-600 mt-2">Conexión Asegurada</p>
               </div>
             </div>
 
@@ -148,9 +148,9 @@ const SupportChat = () => {
             ))}
             {isTyping && (
               <div className="flex items-center gap-2 px-2">
-                <div className="size-1.5 bg-primary-vibrant rounded-full animate-bounce"></div>
-                <div className="size-1.5 bg-primary-vibrant rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                <div className="size-1.5 bg-primary-vibrant rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                <div className="size-1.5 bg-red-600 rounded-full animate-bounce"></div>
+                <div className="size-1.5 bg-red-600 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div className="size-1.5 bg-red-600 rounded-full animate-bounce [animation-delay:0.4s]"></div>
               </div>
             )}
           </div>
@@ -169,7 +169,7 @@ const SupportChat = () => {
             />
             <button
               disabled={!input.trim() || isTyping}
-              className="size-14 bg-primary-vibrant text-white rounded-2xl hover:opacity-90 transition-all shadow-xl shadow-primary-500/10 active:scale-90 disabled:opacity-30 flex items-center justify-center"
+              className="size-14 bg-red-600 text-white rounded-2xl hover:opacity-90 transition-all shadow-xl shadow-primary-500/10 active:scale-90 disabled:opacity-30 flex items-center justify-center"
             >
               <span className="material-symbols-outlined font-black">send</span>
             </button>
@@ -203,7 +203,7 @@ const ProgressStepper = () => {
               <div className={`
                 size-12 rounded-[18px] flex items-center justify-center transition-all duration-700 border-2
                 ${isCompleted ? 'bg-dark-800 border-dark-800 text-white' : ''}
-                ${isCurrent ? 'bg-white border-primary-vibrant text-primary-vibrant ring-8 ring-primary-50' : ''}
+                ${isCurrent ? 'bg-white border-red-600 text-red-600 ring-8 ring-primary-50' : ''}
                 ${step.status === 'upcoming' ? 'bg-light-50 border-light-200 text-gray-200' : ''}
               `}>
                 <span className="material-symbols-outlined text-base font-black">
@@ -212,7 +212,7 @@ const ProgressStepper = () => {
               </div>
               <span className={`
                 absolute -bottom-10 text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap
-                ${isCurrent ? 'text-primary-vibrant' : 'text-gray-300'}
+                ${isCurrent ? 'text-red-600' : 'text-gray-300'}
               `}>
                 {step.label}
               </span>
@@ -244,7 +244,7 @@ const Dispute = () => {
                 <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.4em] mb-2">Contraparte del Trato</p>
                 <h2 className="text-3xl font-black text-dark-800 tracking-tight">Juan Pérez</h2>
                 <div className="flex items-center gap-3 mt-3">
-                  <span className="bg-primary-50 text-primary-vibrant px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-primary-100">Identidad Verificada</span>
+                  <span className="bg-primary-50 text-red-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-primary-100">Identidad Verificada</span>
                   <span className="text-[9px] font-black text-gray-300 uppercase tracking-[0.3em]">• Protocolo #TRX-8829</span>
                 </div>
               </div>
@@ -273,7 +273,7 @@ const Dispute = () => {
                 { title: 'Resolución Pendiente', date: '-', icon: 'pending', active: false, opacity: true }
               ].map((step, i) => (
                 <div key={i} className={`relative flex gap-8 items-start ${step.opacity ? 'opacity-20' : ''}`}>
-                  <div className={`size-6 rounded-lg flex items-center justify-center border-2 transition-all z-10 ${step.active ? 'bg-primary-vibrant border-primary-vibrant text-white shadow-lg' : 'bg-white border-light-200 text-gray-200'}`}>
+                  <div className={`size-6 rounded-lg flex items-center justify-center border-2 transition-all z-10 ${step.active ? 'bg-red-600 border-red-600 text-white shadow-lg' : 'bg-white border-light-200 text-gray-200'}`}>
                     <span className="material-symbols-outlined text-[10px] font-black">{step.icon}</span>
                   </div>
                   <div>
@@ -286,9 +286,9 @@ const Dispute = () => {
           </div>
 
           <div className="bg-dark-800 p-10 rounded-[40px] text-white shadow-2xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 size-32 bg-primary-vibrant/20 blur-[60px] -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-1000"></div>
+            <div className="absolute top-0 right-0 size-32 bg-red-600/20 blur-[60px] -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-1000"></div>
             <div className="flex items-center gap-4 mb-8">
-              <span className="material-symbols-outlined text-primary-vibrant font-black">shield_with_heart</span>
+              <span className="material-symbols-outlined text-red-600 font-black">shield_with_heart</span>
               <h3 className="text-[10px] font-black uppercase tracking-[0.4em]">Garantía (Escrow) Activa</h3>
             </div>
             <p className="text-[11px] font-medium text-gray-400 leading-relaxed italic relative z-10">
@@ -302,7 +302,7 @@ const Dispute = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="bg-white p-10 rounded-[40px] border border-light-200 shadow-premium">
               <div className="flex items-center gap-3 mb-6">
-                <span className="material-symbols-outlined text-primary-vibrant text-base font-black">person</span>
+                <span className="material-symbols-outlined text-red-600 text-base font-black">person</span>
                 <p className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-300">Tu Alegación</p>
               </div>
               <p className="text-sm font-bold text-dark-800 leading-relaxed">
@@ -324,7 +324,7 @@ const Dispute = () => {
           <div className="bg-white p-10 rounded-[40px] border border-light-200 shadow-premium">
             <div className="flex items-center justify-between mb-10">
               <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300">Bóveda de Evidencia</h3>
-              <button className="text-[10px] font-black text-primary-vibrant flex items-center gap-2 uppercase tracking-widest hover:underline group">
+              <button className="text-[10px] font-black text-red-600 flex items-center gap-2 uppercase tracking-widest hover:underline group">
                 <span className="material-symbols-outlined text-base font-black group-hover:rotate-90 transition-transform">add_circle</span>
                 Cargar Archivos
               </button>
@@ -335,7 +335,7 @@ const Dispute = () => {
                   <img src={`https://picsum.photos/400/400?evidence=${i}`} alt="doc" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
                 </div>
               ))}
-              <div className="aspect-square rounded-[24px] border-2 border-dashed border-light-200 flex flex-col items-center justify-center text-gray-200 hover:border-primary-vibrant/30 hover:bg-primary-50 transition-all cursor-pointer group">
+              <div className="aspect-square rounded-[24px] border-2 border-dashed border-light-200 flex flex-col items-center justify-center text-gray-200 hover:border-red-600/30 hover:bg-primary-50 transition-all cursor-pointer group">
                 <span className="material-symbols-outlined text-3xl font-black group-hover:scale-110 transition-transform">add</span>
               </div>
             </div>
@@ -343,12 +343,12 @@ const Dispute = () => {
 
           {/* Action Center */}
           <div className="bg-dark-800 p-12 rounded-[50px] shadow-premium text-center flex flex-col items-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary-vibrant/10 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-red-600/10 to-transparent"></div>
             <h3 className="text-2xl font-black text-white mb-3 uppercase tracking-tight relative z-10">Terminal de Resolución</h3>
-            <p className="text-[9px] font-black text-primary-vibrant uppercase tracking-[0.4em] mb-12 relative z-10">Slecciona la ruta del protocolo para avanzar en la mediación</p>
+            <p className="text-[9px] font-black text-red-600 uppercase tracking-[0.4em] mb-12 relative z-10">Slecciona la ruta del protocolo para avanzar en la mediación</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full relative z-10">
-              <button className="p-6 bg-white text-dark-800 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-primary-vibrant hover:text-white transition-all shadow-xl active:scale-95 group">
+              <button className="p-6 bg-white text-dark-800 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-red-600 hover:text-white transition-all shadow-xl active:scale-95 group">
                 Aceptar Liquidación Parcial
               </button>
               <button className="p-6 bg-dark-700 border border-white/5 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-white hover:text-dark-800 transition-all active:scale-95">

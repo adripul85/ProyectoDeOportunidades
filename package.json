@@ -11,10 +11,13 @@
   "dependencies": {
     "@google/genai": "^1.38.0",
     "@mercadopago/sdk-react": "^1.0.7",
+    "date-fns": "^4.1.0",
     "firebase": "^12.8.0",
+    "framer-motion": "^12.30.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-qr-code": "^2.0.18",
     "react-router-dom": "^7.13.0"
   },
   "devDependencies": {

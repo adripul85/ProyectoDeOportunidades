@@ -28,15 +28,16 @@ export const useProduct = () => {
                 const sellerData = await getUserProfile(data.sellerId);
                 setProduct({
                     ...data,
-                    seller: sellerData || {
-                        name: "Vendedor Verificado",
-                        reputation: "0.0",
-                        avatar: "https://picsum.photos/100/100?avatar=seller",
-                        deals: 0,
-                        responseTime: "---",
-                        yearsInPlatform: "Unknown",
+                    seller: sellerData ? { ...sellerData, id: data.sellerId } : {
+                        id: data.sellerId,
+                        displayName: getFakeName(data.sellerId),
+                        reputation: (Math.random() * (5 - 3.5) + 3.5).toFixed(1), // Random literal 3.5-5.0
+                        avatar: `https://ui-avatars.com/api/?name=${getFakeName(data.sellerId)}&background=random`,
+                        deals: Math.floor(Math.random() * 50) + 1,
+                        responseTime: "Menos de 1h",
+                        yearsInPlatform: "2 años",
                         status: "Regular",
-                        phrase: "---"
+                        phrase: "Vendedor de confianza"
                     }
                 });
             }
@@ -44,6 +45,13 @@ export const useProduct = () => {
         };
         fetchProduct();
     }, [id]);
+
+    // Helper to generate deterministic fake name from ID
+    const getFakeName = (id: string) => {
+        const names = ["Martín Silva", "Sofía Lopez", "Juan Perez", "Lucía Gómez", "Carlos Ruiz", "Ana Martínez", "Diego Torres", "Valentina Diaz", "Gabriel Fernandez", "Camila Rodriguez", "Lucas Benitez", "Maria Garcia"];
+        const index = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % names.length;
+        return names[index];
+    };
 
     // Fallback product for initial render or error (preventing breaks)
     const displayProduct = product || {
@@ -53,7 +61,7 @@ export const useProduct = () => {
         condition: "...",
         description: "Obteniendo especificaciones del servidor seguro...",
         images: ["https://picsum.photos/1200/900?tech"],
-        seller: { name: "...", reputation: "0.0", avatar: "", deals: 0, responseTime: "...", yearsInPlatform: "...", status: "...", phrase: "..." }
+        seller: { id: "unknown", name: "...", reputation: "0.0", avatar: "", deals: 0, responseTime: "...", yearsInPlatform: "...", status: "...", phrase: "..." }
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -64,12 +72,12 @@ export const useProduct = () => {
         setMousePos({ x, y });
     };
 
-    const startDeal = () => {
+    const buyNow = () => {
         if (!product || !id) return;
 
         notify({
             type: 'info',
-            title: '¡Excelente elección! 🎯',
+            title: 'Iniciando Compra 🎯',
             message: 'Te llevamos al checkout seguro.',
             icon: 'shopping_cart_checkout'
         });
@@ -79,7 +87,22 @@ export const useProduct = () => {
                 productId: id,
                 productTitle: product.title,
                 productPrice: product.price,
-                sellerId: product.sellerId || 'unknown'
+                sellerId: product.sellerId || 'unknown',
+                sellerName: product.seller.displayName,
+                sellerAvatar: product.seller.avatar
+            }
+        });
+    };
+
+    const contactSeller = () => {
+        if (!product || !id) return;
+
+        navigate('/new-trato', {
+            state: {
+                productTitle: product.title,
+                productPrice: product.price,
+                sellerName: product.seller.displayName,
+                sellerAvatar: product.seller.avatar
             }
         });
     };
@@ -100,6 +123,7 @@ export const useProduct = () => {
         setIsShareModalOpen,
         imageRef,
         handleMouseMove,
-        startDeal
+        buyNow,
+        contactSeller
     };
 };

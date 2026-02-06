@@ -4,60 +4,242 @@ import { MercadoPagoConfig, Preference } from 'mercadopago';
 
 admin.initializeApp();
 
-// 1. CONFIGURACIÓN
-// Access Token de TEST proporcionado por el usuario
+const db = admin.firestore();
+
+// 1. CONFIGURACIÓN MERCADO PAGO
 const client = new MercadoPagoConfig({ accessToken: 'TEST-3723388313099209-010813-b29e24f815b6c621e0eb14af1a87935f-148630764' });
 
-// 2. LA FUNCIÓN QUE LLAMARÁ TU APP
+/**
+ * 2. CREAR PREFERENCIA DE PAGO
+ */
 export const createPayment = functions.https.onCall(async (request) => {
     const data = request.data;
-
-    // Seguridad: Validar autenticación
-    if (!request.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'Debes iniciar sesión para pagar.');
-    }
-
-    console.log("💰 [CREATE_PAYMENT] Processing...", data);
+    if (!request.auth) throw new functions.https.HttpsError('unauthenticated', 'Acceso denegado.');
 
     try {
         const preference = new Preference(client);
-        const price = Number(data.price);
-
-        if (isNaN(price)) {
-            throw new Error(`Invalid Price: ${data.price}`);
-        }
-
         const result = await preference.create({
             body: {
-                items: [
-                    {
-                        id: data.transactionId,
-                        title: data.title,
-                        quantity: 1,
-                        unit_price: price,
-                        currency_id: 'ARS',
-                    },
-                ],
-                // URLs de retorno (HTTPS requerido por MP, usando placeholders de producción)
+                items: [{ id: data.transactionId, title: data.title, quantity: 1, unit_price: Number(data.price), currency_id: 'ARS' }],
                 back_urls: {
-                    success: "https://deoportunidades.web.app/success",
-                    failure: "https://deoportunidades.web.app/failure",
-                    pending: "https://deoportunidades.web.app/pending",
+                    success: "https://deoportunidades.web.app/#/payment/success",
+                    failure: "https://deoportunidades.web.app/#/payment/failure",
+                    pending: "https://deoportunidades.web.app/#/payment/pending",
                 },
                 auto_return: "approved",
                 external_reference: data.transactionId,
-                statement_descriptor: "DEOPORTUNIDADES",
             }
         });
-
-        console.log("✅ Success URL:", result.init_point || result.sandbox_init_point);
         return { url: result.init_point || result.sandbox_init_point };
-
     } catch (error: any) {
-        console.error("❌ [ERROR BACKEND]:", error);
-        throw new functions.https.HttpsError('internal', 'MP Error', {
-            message: error.message,
-            cause: error.cause
-        });
+        throw new functions.https.HttpsError('internal', error.message);
     }
+});
+
+/**
+ * 3. ACTUALIZAR ESTADO DE TRANSACCIÓN (SECURE FSM)
+ */
+export const updateTransactionStatus = functions.https.onCall(async (request) => {
+    const { transactionId, status } = request.data;
+    if (!request.auth) throw new functions.https.HttpsError('unauthenticated', 'Acceso denegado.');
+
+    const txRef = db.collection('transactions').doc(transactionId);
+    const doc = await txRef.get();
+
+    if (!doc.exists) throw new functions.https.HttpsError('not-found', 'Transacción no encontrada.');
+    const data = doc.data()!;
+
+    // VALIDAR PERMISOS
+    const isBuyer = data.buyerId === request.auth.uid;
+    const isSeller = data.sellerId === request.auth.uid;
+    const isAdmin = data.isAdmin === true; // Simplified admin check
+
+    // LÓGICA DE TRANSICIÓN DE ESTADOS
+    if (status === 'DISPUTED' && (isBuyer || isSeller || isAdmin)) {
+        await txRef.update({ status: 'DISPUTED', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+        return { success: true };
+    }
+
+    if (status === 'CANCELLED' && isBuyer && data.status === 'PENDING_PAYMENT') {
+        await txRef.update({ status: 'CANCELLED', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+        return { success: true };
+    }
+
+    throw new functions.https.HttpsError('permission-denied', 'No tienes permiso para realizar esta acción o la transición no es válida.');
+});
+
+/**
+ * 4. REGISTRAR TRACKING Y MARCAR COMO ENVIADO
+ */
+export const updateTracking = functions.https.onCall(async (request) => {
+    const { transactionId, trackingId, courier } = request.data;
+    if (!request.auth) throw new functions.https.HttpsError('unauthenticated', 'Acceso denegado.');
+
+    const txRef = db.collection('transactions').doc(transactionId);
+    const doc = await txRef.get();
+
+    if (!doc.exists) throw new functions.https.HttpsError('not-found', 'Transacción no encontrada.');
+    const data = doc.data()!;
+
+    if (data.sellerId !== request.auth.uid) {
+        throw new functions.https.HttpsError('permission-denied', 'Solo el vendedor puede registrar el envío.');
+    }
+
+    if (data.status !== 'PAID_HELD') {
+        throw new functions.https.HttpsError('failed-precondition', 'La transacción debe estar pagada para registrar envío.');
+    }
+
+    await txRef.update({
+        status: 'SHIPPED',
+        trackingId,
+        courier,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return { success: true };
+});
+
+/**
+ * 5. LIBERAR FONDOS (ESCROW RELEASE)
+ */
+export const releaseFunds = functions.https.onCall(async (request) => {
+    const { transactionId, qrToken } = request.data;
+    if (!request.auth) throw new functions.https.HttpsError('unauthenticated', 'Acceso denegado.');
+
+    const txRef = db.collection('transactions').doc(transactionId);
+    const doc = await txRef.get();
+
+    if (!doc.exists) throw new functions.https.HttpsError('not-found', 'Transacción no encontrada.');
+    const data = doc.data()!;
+
+    const isBuyer = data.buyerId === request.auth.uid;
+    const isAdmin = false; // TODO: Implement real admin check via custom claims
+
+    // Validar token si es intercambio en persona
+    if (data.deliveryMethod === 'MEETING' && data.qrCode !== qrToken) {
+        throw new functions.https.HttpsError('invalid-argument', 'Token de seguridad inválido.');
+    }
+
+    if (!isBuyer && !isAdmin) {
+        throw new functions.https.HttpsError('permission-denied', 'Solo el comprador puede liberar los fondos.');
+    }
+
+    if (data.status === 'COMPLETED') {
+        throw new functions.https.HttpsError('failed-precondition', 'Los fondos ya fueron liberados.');
+    }
+
+    // EJECUTAR LIBERACIÓN
+    await txRef.update({
+        status: 'COMPLETED',
+        escrowReleased: true,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Mover saldo al vendedor (Simulado)
+    const sellerRef = db.collection('users').doc(data.sellerId);
+    await db.runTransaction(async (t) => {
+        const sellerDoc = await t.get(sellerRef);
+        const currentBalance = sellerDoc.data()?.balance || 0;
+        t.update(sellerRef, { balance: currentBalance + data.amount });
+    });
+
+    return { success: true };
+});
+
+/**
+ * 6. REEMBOLSAR FONDOS (REFUND - ADMIN ONLY OR COMPREHENSIVE RULES)
+ */
+export const refundFunds = functions.https.onCall(async (request) => {
+    const { transactionId } = request.data;
+    if (!request.auth) throw new functions.https.HttpsError('unauthenticated', 'Acceso denegado.');
+
+    const txRef = db.collection('transactions').doc(transactionId);
+    const doc = await txRef.get();
+
+    if (!doc.exists) throw new functions.https.HttpsError('not-found', 'Transacción no encontrada.');
+    const data = doc.data()!;
+
+    const isAdmin = false; // TODO: Real admin check
+
+    if (!isAdmin) {
+        throw new functions.https.HttpsError('permission-denied', 'Solo un administrador puede ejecutar un reembolso forzado.');
+    }
+
+    if (data.status === 'REFUNDED') {
+        throw new functions.https.HttpsError('failed-precondition', 'Los fondos ya fueron reembolsados.');
+    }
+
+    // EJECUTAR REEMBOLSO
+    await txRef.update({
+        status: 'REFUNDED',
+        escrowReleased: false,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Mover saldo de vuelta al comprador (Simulado)
+    const buyerRef = db.collection('users').doc(data.buyerId);
+    await db.runTransaction(async (t) => {
+        const buyerDoc = await t.get(buyerRef);
+        const currentBalance = buyerDoc.data()?.balance || 0;
+        t.update(buyerRef, { balance: currentBalance + data.amount });
+    });
+
+    return { success: true };
+});
+
+/**
+ * 7. AGREGAR NOTA AL ESCROW (SISTEMA O CHAT)
+ */
+export const addEscrowNote = functions.https.onCall(async (request) => {
+    const { transactionId, role, text, senderId } = request.data;
+    if (!request.auth) throw new functions.https.HttpsError('unauthenticated', 'Acceso denegado.');
+
+    const txRef = db.collection('transactions').doc(transactionId);
+    const doc = await txRef.get();
+    if (!doc.exists) throw new functions.https.HttpsError('not-found', 'Transacción no encontrada.');
+
+    const msgRef = txRef.collection('messages').doc();
+    await msgRef.set({
+        role,
+        text,
+        senderId: senderId || request.auth.uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await txRef.update({
+        lastSystemMessage: role === 'sistema' ? text : null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return { success: true };
+});
+
+/**
+ * 8. REGISTRAR EVIDENCIA (FOTOS/COMPROBANTES)
+ */
+export const submitEvidence = functions.https.onCall(async (request) => {
+    const { transactionId, url, type, description } = request.data;
+    if (!request.auth) throw new functions.https.HttpsError('unauthenticated', 'Acceso denegado.');
+
+    const txRef = db.collection('transactions').doc(transactionId);
+    const doc = await txRef.get();
+    if (!doc.exists) throw new functions.https.HttpsError('not-found', 'Transacción no encontrada.');
+
+    const evidenceRef = txRef.collection('evidence').doc();
+    await evidenceRef.set({
+        url,
+        type,
+        description: description || '',
+        uploadedBy: request.auth.uid,
+        aiVerified: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    const currentCount = doc.data()?.evidenceCount || 0;
+    await txRef.update({
+        evidenceCount: currentCount + 1,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return { success: true };
 });

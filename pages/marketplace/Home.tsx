@@ -1,18 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getItems, ItemData } from '../../lib/items';
+import { getItems, ItemData, CATEGORIES } from '../../lib/items';
+import { LOCATION_DATA } from '../../lib/locations';
 import SkeletonCard from '../../components/SkeletonCard';
 import ProductCard from '../../components/ProductCard';
+
+// Icon mapping for categories
+const CATEGORY_ICONS: Record<string, string> = {
+  "Vehículos": "directions_car",
+  "Inmuebles": "home_work",
+  "Electrónica": "dvr",
+  "Celulares y Teléfonos": "smartphone",
+  "Moda y Accesorios": "checkroom",
+  "Hogar": "weekend",
+  "Instrumentos Musicales": "piano",
+  "Gratis": "redeem",
+  "Computación": "laptop_mac",
+  "Audio y Video": "headset",
+  "Videojuegos": "sports_esports",
+  "Muebles y Decoración": "chair",
+  "Electrodomésticos": "kitchen",
+  "Joyas y Relojes": "watch",
+  "Belleza y Salud": "content_cut",
+  "Deportes y Fitness": "fitness_center",
+  "Accesorios Vehículos": "minor_crash",
+  "Construcción": "home_repair_service",
+  "Bebés": "child_care",
+  "Oficina y Papelería": "content_paste",
+  "Alimentos y Bebidas": "fastfood",
+  "Juegos y Juguetes": "toys",
+  "Mascotas": "pets",
+  "Cámaras y Accesorios": "photo_camera",
+  "Servicios": "handshake",
+  "Otras categorías": "category"
+};
 
 const Home = () => {
   const [recentProducts, setRecentProducts] = useState<(ItemData & { id: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [radius, setRadius] = useState(20);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeLocation, setActiveLocation] = useState<string>('');
+  const [activeProvince, setActiveProvince] = useState<string>('');
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'MarketTrust | La Red de Comercio Segura';
+    document.title = 'De Oportunidades | El Mercado de Confianza';
     return () => { document.title = prevTitle; };
   }, []);
 
@@ -26,15 +60,11 @@ const Home = () => {
     fetchRecent();
   }, []);
 
-  const categories = [
-    { name: 'Vehículos', icon: 'directions_car' },
-    { name: 'Propiedades', icon: 'home_work' },
-    { name: 'Electrónica', icon: 'dvr', active: true },
-    { name: 'Ropa', icon: 'checkroom' },
-    { name: 'Hogar', icon: 'weekend' },
-    { name: 'Instrumentos', icon: 'piano' },
-    { name: 'Gratis', icon: 'redeem' },
-  ];
+  const categories = CATEGORIES.map(cat => ({
+    name: cat,
+    icon: CATEGORY_ICONS[cat] || 'category',
+    active: activeCategory === cat
+  }));
 
   return (
     <div className="flex bg-light-50 min-h-screen">
@@ -46,6 +76,7 @@ const Home = () => {
             {categories.map((cat, i) => (
               <button
                 key={i}
+                onClick={() => setActiveCategory(activeCategory === cat.name ? null : cat.name)}
                 className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all font-bold ${cat.active ? 'bg-primary-50 text-primary-vibrant' : 'text-dark-700 hover:bg-light-100'
                   }`}
               >
@@ -64,9 +95,19 @@ const Home = () => {
             <div className="space-y-3">
               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Ubicación</label>
               <div className="relative">
-                <select className="w-full bg-light-100 border-none rounded-xl py-3 px-4 font-bold text-sm appearance-none focus:ring-2 focus:ring-primary-100">
-                  <option>Buenos Aires, AR</option>
-                  <option>Córdoba, AR</option>
+                <select
+                  className="w-full bg-light-100 border-none rounded-xl py-3 px-4 font-bold text-sm appearance-none focus:ring-2 focus:ring-primary-100 pr-10"
+                  onChange={(e) => setActiveLocation(e.target.value)}
+                  value={activeLocation}
+                >
+                  <option value="">Todas las ubicaciones</option>
+                  {LOCATION_DATA.provinces.map(p => (
+                    <optgroup key={p.name} label={p.name}>
+                      {p.cities.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
                 <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
               </div>
@@ -125,22 +166,34 @@ const Home = () => {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-end justify-between mb-8 sm:mb-12">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black mb-2">Destacados en Buenos Aires</h1>
-              <p className="text-sm font-bold text-gray-400">Nuevos arribos de vendedores confiables cerca tuyo.</p>
+              <h1 className="text-2xl sm:text-3xl font-black mb-2 flex items-center gap-3">
+                {activeCategory ? activeCategory : 'Destacados en Buenos Aires'}
+                <span className="text-red-600">🎯</span>
+              </h1>
+              <p className="text-sm font-bold text-gray-400">
+                {activeCategory ? `Mostrando activos en ${activeCategory}` : 'Nuevos arribos de vendedores confiables cerca tuyo.'}
+              </p>
             </div>
-            <button className="hidden sm:flex items-center gap-2 text-primary-vibrant font-black text-sm hover:underline">
-              Ver todo
-              <span className="material-symbols-outlined text-lg">arrow_forward</span>
-            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {loading ? (
               Array(8).fill(0).map((_, i) => <SkeletonCard key={i} />)
-            ) : recentProducts.length > 0 ? (
-              recentProducts.map(p => (
-                <ProductCard key={p.id} product={p} location={p.location} />
-              ))
+            ) : recentProducts
+              .filter(p => !activeCategory || p.category === activeCategory)
+              .filter(p => !priceRange.min || (p.price >= Number(priceRange.min)))
+              .filter(p => !priceRange.max || (p.price <= Number(priceRange.max)))
+              // Radius and Location filtering would typically happen on the backend or using geospatial data
+              // For this demo, we can simulate location filtering if we had location data on items
+              // For now, we'll just demonstrate logical connectivity
+              .length > 0 ? (
+              recentProducts
+                .filter(p => !activeCategory || p.category === activeCategory)
+                .filter(p => !priceRange.min || (p.price >= Number(priceRange.min)))
+                .filter(p => !priceRange.max || (p.price <= Number(priceRange.max)))
+                .map(p => (
+                  <ProductCard key={p.id} product={p} location={p.location} />
+                ))
             ) : (
               <div className="col-span-full py-20 text-center">
                 <div className="size-20 bg-light-100 rounded-full flex items-center justify-center mx-auto mb-6">

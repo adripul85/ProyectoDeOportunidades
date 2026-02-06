@@ -9,7 +9,10 @@ export interface ItemData {
     category: string;
     condition: 'new' | 'like_new' | 'good' | 'fair';
     images: string[];
+    shippingAvailable?: boolean;
     sellerId: string; // ID del usuario que vende
+    brand?: string;
+    color?: string;
 }
 
 export const CATEGORIES = [
@@ -110,5 +113,29 @@ export const getProduct = async (id: string) => {
     } catch (error) {
         console.error("Error al obtener producto:", error);
         return null;
+    }
+};
+
+// Update an existing item
+export const updateItem = async (id: string, data: Partial<ItemData>) => {
+    try {
+        const docRef = doc(db, "items", id);
+        await import("firebase/firestore").then(({ updateDoc }) => updateDoc(docRef, { ...data }));
+        return { success: true };
+    } catch (error) {
+        console.error("Error updating item:", error);
+        return { success: false, error };
+    }
+};
+
+// Delete an item (or mark as deleted)
+export const deleteItem = async (id: string) => {
+    try {
+        const docRef = doc(db, "items", id);
+        await import("firebase/firestore").then(({ deleteDoc }) => deleteDoc(docRef));
+        return { success: true };
+    } catch (error) {
+        console.error("Error deleting item:", error);
+        return { success: false, error };
     }
 };

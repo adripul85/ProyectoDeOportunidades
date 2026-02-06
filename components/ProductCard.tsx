@@ -5,9 +5,10 @@ import { ItemData } from '../lib/items';
 interface ProductCardProps {
     product: ItemData & { id: string };
     location?: string;
+    isVerified?: boolean;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, location }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, location, isVerified }) => {
     return (
         <Link
             to={`/product/${product.id}`}
@@ -28,6 +29,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, location }) => {
                 >
                     <span className="material-symbols-outlined text-xl">favorite</span>
                 </button>
+
+                {isVerified && (
+                    <div className="absolute top-4 left-4 size-8 bg-white/95 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg border border-white/20 animate-in zoom-in duration-700">
+                        <span className="material-symbols-outlined text-primary-vibrant text-lg font-black">verified</span>
+                    </div>
+                )}
             </div>
             <div className="p-5">
                 <p className="text-xl font-black text-dark-800 mb-1">${product.price.toLocaleString()}</p>

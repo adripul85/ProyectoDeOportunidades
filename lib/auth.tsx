@@ -34,22 +34,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     // Fetch user profile
-    const fetchUserProfile = async (uid: string) => {
+    const fetchUserProfile = async (currentUser: User) => {
         setProfileLoading(true);
-        const profile = await getUserProfile(uid);
+        const profile = await getUserProfile(currentUser.uid);
 
         // If profile doesn't exist, create a basic one
         if (!profile) {
-            await createUserProfile(uid, {
-                email: user?.email || '',
-                displayName: user?.displayName || '',
-                avatar: user?.photoURL || '',
+            await createUserProfile(currentUser.uid, {
+                email: currentUser.email || '',
+                displayName: currentUser.displayName || '',
+                avatar: currentUser.photoURL || '',
                 phone: '',
                 location: { city: '', state: '' },
                 profileComplete: false
             });
             // Fetch again after creation
-            const newProfile = await getUserProfile(uid);
+            const newProfile = await getUserProfile(currentUser.uid);
             setUserProfile(newProfile);
         } else {
             setUserProfile(profile);
@@ -59,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const refreshProfile = async () => {
         if (user) {
-            await fetchUserProfile(user.uid);
+            await fetchUserProfile(user);
         }
     };
 
@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(currentUser);
 
             if (currentUser) {
-                await fetchUserProfile(currentUser.uid);
+                await fetchUserProfile(currentUser);
             } else {
                 setUserProfile(null);
                 setProfileLoading(false);
