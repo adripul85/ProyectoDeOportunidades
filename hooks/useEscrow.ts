@@ -160,6 +160,10 @@ export const useEscrow = (id: string | undefined) => {
         try {
             const url = await uploadFile(file, `escrow/${id}`);
             await submitEvidence(id, url, type, `Evidencia cargada por el ${currentUserRole}`);
+
+            // Mensaje automático al chat del protocolo
+            await sendEscrowNote(id, 'sistema', `📸 El ${currentUserRole.toLowerCase()} ha certificado una nueva evidencia. El proceso de liberación ya está disponible.`, user?.uid);
+
             notify({ type: 'success', title: 'Evidencia Cargada', message: 'La foto ha sido adjunta al registro seguro.', icon: 'auto_awesome' });
         } catch (error) {
             console.error("Error uploading evidence:", error);
@@ -170,6 +174,7 @@ export const useEscrow = (id: string | undefined) => {
     };
 
     return {
+        transaction,
         dealData,
         currentUserRole,
         status,

@@ -139,3 +139,17 @@ export const deleteItem = async (id: string) => {
         return { success: false, error };
     }
 };
+
+// Subscribe to a product for real-time updates (deletion/changes)
+export const subscribeToProduct = (id: string, callback: (item: (ItemData & { id: string }) | null) => void) => {
+    const docRef = doc(db, "items", id);
+    return import("firebase/firestore").then(({ onSnapshot }) => {
+        return onSnapshot(docRef, (doc) => {
+            if (doc.exists()) {
+                callback({ id: doc.id, ...doc.data() } as (ItemData & { id: string }));
+            } else {
+                callback(null);
+            }
+        });
+    });
+};

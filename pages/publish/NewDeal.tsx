@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useNotification } from '../../App';
+import { subscribeToProduct } from '../../lib/items';
 
 
 const NewDeal = () => {
@@ -15,6 +16,18 @@ const NewDeal = () => {
     productTitle: state.productTitle || '',
     productPrice: state.productPrice || ''
   };
+
+  React.useEffect(() => {
+    if (state.productId) {
+      const unsubscribePromise = subscribeToProduct(state.productId, (item) => {
+        if (!item) {
+          notify({ type: 'error', title: 'Producto No Disponible', message: 'El vendedor ha eliminado este producto.', icon: 'production_quantity_limits' });
+          setTimeout(() => navigate('/'), 2000);
+        }
+      });
+      return () => { unsubscribePromise.then(unsub => unsub()); };
+    }
+  }, [state.productId, navigate, notify]);
 
   const [title, setTitle] = useState(seller.productTitle);
   const [amount, setAmount] = useState(seller.productPrice.toString());

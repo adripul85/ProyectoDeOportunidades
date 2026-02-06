@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useNotification } from '../../App';
 import { useAuth } from '../../lib/auth';
 import { createTransaction, PaymentMethod } from '../../lib/transactions';
-import { getProduct } from '../../lib/items';
+import { subscribeToProduct } from '../../lib/items';
 import { httpsCallable } from 'firebase/functions'; // Use Firebase Cloud Functions
 import { functions } from '../../lib/firebase';
 import PaymentMethodSelector from '../../components/checkout/PaymentMethodSelector';
@@ -18,19 +18,31 @@ export default function Checkout() {
   const [deliveryMethod, setDeliveryMethod] = useState<'SHIPPING' | 'MEETING'>('MEETING');
   const [shippingAvailable, setShippingAvailable] = useState<boolean>(true); // Default true until fetched
 
-  const { productId, productTitle, productPrice, sellerId } = location.state || {};
+
+
+  const { productId, productTitle, productPrice, sellerId } = location.state || {}; // Initial state
+  const [isDeleted, setIsDeleted] = useState(false);
 
   React.useEffect(() => {
     if (productId) {
-      getProduct(productId).then(item => {
-        if (item && item.shippingAvailable !== undefined) {
-          setShippingAvailable(item.shippingAvailable);
-          // If shipping not available, enforce MEETING
-          if (!item.shippingAvailable) setDeliveryMethod('MEETING');
+      // Subscribe to real-time updates
+      const unsubscribePromise = subscribeToProduct(productId, (item) => {
+        if (!item) {
+          // If item returns null, it has been deleted
+          setIsDeleted(true);
+          notify({ type: 'error', title: 'Producto No Disponible', message: 'El vendedor ha eliminado este producto o pausado la venta.', icon: 'production_quantity_limits' });
+          setTimeout(() => navigate('/'), 2000);
+        } else {
+          if (item.shippingAvailable !== undefined) {
+            setShippingAvailable(item.shippingAvailable);
+            if (!item.shippingAvailable) setDeliveryMethod('MEETING');
+          }
         }
       });
+
+      return () => { unsubscribePromise.then(unsub => unsub()); };
     }
-  }, [productId]);
+  }, [productId, navigate, notify]);
 
   if (!productId) {
     return (
