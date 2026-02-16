@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs, doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
 
 export type QuestionStatus = 'pending' | 'answered';
@@ -99,4 +99,21 @@ export const deleteQuestion = async (questionId: string) => {
         console.error("Error deleting question:", error);
         return { success: false, error };
     }
+};
+
+// Subscribe to questions (Real-time)
+export const subscribeToQuestions = (itemId: string, callback: (questions: (QuestionData & { id: string })[]) => void) => {
+    const q = query(
+        collection(db, "questions"),
+        where("itemId", "==", itemId),
+        orderBy("createdAt", "desc")
+    );
+
+    return onSnapshot(q, (snapshot) => {
+        const questions = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        })) as (QuestionData & { id: string })[];
+        callback(questions);
+    });
 };

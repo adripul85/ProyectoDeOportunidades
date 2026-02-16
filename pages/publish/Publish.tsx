@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { publishItem, ItemData, CATEGORIES, getProduct, updateItem } from '../../lib/items';
-import { useNotification } from '../../App';
+import { useNotification } from '../../context/NotificationContext';
 import { useAuth } from '../../lib/auth';
 import { uploadFile } from '../../lib/storage';
 
 export default function Publish() {
     const navigate = useNavigate();
     const { notify } = useNotification();
-    const { user } = useAuth();
+    const { user, userProfile } = useAuth();
     const [searchParams] = useSearchParams();
     const editId = searchParams.get('edit');
 
@@ -37,7 +37,7 @@ export default function Publish() {
                 if (item) {
                     setForm({
                         title: item.title,
-                        price: item.price.toString(),
+                        price: item.price.toLocaleString('es-AR'),
                         description: item.description,
                         category: item.category,
                         condition: item.condition,
@@ -87,11 +87,16 @@ export default function Publish() {
                 return;
             }
 
-            const parsedPrice = parseFloat(form.price);
+            // Parse Price: Remove dots (thousands separation) and replace comma with dot (decimal)
+            const cleanPrice = form.price.replace(/\./g, '').replace(',', '.');
+            const parsedPrice = parseFloat(cleanPrice);
+
             if (isNaN(parsedPrice) || parsedPrice <= 0) {
                 notify({ type: 'warning', title: 'Precio Inválido', message: 'Por favor ingresa un precio válido.', icon: 'payments' });
                 return;
             }
+
+
 
             if (!user) {
                 notify({ type: 'error', title: 'Acceso Denegado', message: 'Debes iniciar sesión para publicar ítems.', icon: 'lock' });
@@ -117,6 +122,11 @@ export default function Publish() {
             let result;
             const finalImages = [...existingImages, ...uploadedImages];
 
+            // Format location string
+            const sellerLocation = userProfile?.location
+                ? `${userProfile.location.city}, ${userProfile.location.state}`
+                : undefined;
+
             if (editId) {
                 // Update existing item
                 const updateResult = await updateItem(editId, {
@@ -128,7 +138,8 @@ export default function Publish() {
                     brand: form.brand,
                     color: form.color,
                     shippingAvailable: form.shippingAvailable,
-                    images: finalImages.length > 0 ? finalImages : ["https://picsum.photos/400/400?random=1"]
+                    images: finalImages.length > 0 ? finalImages : ["https://picsum.photos/400/400?random=1"],
+                    location: sellerLocation
                 });
                 result = { success: updateResult.success, id: editId };
             } else {
@@ -143,7 +154,8 @@ export default function Publish() {
                     color: form.color,
                     shippingAvailable: form.shippingAvailable,
                     images: finalImages.length > 0 ? finalImages : ["https://picsum.photos/400/400?random=1"],
-                    sellerId: user.uid
+                    sellerId: user.uid,
+                    location: sellerLocation
                 });
             }
 
@@ -234,10 +246,29 @@ export default function Publish() {
                                     <span className="absolute left-6 top-1/2 -translate-y-1/2 text-dark-800/40 font-black">$</span>
                                     <input
                                         name="price"
-                                        type="number"
+                                        type="text"
                                         value={form.price}
-                                        onChange={handleChange}
-                                        placeholder="0.00"
+                                        onChange={(e) => {
+                                            // Allow only numbers and one comma
+                                            const rawValue = e.target.value.replace(/[^0-9,]/g, '');
+                                            if ((rawValue.match(/,/g) || []).length > 1) return;
+
+                                            // Split integer and decimal parts
+                                            const parts = rawValue.split(',');
+
+
+                                            // Format integer part with dots
+                                            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+                                            // Reconstruct
+                                            const formatted = parts.join(',');
+
+                                            // Only update if changed
+                                            if (formatted !== form.price) {
+                                                setForm(prev => ({ ...prev, price: formatted }));
+                                            }
+                                        }}
+                                        placeholder="0,00"
                                         className="w-full bg-white border border-light-200 rounded-2xl py-4 pl-12 pr-6 font-bold text-dark-800 outline-none focus:ring-2 focus:ring-primary-100 transition-all placeholder:text-gray-300"
                                     />
                                 </div>
@@ -317,24 +348,27 @@ export default function Publish() {
                         </div>
 
                         {/* Shipping Toggle */}
-                        <div className="bg-white p-6 rounded-2xl border border-light-200">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h4 className="font-black text-dark-800 text-sm mb-1">Habilitar Envíos</h4>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">¿Estás dispuesto a enviar este producto?</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        name="shippingAvailable"
-                                        checked={form.shippingAvailable}
-                                        onChange={handleChange}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-vibrant"></div>
-                                </label>
-                            </div>
-                        </div>
+                        {/* Shipping Toggle (Hidden per user request) */}
+                        {/* 
+                         <div className="bg-white p-6 rounded-2xl border border-light-200">
+                             <div className="flex items-center justify-between">
+                                 <div>
+                                     <h4 className="font-black text-dark-800 text-sm mb-1">Habilitar Envíos</h4>
+                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">¿Estás dispuesto a enviar este producto?</p>
+                                 </div>
+                                 <label className="relative inline-flex items-center cursor-pointer">
+                                     <input
+                                         type="checkbox"
+                                         name="shippingAvailable"
+                                         checked={form.shippingAvailable}
+                                         onChange={handleChange}
+                                         className="sr-only peer"
+                                     />
+                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-vibrant"></div>
+                                 </label>
+                             </div>
+                         </div>
+                         */}
 
                         {/* Submit Buttons */}
                         <div className="flex gap-4 pt-4">
@@ -405,7 +439,7 @@ export default function Publish() {
                                     {form.title || 'Tu Título Aquí'}
                                 </h1>
                                 <p className="text-3xl font-black text-primary-vibrant mb-10">
-                                    ${form.price ? parseFloat(form.price).toLocaleString() : '0.00'}
+                                    ${form.price || '0,00'}
                                 </p>
 
                                 <div className="space-y-8">

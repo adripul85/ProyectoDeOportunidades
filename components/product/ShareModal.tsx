@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useNotification } from '../../App';
+import { useNotification } from '../../context/NotificationContext';
 
 interface Props {
     isOpen: boolean;

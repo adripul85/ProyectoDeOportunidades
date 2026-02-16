@@ -1,6 +1,7 @@
 import { collection, addDoc, serverTimestamp, doc, getDoc, getDocs, query, where, orderBy, onSnapshot } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "./firebase";
+import { getSystemAdminId } from "./admin";
 
 // Transaction states following strict FSM
 export type TransactionStatus =
@@ -35,6 +36,7 @@ export interface TransactionData {
     shippingEvidence?: string[]; // URLs of photos uploaded by seller
     deliveryEvidence?: string[]; // URLs of photos uploaded by buyer
     lastSystemMessage?: string;
+    notes?: string; // Especificaciones/Notas del trato
     disputeStartedAt?: any;
     createdAt: any;
     updatedAt: any;
@@ -61,13 +63,15 @@ export interface EscrowEvidence {
 const functions = getFunctions();
 
 // Create a new transaction
-export const createTransaction = async (data: Omit<TransactionData, 'status' | 'escrowReleased' | 'createdAt' | 'updatedAt' | 'qrCode'>) => {
+export const createTransaction = async (data: Omit<TransactionData, 'status' | 'escrowReleased' | 'createdAt' | 'updatedAt' | 'qrCode' | 'platformFee'>) => {
     try {
         const qrCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+        // 10% Platform Fee
+        const platformFee = data.amount * 0.10;
 
         const docRef = await addDoc(collection(db, "transactions"), {
             ...data,
-            // deliveryMethod is now passed in data
+            platformFee,
             qrCode: qrCode,
             status: "PENDING_PAYMENT" as TransactionStatus,
             escrowReleased: false,
@@ -84,13 +88,12 @@ export const createTransaction = async (data: Omit<TransactionData, 'status' | '
 };
 
 // Get transaction by ID
-export const getTransaction = async (id: string): Promise<(TransactionData & { id: string }) | null> => {
+export const getTransaction = async (id: string) => {
     try {
         const docRef = doc(db, "transactions", id);
         const docSnap = await getDoc(docRef);
-
         if (docSnap.exists()) {
-            return { id: docSnap.id, ...docSnap.data() } as (TransactionData & { id: string });
+            return { id: docSnap.id, ...docSnap.data() } as TransactionData & { id: string };
         }
         return null;
     } catch (error) {
@@ -99,46 +102,30 @@ export const getTransaction = async (id: string): Promise<(TransactionData & { i
     }
 };
 
-/**
- * SECURE: Update transaction status through Cloud Functions
- */
-/**
- * SECURE: Update transaction status through Cloud Functions
- */
-export const updateTransactionStatus = async (id: string, status: TransactionStatus, extraData?: any) => {
+// Update transaction status
+export const updateTransactionStatus = async (id: string, status: TransactionStatus) => {
     try {
-        // const setStatus = httpsCallable(functions, 'updateTransactionStatus');
-        // const result = await setStatus({ transactionId: id, status, ...extraData });
-        // return result.data as { success: boolean, error?: string };
-        throw new Error("Skipping function call - using direct fallback");
-    } catch (error) {
-        console.warn("Cloud Function failed. Using direct Firestore fallback.");
-        try {
-            const docRef = doc(db, "transactions", id);
-            await import("firebase/firestore").then(({ updateDoc }) =>
-                updateDoc(docRef, {
-                    status,
-                    ...extraData,
-                    updatedAt: serverTimestamp()
-                })
-            );
-            return { success: true };
-        } catch (fbError: any) {
-            console.error("Direct fallback failed:", fbError);
-            return { success: false, error: fbError.message };
-        }
+        const docRef = doc(db, "transactions", id);
+        await import("firebase/firestore").then(({ updateDoc }) =>
+            updateDoc(docRef, {
+                status,
+                updatedAt: serverTimestamp()
+            })
+        );
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating transaction status:", error);
+        return { success: false, error: error.message };
     }
 };
 
 /**
  * SECURE: Release funds (Hybrid: Cloud Function with Direct Fallback)
+ * Diverts 10% to Admin, Remainder to Seller.
  */
 export const releaseFunds = async (id: string, qrToken?: string) => {
     try {
         // 1. Try Cloud Function first
-        // const release = httpsCallable(functions, 'releaseFunds');
-        // const result = await release({ transactionId: id, qrToken });
-        // return result.data as { success: boolean, error?: string };
         throw new Error("Skipping function call - using direct fallback");
     } catch (error) {
         console.log("Dev Mode: Cloud Function skipped. Using direct Firestore fallback.");
@@ -159,6 +146,8 @@ export const releaseFunds = async (id: string, qrToken?: string) => {
                 }
             }
 
+            if (data.status === 'COMPLETED') return { success: true }; // Idempotency check
+
             // Update Status
             await import("firebase/firestore").then(({ updateDoc }) =>
                 updateDoc(docRef, {
@@ -168,12 +157,35 @@ export const releaseFunds = async (id: string, qrToken?: string) => {
                 })
             );
 
-            // Simulate Balance Transfer (Update Seller)
+            // 3. DISTRIBUTE FUNDS
+            const { getSystemAdminId } = await import('./admin');
+            const adminId = await getSystemAdminId();
+
             const sellerRef = doc(db, "users", data.sellerId);
-            // Note: In a real app, this MUST be transactional. Here we just update.
+            const netAmount = data.amount - (data.platformFee || 0);
+
+            // A. Pay Seller (Net Amount)
             await import("firebase/firestore").then(({ updateDoc, increment }) =>
-                updateDoc(sellerRef, { "wallet.available": increment(data.amount) })
+                updateDoc(sellerRef, { "wallet.available": increment(netAmount) })
             );
+
+            // B. Pay Admin (Fee)
+            if (adminId && data.platformFee > 0) {
+                const adminRef = doc(db, "users", adminId);
+                await import("firebase/firestore").then(({ updateDoc, increment }) =>
+                    updateDoc(adminRef, { "wallet.available": increment(data.platformFee) })
+                );
+
+                // C. LOG REVENUE
+                await addDoc(collection(db, "financial_logs"), {
+                    transactionId: id,
+                    type: 'platform_fee',
+                    amount: data.platformFee,
+                    currency: 'ARS',
+                    relatedUser: data.sellerId,
+                    timestamp: serverTimestamp()
+                });
+            }
 
             return { success: true };
 
@@ -181,6 +193,109 @@ export const releaseFunds = async (id: string, qrToken?: string) => {
             console.error("Direct fallback failed:", fbError);
             return { success: false, error: fbError.message };
         }
+    }
+};
+
+/**
+ * CANCEL Transaction (with 3% Penalty logic)
+ * If Seller cancels -> Charge 3% penalty.
+ * If Buyer cancels (or mutual) -> Full refund (no fee usually, unless disputed).
+ * For simplicty: We assume this is called by the person cancelling.
+ */
+export const cancelTransaction = async (id: string, cancelledByUid: string) => {
+    try {
+        const docRef = doc(db, "transactions", id);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) return { success: false, error: 'Transaction not found' };
+
+        const data = docSnap.data() as TransactionData;
+
+        // Define Fee
+        const penaltyRate = 0.03;
+        const penaltyAmount = data.amount * penaltyRate;
+        const refundAmount = data.amount - penaltyAmount;
+        const isSeller = cancelledByUid === data.sellerId;
+
+        // Message
+        const systemMessage = isSeller
+            ? `Cancelado por el vendedor. Se aplicó una penalización del 3% ($${penaltyAmount}).`
+            : `Cancelado por el comprador. Se descontó 3% ($${penaltyAmount}) por gastos de servicio escrow.`;
+
+        // Update Transaction
+        await import("firebase/firestore").then(({ updateDoc }) =>
+            updateDoc(docRef, {
+                status: 'CANCELLED',
+                updatedAt: serverTimestamp(),
+                lastSystemMessage: systemMessage
+            })
+        );
+
+        // MONEY MOVEMENT
+        const { getSystemAdminId } = await import('./admin');
+        const adminId = await getSystemAdminId();
+        const adminRef = adminId ? doc(db, "users", adminId) : null;
+
+        if (isSeller) {
+            // SELLER CANCELLED: Full Refund to Buyer, Penalty to Seller
+            // 1. Refund Buyer 100%
+            const buyerRef = doc(db, "users", data.buyerId);
+            await import("firebase/firestore").then(({ updateDoc, increment }) =>
+                updateDoc(buyerRef, { "wallet.available": increment(data.amount) })
+            );
+
+            // 2. Charge Seller Penalty
+            const sellerRef = doc(db, "users", data.sellerId);
+            await import("firebase/firestore").then(({ updateDoc, increment }) =>
+                updateDoc(sellerRef, { "wallet.available": increment(-penaltyAmount) })
+            );
+
+            // 3. Credit Admin
+            if (adminRef) {
+                await import("firebase/firestore").then(({ updateDoc, increment }) =>
+                    updateDoc(adminRef, { "wallet.available": increment(penaltyAmount) })
+                );
+
+                // LOG PENALTY
+                await addDoc(collection(db, "financial_logs"), {
+                    transactionId: id,
+                    type: 'cancellation_penalty',
+                    amount: penaltyAmount,
+                    currency: 'ARS',
+                    relatedUser: data.sellerId,
+                    timestamp: serverTimestamp()
+                });
+            }
+
+        } else {
+            // BUYER CANCELLED: Refund - Penalty
+            // 1. Refund Buyer (97%)
+            const buyerRef = doc(db, "users", data.buyerId);
+            await import("firebase/firestore").then(({ updateDoc, increment }) =>
+                updateDoc(buyerRef, { "wallet.available": increment(refundAmount) })
+            );
+
+            // 2. Credit Admin (3% Fee from Escrow)
+            if (adminRef) {
+                await import("firebase/firestore").then(({ updateDoc, increment }) =>
+                    updateDoc(adminRef, { "wallet.available": increment(penaltyAmount) })
+                );
+
+                // LOG PENALTY
+                await addDoc(collection(db, "financial_logs"), {
+                    transactionId: id,
+                    type: 'cancellation_penalty',
+                    amount: penaltyAmount,
+                    currency: 'ARS',
+                    relatedUser: data.buyerId,
+                    timestamp: serverTimestamp()
+                });
+            }
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error cancelling transaction:", error);
+        return { success: false, error: error.message };
     }
 };
 
@@ -209,19 +324,26 @@ export const updateTracking = async (id: string, trackingId: string, courier: st
 export const getUserTransactions = async (userId: string) => {
     try {
         const transactionsRef = collection(db, "transactions");
+        const withdrawalsRef = collection(db, "withdrawals");
 
         const qBuy = query(transactionsRef, where("buyerId", "==", userId), orderBy("createdAt", "desc"));
         const qSell = query(transactionsRef, where("sellerId", "==", userId), orderBy("createdAt", "desc"));
+        const qWithdrawals = query(withdrawalsRef, where("uid", "==", userId), orderBy("createdAt", "desc"));
 
-        const [buySnap, sellSnap] = await Promise.all([getDocs(qBuy), getDocs(qSell)]);
+        const [buySnap, sellSnap, withdrawSnap] = await Promise.all([
+            getDocs(qBuy),
+            getDocs(qSell),
+            getDocs(qWithdrawals)
+        ]);
 
         const compras = buySnap.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'compra' })) as (TransactionData & { id: string, type: 'compra' })[];
         const ventas = sellSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'venta' })) as (TransactionData & { id: string, type: 'venta' })[];
+        const retiros = withdrawSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'retiro' })) as any[];
 
-        return { compras, ventas };
+        return { compras, ventas, retiros };
     } catch (error) {
         console.error("Error fetching user transactions:", error);
-        return { compras: [], ventas: [] };
+        return { compras: [], ventas: [], retiros: [] };
     }
 };
 

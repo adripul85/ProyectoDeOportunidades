@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { getTransaction, releaseFunds } from '../lib/transactions';
-import { useNotification } from '../App';
+import { useNotification } from '../context/NotificationContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function VerifyDelivery() {

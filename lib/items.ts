@@ -13,6 +13,7 @@ export interface ItemData {
     sellerId: string; // ID del usuario que vende
     brand?: string;
     color?: string;
+    location?: string; // Ubicación del vendedor (ej: "Mendoza, AR")
     status?: 'AVAILABLE' | 'SOLD';
 }
 

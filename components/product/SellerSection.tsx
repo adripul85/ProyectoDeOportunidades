@@ -1,6 +1,7 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../lib/auth';
+import { useNotification } from '../../context/NotificationContext';
 
 interface Seller {
     uid: string;
@@ -21,7 +22,47 @@ interface Props {
 }
 
 const SellerSection: React.FC<Props> = ({ seller }) => {
+    const { user } = useAuth(); // Assuming useAuth is available/imported
+    const { notify } = useNotification(); // Assuming useNotification is available/imported
+    const [isFollowing, setIsFollowing] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
+
     const isVerified = seller.verificationBadges?.identityVerified;
+
+    React.useEffect(() => {
+        if (user && seller.uid) {
+            import('../../lib/users').then(({ isFollowingUser }) => {
+                isFollowingUser(user.uid, seller.uid).then(setIsFollowing);
+            });
+        }
+    }, [user, seller.uid]);
+
+    const handleFollow = async () => {
+        if (!user) {
+            notify({ type: 'error', title: 'Acceso Denegado', message: 'Inicia sesión para seguir a este vendedor.', icon: 'lock' });
+            return;
+        }
+        if (user.uid === seller.uid) return;
+
+        setLoading(true);
+        try {
+            const { followUser, unfollowUser } = await import('../../lib/users');
+            if (isFollowing) {
+                await unfollowUser(user.uid, seller.uid);
+                setIsFollowing(false);
+                notify({ type: 'success', title: 'Dejado de seguir', message: `Ya no sigues a ${seller.displayName}`, icon: 'person_remove' });
+            } else {
+                await followUser(user.uid, seller.uid);
+                setIsFollowing(true);
+                notify({ type: 'success', title: 'Siguiendo', message: `Ahora sigues a ${seller.displayName}`, icon: 'person_add' });
+            }
+        } catch (error) {
+            console.error(error);
+            notify({ type: 'error', title: 'Error', message: 'No se pudo actualizar el seguimiento.', icon: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="bg-white p-10 rounded-[40px] shadow-premium border border-light-200/50 relative overflow-hidden">
@@ -32,7 +73,21 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
                 </div>
             )}
 
-            <h3 className="text-[9px] font-black text-gray-400 uppercase tracking-[0.4em] mb-8 ml-1">Inteligencia del Comerciante</h3>
+            <div className="flex justify-between items-center mb-8 ml-1">
+                <h3 className="text-[9px] font-black text-gray-400 uppercase tracking-[0.4em]">Inteligencia del Comerciante</h3>
+                {user && user.uid !== seller.uid && (
+                    <button
+                        onClick={handleFollow}
+                        disabled={loading}
+                        className={`text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-xl transition-all ${isFollowing
+                            ? 'bg-light-100 text-dark-800 hover:bg-red-50 hover:text-red-500'
+                            : 'bg-dark-800 text-white hover:bg-dark-700 shadow-lg shadow-dark-800/20'
+                            }`}
+                    >
+                        {loading ? '...' : isFollowing ? 'Dejar de Seguir' : 'Seguir'}
+                    </button>
+                )}
+            </div>
 
             <div className="flex items-center gap-6 mb-10">
                 <Link to={`/profile/${seller.uid}`} className="shrink-0 relative group">
@@ -54,7 +109,7 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
                     <div className="flex items-center gap-3 mt-2 pl-1">
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Socio Activo</span>
                         <div className="size-1 bg-light-200 rounded-full" />
-                        <span className="text-[10px] font-black text-primary-vibrant uppercase tracking-widest">Confianza Nivel 4</span>
+                        <span className="text-[10px] font-black text-primary-vibrant uppercase tracking-widest">Confianza Nivel {(seller.reputation?.averageRating || 0) > 4 ? 'Alto' : 'Medio'}</span>
                     </div>
                 </div>
             </div>
@@ -63,10 +118,10 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
                 <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-1">
                         {[1, 2, 3, 4, 5].map((i) => (
-                            <span key={i} className="material-symbols-outlined text-amber-400 fill-1 text-base drop-shadow-sm">star</span>
+                            <span key={i} className={`material-symbols-outlined text-base drop-shadow-sm ${i <= Math.round(seller.reputation?.averageRating || 0) ? 'text-amber-400 fill-1' : 'text-gray-200'}`}>star</span>
                         ))}
                     </div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">42 Protocolos Registrados</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">{seller.reputation?.totalReviews || 0} Protocolos Registrados</span>
                 </div>
                 <Link to={`/profile/${seller.uid}`} className="bg-white px-6 py-3 rounded-xl text-dark-800 text-[9px] font-black uppercase tracking-[0.2em] border border-light-200 hover:bg-light-50 transition-all shadow-sm">
                     Revisar Registros

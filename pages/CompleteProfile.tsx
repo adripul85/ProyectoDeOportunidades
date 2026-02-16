@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { completeUserProfile } from '../lib/users';
-import { useNotification } from '../App';
+import { useNotification } from '../context/NotificationContext';
 
 export default function CompleteProfile() {
     const navigate = useNavigate();

@@ -40,7 +40,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, location, isVerified
                 <p className="text-xl font-black text-dark-800 mb-1">${product.price.toLocaleString()}</p>
                 <h3 className="text-sm font-bold text-dark-700 line-clamp-1 mb-1">{product.title}</h3>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                    {location || 'Comercio Global'}
+                    {product.location || location || 'Comercio Global'}
                 </p>
                 <div className="flex items-center justify-between mt-4">
                     <span className="text-[9px] font-black text-primary-vibrant uppercase tracking-tighter bg-primary-50 px-2 py-1 rounded-md border border-primary-100">

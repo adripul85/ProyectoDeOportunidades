@@ -19,8 +19,7 @@ export default function Messages() {
     const [uploading, setUploading] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
 
     // Subscribe to list of chats
@@ -52,6 +51,7 @@ export default function Messages() {
 
         const unsubscribe = subscribeToMessages(selectedChat.id, (data) => {
             setMessages(data);
+            // Use a slightly longer timeout and check if we are already near bottom or if it's initial load
             setTimeout(scrollToBottom, 100);
         });
 
@@ -59,7 +59,9 @@ export default function Messages() {
     }, [selectedChat, user]);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
     };
 
     const handleSendMessage = async (e: React.FormEvent) => {
@@ -239,7 +241,10 @@ export default function Messages() {
                             </div>
 
                             {/* Messages Area */}
-                            <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col custom-scrollbar">
+                            <div
+                                ref={messagesContainerRef}
+                                className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col custom-scrollbar"
+                            >
                                 {messages.map((msg, idx) => {
                                     const isMe = msg.senderId === user.uid;
                                     return (
@@ -260,7 +265,6 @@ export default function Messages() {
                                         </div>
                                     );
                                 })}
-                                <div ref={messagesEndRef} />
                             </div>
 
                             {/* Input Area */}

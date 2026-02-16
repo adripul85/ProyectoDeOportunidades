@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getItems, ItemData, CATEGORIES } from '../../lib/items';
 import SkeletonCard from '../../components/SkeletonCard';
+import { useNotification } from '../../context/NotificationContext';
 
 const Search = () => {
   const location = useLocation();

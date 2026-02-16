@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { useNotification } from '../context/NotificationContext';
 import { getUserProfile, UserProfile } from '../lib/users';
 import { getUserTransactions } from '../lib/transactions';
 import { getItemsBySeller, ItemData } from '../lib/items';
+import { toggleFollow, checkIsFollowing } from '../lib/interactions';
 import ReviewsList from '../components/ReviewsList';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ProductCard from '../components/ProductCard';
@@ -12,11 +14,13 @@ const Profile = () => {
   const { uid } = useParams();
   const navigate = useNavigate();
   const { user, userProfile: currentUserProfile } = useAuth();
+  const { notify } = useNotification();
 
   const [targetProfile, setTargetProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<(ItemData & { id: string })[]>([]);
   const [activeTab, setActiveTab] = useState<'selling' | 'reviews_seller' | 'reviews_buyer'>('selling');
+  const [isFollowing, setIsFollowing] = useState(false);
   const [metrics, setMetrics] = useState({
     totalOps: 0,
     disputes: 0,
@@ -55,6 +59,11 @@ const Profile = () => {
         const totalReviews = profile.reputation?.totalReviews || 0;
         const trustScore = totalReviews > 0 ? Math.round((avgRating / 5) * 100) : 0;
         setMetrics({ totalOps, disputes, trustScore });
+
+        if (user && !isOwnProfile) {
+          const following = await checkIsFollowing(user.uid, targetUid);
+          setIsFollowing(following);
+        }
       }
 
       setLoading(false);
@@ -62,6 +71,24 @@ const Profile = () => {
 
     loadProfileData();
   }, [uid, user, currentUserProfile]);
+
+  const handleToggleFollow = async () => {
+    if (!user) {
+      notify({ type: 'error', title: 'Acceso Denegado', message: 'Debes iniciar sesión para seguir usuarios.', icon: 'lock' });
+      return;
+    }
+    try {
+      const { isFollowing: newStatus } = await toggleFollow(
+        user.uid,
+        targetProfile?.uid || '',
+        user.displayName || user.email || 'Un usuario'
+      );
+      setIsFollowing(newStatus);
+      notify({ type: 'success', title: newStatus ? 'Siguiendo' : 'Dejaste de seguir', message: newStatus ? `Ahora sigues a este usuario.` : 'Has dejado de seguir a este usuario.', icon: newStatus ? 'person_add' : 'person_remove' });
+    } catch (error) {
+      notify({ type: 'error', title: 'Error', message: 'No se pudo actualizar el estado.', icon: 'error' });
+    }
+  };
 
   if (loading) return <LoadingSpinner size="lg" text="Sincronizando Perfil de Comerciante..." />;
 
@@ -134,9 +161,17 @@ const Profile = () => {
           <div className="flex items-center gap-4 pb-4">
             {!isOwnProfile && (
               <>
-                <button className="h-14 px-8 rounded-2xl bg-white text-dark-800 border-2 border-light-200 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-light-100 transition-all shadow-premium flex items-center gap-3 active:scale-95 group">
-                  <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">person_add</span>
-                  Seguir
+                <button
+                  onClick={handleToggleFollow}
+                  className={`h-14 px-8 rounded-2xl border-2 font-black text-[10px] uppercase tracking-[0.3em] transition-all shadow-premium flex items-center gap-3 active:scale-95 group ${isFollowing
+                    ? 'bg-light-100 text-dark-800 border-light-200'
+                    : 'bg-white text-dark-800 border-light-200 hover:bg-light-100'
+                    }`}
+                >
+                  <span className={`material-symbols-outlined text-xl transition-transform ${isFollowing ? '' : 'group-hover:scale-110'}`}>
+                    {isFollowing ? 'check' : 'person_add'}
+                  </span>
+                  {isFollowing ? 'Siguiendo' : 'Seguir'}
                 </button>
                 <button className="h-14 px-8 rounded-2xl bg-primary-vibrant text-white font-black text-[10px] uppercase tracking-[0.3em] hover:shadow-lg shadow-primary-vibrant/20 transition-all flex items-center gap-3 active:scale-95">
                   <span className="material-symbols-outlined text-xl">chat_bubble</span>

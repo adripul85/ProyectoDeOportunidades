@@ -212,13 +212,57 @@ export const subscribeToChats = (userId: string, callback: (chats: Chat[]) => vo
         orderBy("lastMessageTimestamp", "desc")
     );
 
-    return onSnapshot(q, (snapshot) => {
-        const chats = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        })) as Chat[];
+    return onSnapshot(q, async (snapshot) => {
+        const chats = await Promise.all(snapshot.docs.map(async (docSnap) => {
+            const data = docSnap.data() as Chat;
+            let participantsData = data.participantsData || {};
+            let hasChanges = false;
 
-        // Filter out archived chats locally for now (or improve query)
+            // Always fetch fresh data for OTHER participants to ensure name is current
+            const otherParticipants = data.participants.filter(p => p !== userId);
+
+            if (otherParticipants.length > 0) {
+                const newParticipantsData = { ...participantsData };
+
+                await Promise.all(otherParticipants.map(async (uid) => {
+                    // Try to get fresh profile
+                    try {
+                        const profile = await getUserProfile(uid);
+                        if (profile) {
+                            const newName = profile.displayName || profile.email?.split('@')[0] || 'Usuario';
+                            const newPhoto = (profile as any).photoURL || (profile as any).avatar || `https://ui-avatars.com/api/?name=${newParticipantsData[uid]?.displayName || 'User'}&background=random`;
+
+                            // Check if changed
+                            if (newParticipantsData[uid]?.displayName !== newName || newParticipantsData[uid]?.photoURL !== newPhoto) {
+                                newParticipantsData[uid] = {
+                                    displayName: newName,
+                                    photoURL: newPhoto
+                                };
+                                hasChanges = true;
+                            }
+                        }
+                    } catch (e) {
+                        // warning suppressed
+                    }
+                }));
+
+                participantsData = newParticipantsData;
+            }
+
+            // If we found newer data, update the chat document in background so other users see it too
+            // We use a non-blocking update to avoid UI lag
+            if (hasChanges) {
+                updateDoc(doc(db, "chats", docSnap.id), { participantsData }).catch(console.error);
+            }
+
+            return {
+                id: docSnap.id,
+                ...data,
+                participantsData
+            };
+        }));
+
+        // Filter out archived chats locally
         const activeChats = chats.filter(chat => !chat.archivedBy?.includes(userId));
         callback(activeChats);
     });

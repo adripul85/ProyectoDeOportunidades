@@ -10,10 +10,11 @@ const Wallet = () => {
 
   useEffect(() => {
     if (user?.uid) {
-      getUserTransactions(user.uid).then(({ compras, ventas }) => {
+      getUserTransactions(user.uid).then(({ compras, ventas, retiros }) => {
         const allTxs = [
           ...compras.map(t => ({ ...t, role: 'buyer' as const })),
-          ...ventas.map(t => ({ ...t, role: 'seller' as const }))
+          ...ventas.map(t => ({ ...t, role: 'seller' as const })),
+          ...(retiros || []).map(t => ({ ...t, role: 'withdrawal' as const, amount: t.amount, itemTitle: 'Retiro Bancario', status: t.status === 'completed' ? 'COMPLETED' : 'PENDING_PAYMENT' }))
         ].sort((a, b) => {
           const dateA = a.createdAt?.seconds || 0;
           const dateB = b.createdAt?.seconds || 0;
@@ -33,6 +34,7 @@ const Wallet = () => {
 
     transactions.forEach(tx => {
       if (!tx.createdAt?.seconds) return;
+      if (tx.role === 'withdrawal') return; // Don't show withdrawals in activity volume for now
       const txDate = new Date(tx.createdAt.seconds * 1000);
       const diffTime = Math.abs(today.getTime() - txDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -71,7 +73,9 @@ const Wallet = () => {
     }
   };
 
-  const handleWithdrawal = () => {
+  const [processingWithdrawal, setProcessingWithdrawal] = useState(false);
+
+  const handleWithdrawal = async () => {
     const amount = parseFloat(withdrawalAmount);
     if (isNaN(amount) || amount < 1000) {
       alert('El retiro mínimo es de $1,000.');
@@ -87,10 +91,20 @@ const Wallet = () => {
       return;
     }
 
-    // Simulate processing
     if (confirm(`¿Confirmar retiro de $${amount.toLocaleString()} a ${userProfile.bankDetails.bankName}?`)) {
-      alert('Solicitud de retiro procesada. Los fondos estarán acreditados en 24hs hábiles.');
-      setWithdrawalAmount('');
+      setProcessingWithdrawal(true);
+      const { withdrawFunds } = await import('../lib/users');
+      const result = await withdrawFunds(user!.uid, amount, userProfile.bankDetails);
+
+      if (result.success) {
+        alert('Solicitud de retiro enviada. Los fondos estarán acreditados en 24hs hábiles.');
+        setWithdrawalAmount('');
+        // Refresh local state to avoid full reload
+        window.location.reload();
+      } else {
+        alert('Error al procesar el retiro: ' + result.error);
+      }
+      setProcessingWithdrawal(false);
     }
   };
 
@@ -181,9 +195,9 @@ const Wallet = () => {
                   {transactions.map((tx) => (
                     <div key={tx.id} className="p-6 hover:bg-light-50 transition-colors flex items-center justify-between group">
                       <div className="flex items-center gap-6">
-                        <div className={`size-12 rounded-2xl flex items-center justify-center ${tx.role === 'seller' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                        <div className={`size-12 rounded-2xl flex items-center justify-center ${tx.role === 'seller' ? 'bg-emerald-50 text-emerald-600' : tx.role === 'buyer' ? 'bg-rose-50 text-rose-600' : 'bg-gray-50 text-gray-600'}`}>
                           <span className="material-symbols-outlined">
-                            {tx.role === 'seller' ? 'arrow_downward' : 'arrow_upward'}
+                            {tx.role === 'seller' ? 'arrow_downward' : tx.role === 'buyer' ? 'arrow_upward' : 'account_balance_wallet'}
                           </span>
                         </div>
                         <div>
@@ -193,12 +207,12 @@ const Wallet = () => {
                               tx.status === 'PAID_HELD' ? 'bg-primary-50 text-primary-vibrant border-primary-100' :
                                 'bg-gray-50 text-gray-500 border-gray-100'
                               }`}>
-                              {tx.status === 'COMPLETED' ? 'Liberado' :
+                              {tx.status === 'COMPLETED' ? 'Completado' :
                                 tx.status === 'PAID_HELD' ? 'En Custodia' :
                                   tx.status === 'PENDING_PAYMENT' ? 'Pendiente' : tx.status}
                             </span>
                             <span className="text-[10px] font-bold text-gray-400">
-                              {tx.createdAt?.seconds ? new Date(tx.createdAt.seconds * 1000).toLocaleDateString() : 'Fecha desconocida'}
+                              {tx.createdAt?.seconds ? new Date(tx.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
                             </span>
                           </div>
                         </div>
@@ -208,7 +222,7 @@ const Wallet = () => {
                           {tx.role === 'seller' ? '+' : '-'}${tx.amount.toLocaleString()}
                         </p>
                         <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                          {tx.paymentMethod === 'MERCADO_PAGO' ? 'Mercado Pago' : 'Transferencia'}
+                          {tx.role === 'withdrawal' ? 'Transferencia Bancaria' : tx.paymentMethod === 'MERCADO_PAGO' ? 'Mercado Pago' : 'Transferencia'}
                         </p>
                       </div>
                     </div>

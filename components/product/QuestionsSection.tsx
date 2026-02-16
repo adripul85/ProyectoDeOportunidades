@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { askQuestion, getQuestions, answerQuestion, QuestionData } from '../../lib/questions';
-import { useNotification } from '../../App';
+import { useNotification } from '../../context/NotificationContext';
 
 interface QuestionsSectionProps {
     itemId: string;
@@ -41,17 +41,25 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
 
     const isSeller = user?.uid === sellerId;
 
-    // Load questions
+    // Load questions with real-time subscription
     useEffect(() => {
-        loadQuestions();
-    }, [itemId]);
+        let unsubscribe: (() => void) | undefined;
 
-    const loadQuestions = async () => {
-        setLoading(true);
-        const data = await getQuestions(itemId);
-        setQuestions(data);
-        setLoading(false);
-    };
+        const setupSubscription = async () => {
+            setLoading(true);
+            const { subscribeToQuestions } = await import('../../lib/questions');
+            unsubscribe = await subscribeToQuestions(itemId, (data) => {
+                setQuestions(data);
+                setLoading(false);
+            });
+        };
+
+        setupSubscription();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    }, [itemId]);
 
     // Submit question
     const handleAskQuestion = async (e: React.FormEvent) => {
@@ -88,7 +96,7 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
         if (result.success) {
             notify({ type: 'success', title: 'Paquete Transmitido', message: 'El comerciante ha sido notificado de su consulta.', icon: 'check_circle' });
             setQuestionText('');
-            loadQuestions(); // Reload questions
+            setQuestionText('');
         } else {
             notify({ type: 'error', title: 'Fallo de Transmisión', message: 'La consulta no pudo ser enrutada.', icon: 'error' });
         }
@@ -107,7 +115,7 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
             notify({ type: 'success', title: 'Respuesta Sincronizada', message: 'La inteligencia es ahora pública.', icon: 'check_circle' });
             setAnsweringId(null);
             setAnswerText('');
-            loadQuestions(); // Reload questions
+            setAnswerText('');
         } else {
             notify({ type: 'error', title: 'Error de Sincronización', message: 'Fallo al transmitir la respuesta.', icon: 'error' });
         }

@@ -1,32 +1,69 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useNotification } from '../../App';
+import { useNotification } from '../../context/NotificationContext';
 import { useAuth } from '../../lib/auth';
 import { createTransaction, PaymentMethod } from '../../lib/transactions';
 import { subscribeToProduct } from '../../lib/items';
 import { httpsCallable } from 'firebase/functions'; // Use Firebase Cloud Functions
 import { functions } from '../../lib/firebase';
 import PaymentMethodSelector from '../../components/checkout/PaymentMethodSelector';
+import { useCart } from '../../context/CartContext';
 
 export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { notify } = useNotification();
   const { user } = useAuth();
+  const { cart, total: cartTotal, clearCart } = useCart(); // Added clearCart
   const [loading, setLoading] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('MERCADO_PAGO');
   const [deliveryMethod, setDeliveryMethod] = useState<'SHIPPING' | 'MEETING'>('MEETING');
   const [shippingAvailable, setShippingAvailable] = useState<boolean>(true); // Default true until fetched
+  const [notes, setNotes] = useState<string>('');
 
+  // Derive checkout data from state or cart
+  const state = location.state || {};
+  const queryParams = new URLSearchParams(location.search);
+  const resumedTxId = queryParams.get('tx') || state.transactionId;
 
+  const [isResuming, setIsResuming] = useState(!!resumedTxId);
+  const [resumedTxData, setResumedTxData] = useState<any>(null);
 
-  const { productId, productTitle, productPrice, sellerId } = location.state || {}; // Initial state
+  const isCartMode = !state.productId && cart.length > 0 && !resumedTxId;
+
+  const productId = state.productId || (isCartMode ? `cart-${Date.now()}` : resumedTxData?.itemId || null);
+  const productTitle = state.productTitle || (isCartMode ? `Pedido de Carrito (${cart.length} items)` : resumedTxData?.itemTitle || '');
+  const productPrice = state.productPrice || (isCartMode ? cartTotal : resumedTxData?.amount || 0);
+  const sellerId = state.sellerId || (isCartMode ? cart[0]?.sellerId : resumedTxData?.sellerId || '');
+  const sellerName = state.sellerName || (isCartMode ? cart[0]?.sellerName : resumedTxData?.sellerName || '');
+
   const [isDeleted, setIsDeleted] = useState(false);
   const [showModoModal, setShowModoModal] = useState(false);
-  const [currentTransactionId, setCurrentTransactionId] = useState<string | null>(null);
+  const [currentTransactionId, setCurrentTransactionId] = useState<string | null>(resumedTxId || null);
+
+  // Initial Fetch if Resuming
+  React.useEffect(() => {
+    if (resumedTxId) {
+      setLoading(true);
+      import('../../lib/transactions').then(({ getTransaction }) => {
+        getTransaction(resumedTxId).then(tx => {
+          if (tx && tx.status === 'PENDING_PAYMENT') {
+            setResumedTxData(tx);
+            if (tx.deliveryMethod) setDeliveryMethod(tx.deliveryMethod);
+            if (tx.paymentMethod) setSelectedMethod(tx.paymentMethod);
+          } else {
+            notify({ type: 'error', title: 'Error de Sesión', message: 'Esta transacción ya no está disponible para pago.', icon: 'error' });
+            navigate('/dashboard');
+          }
+          setLoading(false);
+        });
+      });
+    }
+  }, [resumedTxId]);
 
   React.useEffect(() => {
-    if (productId) {
+    // Only subscribe to product updates if it's a real single product, not a virtual cart ID or resuming
+    if (productId && !productId.startsWith('cart-') && !isResuming) {
       // Subscribe to real-time updates
       const unsubscribePromise = subscribeToProduct(productId, (item) => {
         if (!item) {
@@ -44,9 +81,9 @@ export default function Checkout() {
 
       return () => { unsubscribePromise.then(unsub => unsub()); };
     }
-  }, [productId, navigate, notify]);
+  }, [productId, navigate, notify, isResuming]);
 
-  if (!productId) {
+  if (!productId && !loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-light-50">
         <div className="text-center">
@@ -88,22 +125,28 @@ export default function Checkout() {
 
     setLoading(true);
 
-    const result = await createTransaction({
-      buyerId: user.uid,
-      sellerId: sellerId,
-      itemId: productId,
-      itemTitle: productTitle,
-      amount: productPrice,
-      platformFee: serviceFee,
-      total: total,
-      paymentMethod: selectedMethod,
-      deliveryMethod: deliveryMethod
-    });
+    let transactionId = currentTransactionId;
 
-    if (!result.success || !result.id) {
-      notify({ type: 'error', title: 'Error Fatal', message: 'No se pudo inicializar el libro contable seguro.', icon: 'error' });
-      setLoading(false);
-      return;
+    if (!transactionId) {
+      const result = await createTransaction({
+        buyerId: user.uid,
+        sellerId: sellerId,
+        itemId: productId,
+        itemTitle: productTitle,
+        amount: productPrice,
+        total: total,
+        paymentMethod: selectedMethod,
+        deliveryMethod: deliveryMethod,
+        notes: notes
+      });
+
+      if (!result.success || !result.id) {
+        notify({ type: 'error', title: 'Error Fatal', message: 'No se pudo inicializar el libro contable seguro.', icon: 'error' });
+        setLoading(false);
+        return;
+      }
+      transactionId = result.id;
+      if (isCartMode) clearCart(); // Clean cart after success
     }
 
     if (selectedMethod === 'MERCADO_PAGO') {
@@ -112,7 +155,7 @@ export default function Checkout() {
         const response = await createPaymentFunc({
           price: total,
           title: productTitle,
-          transactionId: result.id
+          transactionId: transactionId
         }) as { data: { url: string } };
 
         if (response.data && response.data.url) {
@@ -125,7 +168,7 @@ export default function Checkout() {
         if (window.location.hostname === "localhost") {
           notify({ type: 'warning', title: 'Modo de Depuración', message: 'Bypass del emulador: Simulando pago exitoso.', icon: 'developer_mode' });
           setTimeout(() => {
-            navigate(`/success?collection_status=approved&external_reference=${result.id}&payment_type=credit_card`);
+            navigate(`/success?collection_status=approved&external_reference=${transactionId}&payment_type=credit_card`);
           }, 1500);
           return;
         }
@@ -137,12 +180,12 @@ export default function Checkout() {
       }
 
     } else if (selectedMethod === 'MODO') {
-      setCurrentTransactionId(result.id);
+      setCurrentTransactionId(transactionId);
       setShowModoModal(true);
       setLoading(false);
       return;
     } else {
-      navigate(`/success?collection_status=pending&external_reference=${result.id}&payment_method=${selectedMethod}`);
+      navigate(`/success?collection_status=pending&external_reference=${transactionId}&payment_method=${selectedMethod}`);
     }
   };
 
@@ -178,8 +221,24 @@ export default function Checkout() {
 
             {/* Cost Breakdown */}
             <div className="space-y-6">
-              <div className="flex justify-between items-center px-4">
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Precio de Activo Unitario</span>
+              {isCartMode && (
+                <div className="px-4 space-y-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">Desglose de Carrito</h3>
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex items-center gap-4 py-2 border-b border-light-100 last:border-0">
+                      <img src={item.image} alt={item.title} className="size-10 rounded-lg object-cover" />
+                      <div className="flex-grow">
+                        <p className="text-xs font-bold text-dark-800 line-clamp-1">{item.title}</p>
+                        <p className="text-[9px] font-medium text-gray-400">Vendido por {item.sellerName}</p>
+                      </div>
+                      <span className="text-xs font-black text-dark-800">$ {item.price.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex justify-between items-center px-4 pt-4 border-t border-light-100">
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Subtotal de Activos</span>
                 <span className="text-xl font-black text-dark-800">$ {productPrice.toLocaleString()}</span>
               </div>
 
@@ -219,7 +278,7 @@ export default function Checkout() {
             {/* Delivery Method Selector */}
             <div className="bg-light-50 p-8 rounded-[32px] border border-light-200">
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-300 mb-6 ml-1">Protocolo de Logística</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 <div
                   onClick={() => setDeliveryMethod('MEETING')}
                   className={`flex items-center gap-4 p-6 border rounded-2xl shadow-sm cursor-pointer transition-all ${deliveryMethod === 'MEETING' ? 'bg-white border-primary-vibrant ring-2 ring-primary-100' : 'bg-white border-light-200 hover:bg-light-100'}`}
@@ -249,6 +308,18 @@ export default function Checkout() {
                     {deliveryMethod === 'SHIPPING' && <span className="material-symbols-outlined text-primary-vibrant ml-auto">check_circle</span>}
                   </div>
                 )}
+              </div>
+
+              {/* Notes Field */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-300 ml-1">Notas / Especificaciones (Opcional)</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Aclara condiciones de entrega o detalles específicos del trato..."
+                  className="w-full bg-white border border-light-200 rounded-2xl py-4 px-6 font-bold text-dark-800 outline-none focus:ring-2 focus:ring-primary-100 transition-all placeholder:text-gray-300 resize-none shadow-sm"
+                />
               </div>
             </div>
 

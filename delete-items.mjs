@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 
-console.log('🗑️  Iniciando eliminación de todos los artículos...\n');
+console.log('🗑️  Iniciando eliminación masiva de artículos...\n');
 
 const firebaseConfig = {
     apiKey: "AIzaSyAxlmDDOHY3D27hGVhYZCnwRVupOn9gt3w",
@@ -20,23 +20,23 @@ async function deleteAllItems() {
         const itemsRef = collection(db, 'items');
         const snapshot = await getDocs(itemsRef);
 
-        console.log(`📊 Encontrados: ${snapshot.size} artículos\n`);
+        console.log(`📊 Encontrados: ${snapshot.size} artículos`);
 
         if (snapshot.size === 0) {
             console.log('✅ No hay artículos para borrar');
             process.exit(0);
         }
 
-        let deleted = 0;
+        const batch = writeBatch(db);
+        snapshot.docs.forEach((docSnap) => {
+            batch.delete(docSnap.ref);
+        });
 
-        for (const docSnap of snapshot.docs) {
-            await deleteDoc(doc(db, 'items', docSnap.id));
-            deleted++;
-            console.log(`🗑️  [${deleted}/${snapshot.size}] Eliminado: ${docSnap.data().title || docSnap.id}`);
-        }
+        console.log('⏳ Procesando eliminación...');
+        await batch.commit();
 
         console.log(`\n✅ ¡Eliminación completada!`);
-        console.log(`📊 Total eliminados: ${deleted} artículos`);
+        console.log(`📊 Total eliminados: ${snapshot.size} artículos`);
         process.exit(0);
 
     } catch (error) {

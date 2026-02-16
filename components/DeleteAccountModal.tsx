@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { deleteUserAccount } from '../lib/users';
-import { useNotification } from '../App';
+import { useNotification } from '../context/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 
 interface DeleteAccountModalProps {

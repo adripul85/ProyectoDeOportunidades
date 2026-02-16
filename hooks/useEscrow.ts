@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNotification } from '../App';
+import { useNotification } from '../context/NotificationContext';
 import { useAuth } from '../lib/auth';
 import {
     TransactionData,
@@ -14,7 +14,8 @@ import {
     sendEscrowNote,
     submitEvidence,
     EscrowMessage,
-    EscrowEvidence
+    EscrowEvidence,
+    cancelTransaction
 } from '../lib/transactions';
 import { uploadFile } from '../lib/storage';
 
@@ -116,7 +117,7 @@ export const useEscrow = (id: string | undefined) => {
     };
 
     const updateStatus = async (newStatus: TransactionStatus, adminMessage?: string) => {
-        if (!id) return;
+        if (!id) return { success: false };
         setIsTyping(true);
         const result = await updateTransactionStatus(id, newStatus);
         setIsTyping(false);
@@ -126,6 +127,7 @@ export const useEscrow = (id: string | undefined) => {
         } else {
             notify({ type: 'error', title: 'Error de Protocolo', message: result.error || 'No se pudo actualizar el estado.', icon: 'error' });
         }
+        return result;
     };
 
     const releaseEscrow = async (qrToken?: string) => {
@@ -149,6 +151,8 @@ export const useEscrow = (id: string | undefined) => {
         setIsTyping(false);
 
         if (result.success) {
+            // Notificamos en el chat para conectar a las partes
+            await sendEscrowNote(id, 'sistema', `📦 Envío registrado: ${courier} - ID: ${trackingId}. Los fondos se liberarán cuando el comprador confirme la recepción.`, user?.uid);
             notify({ type: 'success', title: 'Tracking Registrado', message: 'El envío ha sido validado.', icon: 'local_shipping' });
         } else {
             notify({ type: 'error', title: 'Error de Seguimiento', message: result.error || 'ID de seguimiento inválido.', icon: 'error' });
@@ -162,8 +166,13 @@ export const useEscrow = (id: string | undefined) => {
             const url = await uploadFile(file, `escrow/${id}`);
             await submitEvidence(id, url, type, `Evidencia cargada por el ${currentUserRole}`);
 
-            // MENSAJE AUTOMÁTICO: Notifica al comprador que la validación está lista
-            await sendEscrowNote(id, 'sistema', `📸 El ${currentUserRole.toLowerCase()} ha certificado una nueva evidencia. El proceso de liberación ya está disponible.`, user?.uid);
+            // MENSAJE AUTOMÁTICO: Notifica si es un pago o evidencia general
+            const isPayment = type.toLowerCase().includes('pago') || type.toLowerCase().includes('transferencia');
+            const msg = isPayment
+                ? `💳 SISTEMA: El comprador ha subido un comprobante de pago. Esperando validación administrativa.`
+                : `📸 El ${currentUserRole.toLowerCase()} ha certificado una nueva evidencia. El proceso de liberación ya está disponible.`;
+
+            await sendEscrowNote(id, 'sistema', msg, user?.uid);
 
             notify({ type: 'success', title: 'Evidencia Cargada', message: 'La foto ha sido adjunta al registro seguro.', icon: 'auto_awesome' });
         } catch (error) {
@@ -172,6 +181,22 @@ export const useEscrow = (id: string | undefined) => {
         } finally {
             setIsVerifyingAI(false);
         }
+    };
+
+    const cancelEscrow = async () => {
+        if (!id || !user) return { success: false, error: 'Datos incompletos' };
+        setIsTyping(true);
+        // Note: cancelTransaction logic in lib/transactions handles the penalty
+        // We just pass the transaction ID and the user ID who is cancelling.
+        const result = await cancelTransaction(id, user.uid);
+        setIsTyping(false);
+
+        if (result.success) {
+            notify({ type: 'info', title: 'Trato Cancelado', message: 'La transacción ha sido cancelada y los fondos reembolsados (menos penalización si aplica).', icon: 'cancel' });
+        } else {
+            notify({ type: 'error', title: 'Error de Cancelación', message: result.error || 'No se pudo cancelar el trato.', icon: 'error' });
+        }
+        return result;
     };
 
     return {
@@ -191,7 +216,8 @@ export const useEscrow = (id: string | undefined) => {
             releaseEscrow,
             registerTracking,
             uploadEvidence,
-            addSystemMessage
+            addSystemMessage,
+            cancelEscrow
         }
     };
 };

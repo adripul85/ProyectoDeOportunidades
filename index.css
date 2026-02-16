@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary-vibrant: #E61E1E;
+    --primary-50: #fff1f2;
+    --primary-100: #ffe4e6;
+    --dark-800: #111827;
+    --light-50: #f9fafb;
+    --light-100: #f3f4f6;
+    --light-200: #e5e7eb;
+    --shadow-premium: 0 4px 20px -1px rgba(0, 0, 0, 0.05), 0 2px 10px -1px rgba(0, 0, 0, 0.03);
+  }
+
+  body {
+    @apply bg-light-50 text-dark-800 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .trust-card {
+    @apply bg-white border border-light-200 rounded-4xl shadow-premium transition-all duration-300;
+  }
+
+  .btn-primary {
+    @apply bg-primary-vibrant text-white px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer border-none;
+    box-shadow: 0 10px 15px -3px rgba(34, 34, 255, 0.2);
+  }
+
+  .btn-primary:hover {
+    @apply opacity-90;
+  }
+
+  .btn-primary:active {
+    @apply scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply bg-white text-dark-800 border-2 border-light-200 px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer;
+  }
+
+  .btn-secondary:hover {
+    @apply bg-light-50;
+  }
+
+  .btn-secondary:active {
+    @apply scale-[0.98];
+  }
+
+  .search-input {
+    @apply bg-light-100 border-2 border-transparent rounded-2xl px-6 py-4 font-bold text-dark-800 transition-all duration-200 outline-none;
+  }
+
+  .search-input:focus {
+    @apply bg-white border-primary-100 ring-4 ring-primary-50;
+  }
+
+  .search-input::placeholder {
+    @apply text-gray-400;
+  }
+
+  /* Premium Scanner Integration */
+  #reader {
+    @apply border-none rounded-4xl overflow-hidden bg-light-50 shadow-premium !important;
+  }
+
+  #reader video {
+    @apply rounded-4xl object-cover !important;
+  }
+
+  /* Hide unnecessary elements from html5-qrcode */
+  #reader__dashboard_section_csr span,
+  #reader__dashboard_section_swaplink,
+  #reader img {
+    @apply hidden !important;
+  }
+
+  #reader__scan_region {
+    @apply bg-transparent !important;
+  }
+}

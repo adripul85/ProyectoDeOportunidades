@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { updateUserProfile, deleteUserAccount } from '../lib/users';
 import { uploadFile } from '../lib/storage';
-import { useNotification } from '../App';
+import { useNotification } from '../context/NotificationContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Settings() {
@@ -78,7 +78,7 @@ export default function Settings() {
         // Upload to storage
         setIsSaving(true);
         try {
-            const path = `profiles/${user.uid}/${type}_${Date.now()}`;
+            const path = `profiles / ${user.uid}/${type}_${Date.now()}`;
             const url = await uploadFile(file, path);
             setFormData(prev => ({ ...prev, [type]: url }));
             notify({ type: 'success', title: 'Imagen Cargada', message: 'Se ha sincronizado la nueva imagen.', icon: 'image' });

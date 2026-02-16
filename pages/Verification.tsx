@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../lib/auth';
-import { useNotification } from '../App';
+import { useNotification } from '../context/NotificationContext';
 import { uploadFile } from '../lib/storage';
 import { updateUserProfile } from '../lib/users';
 import { useNavigate } from 'react-router-dom';

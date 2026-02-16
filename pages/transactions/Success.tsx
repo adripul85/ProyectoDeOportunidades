@@ -87,8 +87,8 @@ const Success = () => {
               <div className="size-24 bg-primary-50 text-primary-vibrant border border-primary-100 rounded-[32px] flex items-center justify-center mx-auto mb-8 shadow-sm">
                 <span className="material-symbols-outlined text-5xl font-black">verified</span>
               </div>
-              <h1 className="text-4xl font-black text-red-600 mb-4 uppercase tracking-tight">Pago Asegurado 🎯</h1>
-              <p className="text-sm font-bold text-gray-400">Transacción verificada. Los activos están ahora en garantía (escrow) segura.</p>
+              <h1 className="text-4xl font-black text-red-600 mb-4 uppercase tracking-tight">¡Trato Protegido! 🎯</h1>
+              <p className="text-sm font-bold text-gray-400">Tu pago está seguro en garantía. Los fondos se liberarán solo cuando confirmes la entrega.</p>
             </div>
           )}
         </div>
@@ -128,18 +128,19 @@ const Success = () => {
           {/* Ticket Header */}
           <div className="p-10 border-b border-light-100 bg-white flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-300 mb-2">Referencia del Protocolo</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-300 mb-2">Código de Transacción</p>
               <h3 className="text-2xl font-black text-dark-800 font-mono tracking-tighter">{transactionId}</h3>
             </div>
             {total > 0 && (
               <div className="md:text-right">
-                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-300 mb-2">Valoración del Activo</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-300 mb-2">Total del Trato</p>
                 <h3 className="text-4xl font-black text-dark-800 tracking-tighter">$ {total.toLocaleString()}</h3>
               </div>
             )}
           </div>
 
           <div className="p-10 md:p-14">
+            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-2 leading-none">Producto</h4>
             <h4 className="text-xl font-black text-dark-800 tracking-tight mb-10">{title}</h4>
 
             <div className={`p-8 rounded-[32px] border flex flex-col md:flex-row items-center gap-6 text-center md:text-left ${isTransfer ? 'bg-amber-50 border-amber-100' : 'bg-primary-50 border-primary-100'}`}>
@@ -166,7 +167,7 @@ const Success = () => {
                 <div className="flex-1">
                   <div className="inline-flex items-center gap-2 bg-dark-800 text-white px-4 py-2 rounded-full mb-4">
                     <span className="material-symbols-outlined text-sm">qr_code_scanner</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest">Token de Entrega</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Código de Retiro</span>
                   </div>
                   <h3 className="text-2xl font-black text-dark-800 mb-2">Escanea para Liberar Fondos</h3>
                   <p className="text-xs font-bold text-gray-400 leading-relaxed uppercase tracking-wide">

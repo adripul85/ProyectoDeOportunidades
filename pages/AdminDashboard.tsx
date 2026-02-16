@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { useNotification } from '../App';
+import { useNotification } from '../context/NotificationContext';
 import { getAllUsers, updateUserVerification, updateUserRole, updateUserWallet, deleteUserByAdmin, getPlatformStats } from '../lib/admin';
+import { getReports, resolveReport, ReportData } from '../lib/interactions';
 import { getPlatformSettings, updatePlatformSettings, PlatformSettings } from '../lib/settings';
 import { UserProfile } from '../lib/users';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -16,14 +17,17 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isUpdating, setIsUpdating] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'users' | 'finance' | 'disputes' | 'config'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'finance' | 'disputes' | 'reports' | 'config'>('users');
     const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
     const [stats, setStats] = useState<any>(null);
     const [disputes, setDisputes] = useState<any[]>([]);
+    const [reports, setReports] = useState<(ReportData & { id: string })[]>([]);
     const [selectedDispute, setSelectedDispute] = useState<any | null>(null);
     const [disputeMessages, setDisputeMessages] = useState<any[]>([]);
     const [disputeEvidence, setDisputeEvidence] = useState<any[]>([]);
     const [settings, setSettings] = useState<PlatformSettings | null>(null);
+    const [financialLogs, setFinancialLogs] = useState<any[]>([]);
+    const [withdrawals, setWithdrawals] = useState<any[]>([]);
 
     useEffect(() => {
         if (!user || (userProfile?.role !== 'admin' && userProfile?.role !== 'moderator')) {
@@ -53,19 +57,39 @@ export default function AdminDashboard() {
 
     const loadData = async () => {
         setLoading(true);
-        const { getDisputedTransactions } = await import('../lib/admin');
-        const [usersData, statsData, disputesData, settingsData] = await Promise.all([
+        const { getDisputedTransactions, getFinancialLogs, getWithdrawalRequests } = await import('../lib/admin');
+        const [usersData, statsData, disputesData, settingsData, reportsData, logsData, withdrawalsData] = await Promise.all([
             getAllUsers(),
             getPlatformStats(),
             getDisputedTransactions(),
-            getPlatformSettings()
+            getPlatformSettings(),
+            getReports(),
+            getFinancialLogs(),
+            getWithdrawalRequests()
         ]);
         setUsers(usersData);
         setFilteredUsers(usersData);
         setStats(statsData);
         setDisputes(disputesData);
         setSettings(settingsData);
+        setReports(reportsData);
+        setFinancialLogs(logsData);
+        setWithdrawals(withdrawalsData);
         setLoading(false);
+    };
+
+    const handleResolveReport = async (report: ReportData & { id: string }, status: ReportData['status']) => {
+        setIsUpdating(report.id);
+        const result = await resolveReport(report.id, status, report.targetId, report.targetType);
+
+        if (result.success) {
+            const actionMsg = status === 'resolved' ? 'Publicación eliminada y reporte cerrado.' : 'Reporte descartado (Falsa Alarma).';
+            notify({ type: 'success', title: 'Acción Completada', message: actionMsg, icon: status === 'resolved' ? 'delete' : 'verified_user' });
+            setReports(prev => prev.map(r => r.id === report.id ? { ...r, status } : r));
+        } else {
+            notify({ type: 'error', title: 'Error', message: 'No se pudo procesar la solicitud.', icon: 'error' });
+        }
+        setIsUpdating(null);
     };
 
     const handleInspectDispute = async (dispute: any) => {
@@ -227,6 +251,12 @@ export default function AdminDashboard() {
                             className={`px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'disputes' ? 'bg-primary-vibrant text-white shadow-xl shadow-primary-500/20' : 'bg-white text-gray-400 border border-light-200'}`}
                         >
                             Tribunal de Disputas
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('reports')}
+                            className={`px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'reports' ? 'bg-primary-vibrant text-white shadow-xl shadow-primary-500/20' : 'bg-white text-gray-400 border border-light-200'}`}
+                        >
+                            Denuncias
                         </button>
                         <button
                             onClick={() => setActiveTab('config')}
@@ -399,6 +429,92 @@ export default function AdminDashboard() {
                         </table>
                     </div>
                 </div>
+            ) : activeTab === 'reports' ? (
+                <div className="bg-white rounded-[40px] border border-light-200 shadow-premium overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-700">
+                    <div className="p-10 border-b border-light-100 flex items-center justify-between">
+                        <div>
+                            <h3 className="text-xl font-black text-dark-800 uppercase tracking-tight">Centro de Denuncias</h3>
+                            <p className="text-xs font-bold text-gray-400 mt-1">Gestión de contenido reportado por la comunidad.</p>
+                        </div>
+                        <div className="px-6 py-2 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-100">
+                            {reports.filter(r => r.status === 'pending').length} Pendientes
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-light-50 text-gray-400 text-[9px] font-black uppercase tracking-[0.2em]">
+                                    <th className="px-10 py-6">Tipo</th>
+                                    <th className="px-10 py-6">Denunciante</th>
+                                    <th className="px-10 py-6">Motivo</th>
+                                    <th className="px-10 py-6 text-center">Estado</th>
+                                    <th className="px-10 py-6 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-light-100">
+                                {reports.map((report) => (
+                                    <tr key={report.id} className={`hover:bg-light-50/50 transition-colors ${isUpdating === report.id ? 'opacity-50 blur-[2px]' : ''}`}>
+                                        <td className="px-10 py-8">
+                                            <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${report.targetType === 'product' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
+                                                {report.targetType === 'product' ? 'Producto' : 'Usuario'}
+                                            </span>
+                                        </td>
+                                        <td className="px-10 py-8">
+                                            <p className="font-bold text-dark-800 text-sm">{report.reporterName}</p>
+                                            <p className="text-[10px] font-mono text-gray-400 mt-1">{report.reporterId.slice(0, 8)}...</p>
+                                        </td>
+                                        <td className="px-10 py-8">
+                                            <p className="font-black text-dark-800 text-xs uppercase tracking-tight">{report.reason}</p>
+                                            <p className="text-[10px] text-gray-400 mt-1 max-w-xs">{report.description}</p>
+                                        </td>
+                                        <td className="px-10 py-8 text-center">
+                                            <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${report.status === 'resolved' ? 'bg-emerald-50 text-emerald-600' :
+                                                report.status === 'dismissed' ? 'bg-gray-100 text-gray-500' :
+                                                    'bg-amber-50 text-amber-600 animate-pulse'
+                                                }`}>
+                                                {report.status === 'pending' ? 'Pendiente' :
+                                                    report.status === 'resolved' ? 'Resuelto' :
+                                                        report.status === 'dismissed' ? 'Descartado' : report.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-10 py-8 text-right">
+                                            {report.status === 'pending' && (
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => handleResolveReport(report, 'dismissed')}
+                                                        className="h-10 px-4 rounded-xl bg-gray-50 text-gray-400 hover:bg-gray-200 hover:text-dark-800 transition-all flex items-center gap-2 border border-gray-100"
+                                                        title="Denuncia Falsa (Mantener)"
+                                                    >
+                                                        <span className="material-symbols-outlined text-lg">close</span>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest hidden lg:inline">Descartar</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleResolveReport(report, 'resolved')}
+                                                        className="h-10 px-4 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 shadow-lg shadow-red-500/20 border border-red-100"
+                                                        title="Denuncia Cierta (Eliminar)"
+                                                    >
+                                                        <span className="material-symbols-outlined text-lg">delete</span>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest hidden lg:inline">Eliminar</span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {reports.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="px-10 py-32 text-center">
+                                            <div className="size-20 bg-light-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                                                <span className="material-symbols-outlined text-4xl text-gray-300">notifications_off</span>
+                                            </div>
+                                            <p className="text-xs font-black text-gray-300 uppercase tracking-widest">No hay denuncias activas.</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             ) : activeTab === 'config' ? (
                 <div className="bg-white rounded-[40px] border border-light-200 shadow-premium overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-700 p-12">
                     <div className="flex items-center gap-4 mb-10">
@@ -504,6 +620,208 @@ export default function AdminDashboard() {
                             <div className="flex gap-4">
                                 <button className="bg-white/10 hover:bg-white/20 px-8 py-4 rounded-3xl backdrop-blur-md text-[10px] font-black uppercase tracking-widest transition-all">Generar Auditoría</button>
                                 <button className="bg-primary-vibrant hover:scale-105 px-8 py-4 rounded-3xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-primary-500/20">Sincronización de Seguridad</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Fiscal History Table (SUDO) */}
+                    <div className="lg:col-span-4 bg-white rounded-[40px] border border-light-200 shadow-premium overflow-hidden mt-8 animate-in fade-in duration-1000">
+                        <div className="p-10 border-b border-light-100 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-xl font-black text-dark-800 uppercase tracking-tight">Libro Mayor de Ingresos (SUDO)</h3>
+                                <p className="text-xs font-bold text-gray-400 mt-1">Historial de comisiones, penalizaciones y movimientos de plataforma.</p>
+                            </div>
+                            <div className="size-12 bg-primary-50 text-primary-vibrant rounded-2xl flex items-center justify-center">
+                                <span className="material-symbols-outlined font-black">receipt_long</span>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-light-50/50 text-gray-400 text-[9px] font-black uppercase tracking-[0.2em]">
+                                        <th className="px-10 py-6">Operación</th>
+                                        <th className="px-10 py-6">Transacción</th>
+                                        <th className="px-10 py-6">Monto</th>
+                                        <th className="px-10 py-6">Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-light-100">
+                                    {(financialLogs || []).map((log: any) => (
+                                        <tr key={log.id} className="hover:bg-light-50/50 transition-colors">
+                                            <td className="px-10 py-6">
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`size-2 rounded-full ${log.type === 'platform_fee' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                                                    <p className="text-[10px] font-black text-dark-800 uppercase tracking-widest">
+                                                        {log.type === 'platform_fee' ? 'Comisión Venta' : 'Penalización Cancelación'}
+                                                    </p>
+                                                </div>
+                                            </td>
+                                            <td className="px-10 py-6 font-mono text-[10px] text-gray-400">#{log.transactionId.slice(0, 8).toUpperCase()}</td>
+                                            <td className="px-10 py-6 font-black text-dark-800 text-sm">${log.amount?.toLocaleString()}</td>
+                                            <td className="px-10 py-6 text-[10px] font-bold text-gray-300">
+                                                {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleString('es-AR') : 'N/A'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!financialLogs || financialLogs.length === 0) && (
+                                        <tr>
+                                            <td colSpan={4} className="px-10 py-20 text-center text-xs font-bold text-gray-300 uppercase tracking-widest">
+                                                No hay registros fiscales disponibles aún.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Withdrawal Requests Table (SUDO) */}
+                    <div className="lg:col-span-4 bg-white rounded-[40px] border border-light-200 shadow-premium overflow-hidden mt-8 animate-in fade-in duration-1000">
+                        <div className="p-10 border-b border-light-100 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-xl font-black text-dark-800 uppercase tracking-tight">Solicitudes de Retiro</h3>
+                                <p className="text-xs font-bold text-gray-400 mt-1">Órdenes de transferencia bancaria pendientes de procesamiento.</p>
+                            </div>
+                            <div className="size-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
+                                <span className="material-symbols-outlined font-black">account_balance</span>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-light-50/50 text-gray-400 text-[9px] font-black uppercase tracking-[0.2em]">
+                                        <th className="px-10 py-6">Usuario</th>
+                                        <th className="px-10 py-6">Monto</th>
+                                        <th className="px-10 py-6">Datos Bancarios</th>
+                                        <th className="px-10 py-6">Estado</th>
+                                        <th className="px-10 py-6">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-light-100">
+                                    {(withdrawals || []).map((req: any) => (
+                                        <tr key={req.id} className="hover:bg-light-50/50 transition-colors">
+                                            <td className="px-10 py-6">
+                                                <p className="text-xs font-black text-dark-800">{req.uid.slice(0, 8).toUpperCase()}</p>
+                                            </td>
+                                            <td className="px-10 py-6 font-black text-dark-800 text-sm">${req.amount.toLocaleString()}</td>
+                                            <td className="px-10 py-6">
+                                                <div className="text-[10px] font-bold text-gray-400 uppercase leading-relaxed">
+                                                    {req.bankDetails?.bankName} <br />
+                                                    CBU: {req.bankDetails?.cbu}
+                                                </div>
+                                            </td>
+                                            <td className="px-10 py-6">
+                                                <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${req.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                                    req.status === 'rejected' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'
+                                                    }`}>
+                                                    {req.status === 'completed' ? 'Completado' : req.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                                                </span>
+                                            </td>
+                                            <td className="px-10 py-6">
+                                                {req.status === 'pending' && (
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (confirm('¿Confirmar que la transferencia fue realizada?')) {
+                                                                    const { updateWithdrawalStatus } = await import('../lib/admin');
+                                                                    const res = await updateWithdrawalStatus(req.id, 'completed');
+                                                                    if (res.success) loadData();
+                                                                }
+                                                            }}
+                                                            className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all"
+                                                        >
+                                                            Aprobar
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (confirm('¿Rechazar solicitud de retiro?')) {
+                                                                    const { updateWithdrawalStatus } = await import('../lib/admin');
+                                                                    const res = await updateWithdrawalStatus(req.id, 'rejected');
+                                                                    if (res.success) loadData();
+                                                                }
+                                                            }}
+                                                            className="px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all"
+                                                        >
+                                                            Rechazar
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!withdrawals || withdrawals.length === 0) && (
+                                        <tr>
+                                            <td colSpan={5} className="px-10 py-20 text-center text-xs font-bold text-gray-300 uppercase tracking-widest">
+                                                No hay solicitudes de retiro pendientes.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Danger Zone */}
+                    <div className="lg:col-span-4 bg-rose-50/30 rounded-[40px] border border-rose-100 p-10 mt-12 animate-in slide-in-from-bottom-10 duration-1000">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="size-12 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-500/20">
+                                <span className="material-symbols-outlined font-black">warning</span>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-rose-600 uppercase tracking-tight">Zona de Peligro</h3>
+                                <p className="text-xs font-bold text-rose-400">Acciones destructivas e irreversibles.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="bg-white p-8 rounded-[32px] border border-rose-100 shadow-sm flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-black text-dark-800">Eliminar Todos los Productos</p>
+                                    <p className="text-[10px] font-bold text-gray-400 max-w-[280px] mt-1">Borra permanentemente todos los ítems de la base de datos.</p>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        const confirmKey = prompt('ESTO ELIMINARÁ TODO EL MARKETPLACE. Escribe "BORRAR TODO" para confirmar:');
+                                        if (confirmKey === 'BORRAR TODO') {
+                                            const { clearAllItems } = await import('../lib/admin');
+                                            const res = await clearAllItems();
+                                            if (res.success) {
+                                                alert(`Éxito: Se eliminaron ${res.count} productos.`);
+                                                loadData();
+                                            } else {
+                                                alert('Error: ' + res.error);
+                                            }
+                                        }
+                                    }}
+                                    className="px-6 py-3 bg-rose-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-xl shadow-rose-500/10"
+                                >
+                                    Ejecutar Limpieza
+                                </button>
+                            </div>
+
+                            <div className="bg-white p-8 rounded-[32px] border border-rose-100 shadow-sm flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-black text-dark-800">Eliminar Historial Financiero</p>
+                                    <p className="text-[10px] font-bold text-gray-400 max-w-[280px] mt-1">Borra transacciones, retiros y registros fiscales.</p>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        const confirmKey = prompt('ESTO ELIMINARÁ TODO EL HISTORIAL FINANCIERO. Escribe "BORRAR HISTORIAL" para confirmar:');
+                                        if (confirmKey === 'BORRAR HISTORIAL') {
+                                            const { clearAllTransactionsHistory } = await import('../lib/admin');
+                                            const res = await clearAllTransactionsHistory();
+                                            if (res.success) {
+                                                alert(`Éxito: Se eliminaron ${res.count} registros.`);
+                                                loadData();
+                                            } else {
+                                                alert('Error: ' + res.error);
+                                            }
+                                        }
+                                    }}
+                                    className="px-6 py-3 bg-rose-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-xl shadow-rose-500/10"
+                                >
+                                    Borrar Historial
+                                </button>
                             </div>
                         </div>
                     </div>

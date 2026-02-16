@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../../lib/auth';
 import { getTransaction, TransactionData, releaseFunds } from '../../lib/transactions';
-import { useNotification } from '../../App';
+import { useNotification } from '../../context/NotificationContext';
 
 const TransactionDetail = () => {
     const { id } = useParams();

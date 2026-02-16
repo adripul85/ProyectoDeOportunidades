@@ -1,6 +1,6 @@
-import { collection, getDocs, doc, updateDoc, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, orderBy, where, limit, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
-import { UserProfile } from "./users";
+import { UserProfile, Withdrawal } from "./users";
 
 /**
  * Fetch all users from Firestore
@@ -207,5 +207,142 @@ export const resetPlatformData = async () => {
     } catch (error: any) {
         console.error("Error resetting platform:", error);
         return { success: false, error: error.message };
+    }
+};
+
+export interface FinancialLog {
+    id: string;
+    transactionId: string;
+    type: 'platform_fee' | 'cancellation_penalty';
+    amount: number;
+    currency: string;
+    relatedUser: string;
+    timestamp: any;
+}
+
+/**
+ * Fetch financial operations history
+ */
+export const getFinancialLogs = async (): Promise<FinancialLog[]> => {
+    try {
+        const logsRef = collection(db, "financial_logs");
+        const q = query(logsRef, orderBy("timestamp", "desc"), limit(100));
+        const querySnapshot = await getDocs(q);
+
+        return querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as FinancialLog));
+    } catch (error) {
+        console.error("Error fetching financial logs:", error);
+        return [];
+    }
+};
+
+/**
+ * Fetch all pending withdrawal requests
+ */
+export const getWithdrawalRequests = async (): Promise<Withdrawal[]> => {
+    try {
+        const withdrawalsRef = collection(db, "withdrawals");
+        const q = query(withdrawalsRef, orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Withdrawal));
+    } catch (error) {
+        console.error("Error fetching withdrawals:", error);
+        return [];
+    }
+};
+
+/**
+ * Update withdrawal status (e.g., mark as completed)
+ */
+export const updateWithdrawalStatus = async (id: string, status: 'completed' | 'rejected') => {
+    try {
+        const docRef = doc(db, "withdrawals", id);
+        await updateDoc(docRef, {
+            status,
+            updatedAt: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating withdrawal status:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * DELETE ALL ITEMS (DANGER ZONE)
+ */
+export const clearAllItems = async () => {
+    try {
+        const { writeBatch, getDocs, collection } = await import("firebase/firestore");
+        const itemsRef = collection(db, "items");
+        const snapshot = await getDocs(itemsRef);
+
+        if (snapshot.empty) return { success: true, count: 0 };
+
+        const batch = writeBatch(db);
+        snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+        return { success: true, count: snapshot.size };
+    } catch (error: any) {
+        console.error("Error clearing items:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * DELETE ALL TRANSACTION DATA (TOTAL DANGER ZONE)
+ */
+export const clearAllTransactionsHistory = async () => {
+    try {
+        const { writeBatch, getDocs, collection } = await import("firebase/firestore");
+
+        const collectionsToClear = ["transactions", "withdrawals", "financial_logs"];
+        let totalDeleted = 0;
+
+        for (const colName of collectionsToClear) {
+            const colRef = collection(db, colName);
+            const snapshot = await getDocs(colRef);
+
+            if (!snapshot.empty) {
+                const batch = writeBatch(db);
+                snapshot.docs.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+                totalDeleted += snapshot.size;
+            }
+        }
+
+        return { success: true, count: totalDeleted };
+    } catch (error: any) {
+        console.error("Error clearing transaction history:", error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Get the System Admin ID for fee diversion
+ */
+export const getSystemAdminId = async (): Promise<string | null> => {
+    try {
+        const { collection, query, where, orderBy, limit, getDocs } = await import("firebase/firestore");
+        const usersRef = collection(db, "users");
+        // We find the FIRST user with role 'admin'
+        const q = query(usersRef, where("role", "==", "admin"), orderBy("createdAt", "asc"), limit(1));
+        const snapshot = await getDocs(q);
+
+        if (!snapshot.empty) {
+            return snapshot.docs[0].id;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error finding system admin:", error);
+        return null;
     }
 };

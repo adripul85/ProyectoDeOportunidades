@@ -8,13 +8,19 @@ import { getReviewForTransaction } from '../lib/reviews';
 import { getItemsBySeller, ItemData, deleteItem } from '../lib/items';
 import { updateUserProfile } from '../lib/users';
 import { uploadFile } from '../lib/storage';
-import { useNotification } from '../App';
+import { useNotification } from '../context/NotificationContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ReviewModal from '../components/ReviewModal';
 export default function Dashboard() {
   const { user, userProfile } = useAuth();
   const navigate = useNavigate();
-  const { notify } = useNotification();
+  const notify = useNotification().notify;
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
   const [activeTab, setActiveTab] = useState<'publicaciones' | 'compras' | 'ventas' | 'perfil'>('publicaciones');
   const [transactions, setTransactions] = useState<{ compras: any[], ventas: any[] }>({ compras: [], ventas: [] });
   const [userItems, setUserItems] = useState<(ItemData & { id: string })[]>([]);
@@ -33,6 +39,9 @@ export default function Dashboard() {
   const [trackingInput, setTrackingInput] = useState('');
   const [courierInput, setCourierInput] = useState('Correo Argentino');
   const [statusFilter, setStatusFilter] = useState<'ALL' | TransactionStatus>('ALL');
+  // Cancel Modal State
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [txToCancel, setTxToCancel] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -42,16 +51,47 @@ export default function Dashboard() {
 
     setLoading(true);
 
-    // Subscribe to real-time updates
-    const { subscribeToUserTransactions } = require('../lib/transactions'); // Import dynamically if needed or assume it exists/we create it
-    // Actually, let's use the existing one-off for now and then setup a listener if it exists. 
-    // Since subscribeToUserTransactions might not exist, I will CREATE it in transactions.ts first.
-    // ... wait, I cannot modify transactions.ts in this tool call.
-    // I will revert to just fetching data, but I will add a 'Refresh' button or auto-refresh interval? 
-    // No, better to make it reactive. I will modify transactions.ts first.
+    const transactionsRef = collection(db, "transactions");
 
-    // Let's abort this specific replace and go to transactions.ts first.
-    setLoading(false); // Placeholder to keep invalid replacement from breaking 
+    // Queries
+    const qBuy = query(transactionsRef, where("buyerId", "==", user.uid), orderBy("createdAt", "desc"));
+    const qSell = query(transactionsRef, where("sellerId", "==", user.uid), orderBy("createdAt", "desc"));
+
+    // Listeners
+    const unsubBuy = onSnapshot(qBuy, (snapshot) => {
+      const compras = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any, type: 'compra' }));
+
+      setTransactions(prev => ({ ...prev, compras }));
+
+      // Check for reviews for these purchases
+      const checkReviews = async () => {
+        const reviewed = new Set<string>();
+        for (const tx of compras) {
+          if (tx.status === 'COMPLETED') {
+            const review = await getReviewForTransaction(tx.id);
+            if (review) reviewed.add(tx.id);
+          }
+        }
+        setReviewedTransactions(prev => {
+          const next = new Set(prev);
+          reviewed.forEach(id => next.add(id));
+          return next;
+        });
+      };
+      checkReviews();
+      setLoading(false);
+    });
+
+    const unsubSell = onSnapshot(qSell, (snapshot) => {
+      const ventas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any, type: 'venta' }));
+      setTransactions(prev => ({ ...prev, ventas }));
+      setLoading(false);
+    });
+
+    return () => {
+      unsubBuy();
+      unsubSell();
+    };
   }, [user]);
 
   // Redirect to login if not authenticated
@@ -208,6 +248,32 @@ export default function Dashboard() {
   };
 
   // Helper components for the new design
+  const handleCancelTransaction = async () => {
+    if (!txToCancel || !user) return;
+
+    const { cancelTransaction } = await import('../lib/transactions');
+    setLoading(true); // Re-use loading or local state
+
+    // Note: The UI says 3% penalty. The backend logic in cancelTransaction should ideally reflect this for buyers too if needed.
+    // For now we just call the function.
+    const result = await cancelTransaction(txToCancel, user.uid);
+    setLoading(false);
+    setCancelModalOpen(false);
+    setTxToCancel(null);
+
+    if (result.success) {
+      notify({ type: 'success', title: 'Orden Cancelada', message: 'La transacción ha sido cancelada.', icon: 'cancel' });
+      // Update local state
+      setTransactions(prev => ({
+        ...prev,
+        compras: prev.compras.map(t => t.id === txToCancel ? { ...t, status: 'CANCELLED' } : t),
+        ventas: prev.ventas.map(t => t.id === txToCancel ? { ...t, status: 'CANCELLED' } : t)
+      }));
+    } else {
+      notify({ type: 'error', title: 'Error', message: 'No se pudo cancelar la orden.', icon: 'error' });
+    }
+  };
+
   const MetricCard = ({ title, value, subtext, icon, color }: { title: string, value: string | number, subtext: string, icon: string, color: string }) => (
     <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium flex items-start gap-6 relative overflow-hidden group">
       <div className={`size-12 rounded-2xl flex items-center justify-center shrink-0 ${color}`}>
@@ -488,7 +554,7 @@ export default function Dashboard() {
                         <p className="text-[10px] font-black text-primary-vibrant uppercase tracking-widest">ORDEN #{deal.id.slice(0, 8).toUpperCase()}</p>
                         <h3 className="text-2xl font-black text-dark-800 tracking-tight transition-colors group-hover:text-primary-vibrant">{deal.itemTitle}</h3>
                         <p className="text-3xl font-black text-dark-800 pt-2">${deal.total?.toLocaleString()}</p>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pt-2">Comprado 12 Dic, 2023</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pt-2">Comprado {formatDate(deal.createdAt)}</p>
                       </div>
 
                       {/* Escrow Status & Progress */}
@@ -628,21 +694,55 @@ export default function Dashboard() {
                         {/* BUYER ACTIONS */}
                         {activeTab === 'compras' && (
                           <>
+                            {/* PENDING PAYMENT ACTIONS */}
+                            {deal.status === 'PENDING_PAYMENT' && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => { setTxToCancel(deal.id); setCancelModalOpen(true); }}
+                                  className="px-6 py-4 bg-white border border-red-100 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-red-50 hover:border-red-200 flex items-center gap-2"
+                                >
+                                  <span className="material-symbols-outlined text-sm">cancel</span>
+                                  Cancelar
+                                </button>
+                                <button
+                                  onClick={() => navigate(`/checkout?tx=${deal.id}`)}
+                                  className="px-8 py-4 bg-primary-vibrant text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:opacity-90 shadow-xl flex items-center gap-2"
+                                >
+                                  <span className="material-symbols-outlined text-sm">account_balance_wallet</span>
+                                  Pagar Ahora
+                                </button>
+                              </div>
+                            )}
+
                             {/* CONFIRM RECEIPT (Direct Release) */}
                             {(deal.status === 'SHIPPED' || deal.status === 'PAID_HELD') && (
-                              <button
-                                onClick={() => handleReleaseFunds(deal.id)}
-                                className="px-8 py-4 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-emerald-600 shadow-xl flex items-center gap-2"
-                              >
-                                <span className="material-symbols-outlined text-sm">thumb_up</span>
-                                Ya recibí el producto
-                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => { setTxToCancel(deal.id); setCancelModalOpen(true); }}
+                                  className="px-6 py-4 bg-white border border-red-100 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-red-50 hover:border-red-200 flex items-center gap-2"
+                                >
+                                  <span className="material-symbols-outlined text-sm">cancel</span>
+                                  Cancelar
+                                </button>
+                                <button
+                                  onClick={() => handleReleaseFunds(deal.id)}
+                                  className="px-8 py-4 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-emerald-600 shadow-xl flex items-center gap-2"
+                                >
+                                  <span className="material-symbols-outlined text-sm">thumb_up</span>
+                                  Ya recibí el producto
+                                </button>
+                              </div>
                             )}
 
                             {/* REVIEW OR DISPUTE */}
                             {deal.status === 'DELIVERED_PENDING_REVIEW' && (
                               <>
-                                <button className="flex-1 sm:flex-none px-8 py-4 bg-white border border-light-200 text-[10px] font-black uppercase tracking-widest text-red-500 rounded-2xl transition-all hover:bg-red-50 hover:border-red-100">Reportar Problema</button>
+                                <button
+                                  onClick={() => navigate(`/dispute/${deal.id}`)}
+                                  className="flex-1 sm:flex-none px-8 py-4 bg-white border border-light-200 text-[10px] font-black uppercase tracking-widest text-red-500 rounded-2xl transition-all hover:bg-red-50 hover:border-red-100"
+                                >
+                                  Reportar Problema
+                                </button>
                                 <button
                                   onClick={() => handleReleaseFunds(deal.id)}
                                   className="flex-1 sm:flex-none px-8 py-4 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-emerald-600 shadow-xl flex items-center gap-2"
@@ -676,6 +776,17 @@ export default function Dashboard() {
                             </Link>
                           ) : null
                         )}
+
+                        {/* RATE SELLER */}
+                        {activeTab === 'compras' && deal.status === 'COMPLETED' && !reviewedTransactions.has(deal.id) && (
+                          <button
+                            onClick={() => { setSelectedTransaction(deal); setReviewModalOpen(true); }}
+                            className="w-full sm:w-auto px-8 py-4 bg-amber-400 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-amber-500 shadow-xl flex items-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-sm">star</span>
+                            Calificar Vendedor
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -703,7 +814,7 @@ export default function Dashboard() {
                     <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest pt-1">Visita nuestro Centro de Resolución para asistencia con envíos o calidad del ítem.</p>
                   </div>
                 </div>
-                <button className="w-full md:w-auto bg-light-50 border border-light-100 px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest text-dark-800 hover:bg-light-100 transition-all">Abrir Caso</button>
+                <Link to="/resolution-center" className="w-full md:w-auto bg-light-50 border border-light-100 px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest text-dark-800 hover:bg-light-100 transition-all text-center">Abrir Caso</Link>
               </div>
             </div>
           </div>
@@ -823,6 +934,39 @@ export default function Dashboard() {
                   className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 disabled:opacity-50"
                 >
                   {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* CANCEL CONFIRMATION MODAL */}
+      {
+        cancelModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-dark-900/40 backdrop-blur-sm p-4">
+            <div className="bg-white p-8 rounded-[32px] shadow-2xl max-w-sm w-full text-center space-y-6 animate-in zoom-in-95 duration-200">
+              <div className="size-16 bg-red-50 text-red-500 rounded-2xl mx-auto flex items-center justify-center">
+                <span className="material-symbols-outlined text-3xl font-black">gavel</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-dark-800 mb-2">¿Cancelar esta compra?</h3>
+                <p className="text-sm font-bold text-gray-400">
+                  La cancelación conlleva una <span className="text-red-500">penalización del 3%</span> por servicios utilizados.
+                </p>
+              </div>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => { setCancelModalOpen(false); setTxToCancel(null); }}
+                  className="flex-1 py-4 bg-light-100 text-dark-800 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-light-200 transition-all"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleCancelTransaction}
+                  className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
+                >
+                  Aceptar y Cancelar
                 </button>
               </div>
             </div>

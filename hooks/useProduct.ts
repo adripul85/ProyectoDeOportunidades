@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useNotification } from '../App';
+import { useNotification } from '../context/NotificationContext';
 import { getProduct, ItemData } from '../lib/items';
 import { getUserProfile } from '../lib/users';
 

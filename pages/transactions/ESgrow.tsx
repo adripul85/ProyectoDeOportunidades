@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useNotification } from '../../App';
+import { useNotification } from '../../context/NotificationContext';
 import confetti from 'canvas-confetti';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -107,8 +107,8 @@ const ESgrow = () => {
             <span className="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
           </button>
           <div>
-            <h1 className="text-3xl font-black text-dark-800 tracking-tight">Protocolo de Transacción</h1>
-            <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em] mt-2">ID Operacional #{dealData.id}</p>
+            <h1 className="text-3xl font-black text-dark-800 tracking-tight">Trato en Curso</h1>
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em] mt-2">Referencia #{dealData.id}</p>
           </div>
         </div>
 
@@ -117,7 +117,7 @@ const ESgrow = () => {
             <img src={dealData.seller.avatar} alt="Seller" className="size-10 rounded-2xl object-cover border-2 border-white shadow-sm" />
             <div>
               <p className="text-[11px] font-black text-dark-800 uppercase tracking-tight">{dealData.seller.name}</p>
-              <p className="text-[9px] text-primary-vibrant font-black uppercase tracking-widest mt-1">Entidad Verificada</p>
+              <p className="text-[9px] text-primary-vibrant font-black uppercase tracking-widest mt-1">Vendedor Verificado</p>
             </div>
           </div>
 
@@ -145,7 +145,26 @@ const ESgrow = () => {
             deadline={deadline}
           />
 
-          {/* BUYER VIEW: Confirm Receipt */}
+          {/* BUYER VIEW: Pending Payment Prompt */}
+          {currentUserRole === 'COMPRADOR' && status === 'PENDING_PAYMENT' && (
+            <div className="bg-amber-50 p-8 rounded-[32px] border border-amber-200 shadow-premium mb-6 text-center animate-in fade-in zoom-in duration-500">
+              <div className="size-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-3xl">payments</span>
+              </div>
+              <h3 className="text-sm font-black text-amber-900 uppercase tracking-widest mb-2">Pago Pendiente</h3>
+              <p className="text-[11px] text-amber-800/70 mb-6 font-bold">
+                Para iniciar el protocolo de seguridad, debes completar el pago del activo.
+              </p>
+              <button
+                onClick={() => navigate(`/checkout?tx=${id}`)}
+                className="w-full bg-primary-vibrant text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary-vibrant/20 active:scale-95"
+              >
+                Pagar Ahora
+              </button>
+            </div>
+          )}
+
+          {/* BUYER VIEW: Confirm Receipt / Remote Confirmation */}
           {currentUserRole === 'COMPRADOR' && (status === 'PAID_HELD' || status === 'SHIPPED') && (
             <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium mb-6 text-center animate-in fade-in zoom-in duration-500">
               <div className="size-16 bg-primary-50 text-primary-vibrant rounded-full flex items-center justify-center mx-auto mb-4">
@@ -153,7 +172,7 @@ const ESgrow = () => {
               </div>
               <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-2">Confirmar Recepción</h3>
               <p className="text-[11px] text-gray-500 mb-6">
-                Al confirmar, los fondos se liberarán al vendedor. Hazlo solo si tienes el producto.
+                Haz clic aquí solo si ya tienes el producto y coincide con lo esperado. Esto liberará los fondos al vendedor.
               </p>
 
               <input
@@ -163,31 +182,36 @@ const ESgrow = () => {
                 className="hidden"
                 onChange={(e) => handleFileUpload(e, 'RECEPCION')}
               />
-              <div className="flex gap-4">
+              <div className="flex flex-col gap-4">
                 <button
                   onClick={() => buyerInputRef.current?.click()}
-                  className="flex-1 btn-secondary py-4 flex items-center justify-center gap-2 border border-light-200"
+                  className="w-full btn-secondary py-4 flex items-center justify-center gap-2 border border-light-200"
                 >
                   <span className="material-symbols-outlined">add_a_photo</span>
-                  Subir Foto
+                  Subir Foto de Recepción
                 </button>
                 <button
-                  onClick={() => actions.releaseEscrow()}
-                  className="flex-[2] btn-primary py-4 flex items-center justify-center gap-2 shadow-lg shadow-primary-vibrant/20"
+                  onClick={async () => {
+                    const res = await actions.updateStatus('COMPLETED', '✅ El comprador confirmó la recepción del paquete de forma remota.');
+                    if (res.success) {
+                      triggerSuccessEffects();
+                      notify({ type: 'success', title: '¡Trato Hecho!', message: 'Fondos liberados al vendedor.', icon: 'verified' });
+                    }
+                  }}
+                  className="w-full btn-primary bg-emerald-600 py-4 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
                 >
-                  <span className="material-symbols-outlined">thumb_up</span>
-                  Ya recibí el producto
+                  <span className="material-symbols-outlined">verified</span>
+                  Confirmar que recibí el producto
                 </button>
               </div>
             </div>
           )}
 
-          {/* New Section: Tracking Input for Seller */}
+          {/* SELLER VIEW: Tracking Input */}
           {currentUserRole === 'VENDEDOR' && status === 'PAID_HELD' && (
-            <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium animate-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium mb-6 animate-in slide-in-from-bottom-4 duration-500">
               <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-6">Registrar Envío / Entrega</h3>
 
-              {/* Evidence Warning */}
               {!hasEvidence && (
                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-4 mb-6 cursor-pointer hover:bg-amber-100 transition-colors" onClick={() => sellerInputRef.current?.click()}>
                   <span className="material-symbols-outlined text-amber-600">add_a_photo</span>
@@ -241,6 +265,25 @@ const ESgrow = () => {
             </div>
           )}
 
+          {/* MEDIATOR VIEW: Admin Validation for Bank Transfers */}
+          {currentUserRole === 'MEDIADOR' && status === 'PENDING_PAYMENT' && (
+            <div className="bg-amber-50 p-8 rounded-[32px] border border-amber-200 shadow-premium mb-6 text-center animate-in fade-in zoom-in duration-500">
+              <div className="size-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-3xl">account_balance</span>
+              </div>
+              <h3 className="text-sm font-black text-amber-900 uppercase tracking-widest mb-2">Validación Administrativa</h3>
+              <p className="text-[11px] text-amber-800/70 mb-6 font-bold">
+                Verifica la acreditación en la cuenta bancaria de la empresa antes de confirmar.
+              </p>
+              <button
+                onClick={() => actions.updateStatus('PAID_HELD', '🏦 Pago verificado en cuenta de empresa por el Administrador.')}
+                className="w-full bg-dark-800 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-dark-800/10 active:scale-95"
+              >
+                Confirmar Transferencia Bancaria
+              </button>
+            </div>
+          )}
+
           {/* COMPLETED VIEW: Download Ticket */}
           {status === 'COMPLETED' && (
             <div className="bg-emerald-50 p-8 rounded-[32px] border border-emerald-100 text-center animate-in zoom-in shadow-premium mt-6">
@@ -280,6 +323,11 @@ const ESgrow = () => {
             onUpdateStatus={actions.updateStatus}
             onReleaseFunds={() => actions.releaseEscrow()}
             onRequestMediation={() => actions.updateStatus('DISPUTED', '⚖️ Protocolo de mediación iniciado por el usuario.')}
+            onCancel={() => {
+              if (window.confirm("⚠️ ¿Estás seguro de cancelar este trato?\n\nSi eres COMPRADOR: Se te devolverá el dinero MENOS una penalización del 3% ($" + (dealData.price * 0.03).toFixed(2) + ") por gastos administrativos.\n\nEsta acción es irreversible.")) {
+                actions.cancelEscrow();
+              }
+            }}
           />
         </div>
       </div>

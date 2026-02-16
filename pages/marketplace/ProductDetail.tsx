@@ -6,7 +6,7 @@ import { startChat } from '../../lib/chat';
 
 // Hooks
 import { useProduct } from '../../hooks/useProduct';
-import { useNotification } from '../../App';
+import { useNotification } from '../../context/NotificationContext';
 
 // Components
 import ShareModal from '../../components/product/ShareModal';
@@ -14,6 +14,10 @@ import SellerSection from '../../components/product/SellerSection';
 import ProductMedia from '../../components/product/ProductMedia';
 import QuestionsSection from '../../components/product/QuestionsSection';
 import ProductActions from '../../components/product/ProductActions';
+
+import { toggleFavorite, checkIsFavorite, toggleProductAlert, checkHasAlert, reportItem } from '../../lib/interactions';
+import ReportModal from '../../components/product/ReportModal';
+import { useCart } from '../../context/CartContext';
 
 const ProductDetail = () => {
   const {
@@ -35,37 +39,69 @@ const ProductDetail = () => {
 
   const { user } = useAuth();
   const { notify } = useNotification();
+  const { addToCart } = useCart();
   const [offerAmount, setOfferAmount] = useState('');
 
-  // Mock states for actions
+  // Mock states for actions -> Real states
   const [isSaved, setIsSaved] = useState(false);
   const [hasAlert, setHasAlert] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  // Dynamic Title Update
+  // Check initial state
   useEffect(() => {
-    const prevTitle = document.title;
-    document.title = `${product.title} | De Oportunidades 🎯`;
-    return () => { document.title = prevTitle; };
-  }, [product.title]);
+    if (user && product.id) {
+      checkIsFavorite(user.uid, product.id).then(setIsSaved);
+      checkHasAlert(user.uid, product.id).then(setHasAlert);
+    }
+  }, [user, product.id]);
 
-  const handleAction = (action: string) => {
+  const handleAction = async (action: string) => {
     if (!user) {
-      notify('Inicia sesión para usar esta función', 'error');
+      notify({ type: 'error', title: 'Acceso Denegado', message: 'Inicia sesión para usar esta función.', icon: 'lock' });
       return;
     }
 
     switch (action) {
       case 'save':
-        setIsSaved(!isSaved);
-        notify(isSaved ? 'Eliminado de favoritos' : 'Guardado en favoritos', 'success');
+        try {
+          const { isFavorite } = await toggleFavorite(user.uid, product.id);
+          setIsSaved(isFavorite);
+          notify({ type: 'success', title: isFavorite ? 'Guardado' : 'Removido', message: isFavorite ? 'Producto añadido a favoritos.' : 'Producto eliminado de favoritos.', icon: 'favorite' });
+        } catch (e) {
+          notify({ type: 'error', title: 'Error', message: 'No se pudo actualizar favoritos.', icon: 'error' });
+        }
         break;
       case 'alert':
-        setHasAlert(!hasAlert);
-        notify(hasAlert ? 'Alerta desactivada' : 'Te avisaremos si baja de precio', 'success');
+        try {
+          const { hasAlert } = await toggleProductAlert(user.uid, product.id);
+          setHasAlert(hasAlert);
+          notify({ type: 'success', title: hasAlert ? 'Alerta Activada' : 'Alerta Desactivada', message: hasAlert ? 'Te notificaremos cambios en este producto.' : 'Ya no recibirás notificaciones de este producto.', icon: 'notifications' });
+        } catch (e) {
+          notify({ type: 'error', title: 'Error', message: 'No se pudo actualizar la alerta.', icon: 'error' });
+        }
         break;
       case 'report':
-        notify('Gracias. Revisaremos esta publicación.', 'success');
+        setIsReportModalOpen(true);
         break;
+    }
+  };
+
+  const handleReportSubmit = async (reason: string, description: string) => {
+    if (!user) return;
+
+    const result = await reportItem({
+      reporterId: user.uid,
+      reporterName: user.displayName || user.email || 'Usuario Anónimo',
+      targetId: product.id,
+      targetType: 'product',
+      reason,
+      description
+    });
+
+    if (result.success) {
+      notify({ type: 'success', title: 'Reporte Recibido', message: 'Gracias. Nuestro equipo revisará el caso.', icon: 'verified_user' });
+    } else {
+      notify({ type: 'error', title: 'Error', message: 'No se pudo enviar el reporte.', icon: 'error' });
     }
   };
 
@@ -102,7 +138,7 @@ const ProductDetail = () => {
       notify({ type: 'error', title: 'Acceso Denegado', message: 'Inicia sesión para comprar.', icon: 'lock' });
       return;
     }
-    navigate(`/new-trato?itemId=${product.id}`, {
+    navigate(`/checkout`, {
       state: {
         productId: product.id,
         productTitle: product.title,
@@ -114,12 +150,29 @@ const ProductDetail = () => {
     });
   };
 
+  const handleAddToCart = () => {
+    addToCart({
+      id: product.id,
+      title: product.title,
+      price: product.price,
+      image: product.images[0],
+      sellerId: product.seller.id,
+      sellerName: product.seller.displayName || product.seller.name
+    });
+  };
+
   return (
     <main className="max-w-[1440px] mx-auto px-6 py-10 bg-light-50 min-h-screen">
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         title={product.title}
+      />
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        onSubmit={handleReportSubmit}
+        targetName={product.title}
       />
 
       {/* Breadcrumbs */}
@@ -174,7 +227,7 @@ const ProductDetail = () => {
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-0.5">Ubicación</p>
-                  <p className="font-black text-dark-800">Buenos Aires, AR</p>
+                  <p className="font-black text-dark-800">{product.location || 'Buenos Aires, AR'}</p>
                 </div>
               </div>
             </div>
@@ -196,25 +249,42 @@ const ProductDetail = () => {
 
           <div className="bg-white p-8 rounded-4xl border border-light-200 shadow-premium sticky top-28">
             <div className="mb-6">
-              <h1 className="text-3xl font-black mb-2 text-dark-800 leading-tight">{product.title}</h1>
-              <p className="text-sm font-bold text-gray-400 mb-6">Publicado hace 2 días en Buenos Aires, AR</p>
+              <div className="flex justify-between items-start mb-2">
+                <h1 className="text-2xl font-black text-dark-800 leading-tight bg-gradient-to-br from-dark-800 to-dark-600 bg-clip-text text-transparent">{product.title}</h1>
+                <button className="text-gray-400 hover:text-red-500 transition-colors">
+                  <span className="material-symbols-outlined" onClick={() => handleAction('save')}>{isSaved ? 'favorite' : 'favorite_border'}</span>
+                </button>
+              </div>
+              <p className="text-xs font-bold text-gray-400 mb-6 flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">schedule</span>
+                Publicado en {product.location || 'Buenos Aires, AR'}
+              </p>
               <p className="text-4xl font-black text-dark-800 tracking-tight">${product.price.toLocaleString()}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="flex flex-col gap-3 mb-6">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleBuyNow}
+                  className="bg-primary-vibrant text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-primary-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-500/30 active:scale-95 group"
+                >
+                  <span className="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">bolt</span>
+                  Comprar Ya
+                </button>
+                <button
+                  onClick={handleContactSeller}
+                  className="bg-white text-dark-800 border-2 border-light-200 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-light-50 transition-all flex items-center justify-center gap-2 active:scale-95 group"
+                >
+                  <span className="material-symbols-outlined text-gray-400 group-hover:text-primary-vibrant transition-colors text-lg">chat</span>
+                  Mensaje
+                </button>
+              </div>
               <button
-                onClick={handleBuyNow}
-                className="bg-primary-vibrant text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-500/10 active:scale-95 group"
+                onClick={handleAddToCart}
+                className="w-full bg-light-100/50 hover:bg-light-100 text-dark-800 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 active:scale-95 group"
               >
-                <span className="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">shopping_cart</span>
-                Comprar
-              </button>
-              <button
-                onClick={handleContactSeller}
-                className="bg-white text-dark-800 border-2 border-light-200 py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-light-50 transition-all flex items-center justify-center gap-2 shadow-premium active:scale-95 group"
-              >
-                <span className="material-symbols-outlined text-primary-vibrant text-lg group-hover:scale-110 transition-transform">chat_bubble</span>
-                Mensaje
+                <span className="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">add_shopping_cart</span>
+                Agregar al Carrito
               </button>
             </div>
           </div>

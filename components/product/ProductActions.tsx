@@ -1,5 +1,4 @@
 import React from 'react';
-import { useAuth } from '../../lib/auth';
 
 interface ProductActionsProps {
     onSave: () => void;
@@ -48,7 +47,7 @@ const ProductActions: React.FC<ProductActionsProps> = ({
                 className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 hover:text-red-500 transition-all group"
             >
                 <span className="material-symbols-outlined text-lg font-black group-hover:shake transition-all text-gray-300 group-hover:text-red-400">flag</span>
-                Reportar Brecha
+                Reportar Producto
             </button>
         </div>
     );

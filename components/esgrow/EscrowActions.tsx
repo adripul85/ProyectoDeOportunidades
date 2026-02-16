@@ -1,17 +1,20 @@
 
 import React from 'react';
-import { EscrowStatus, UserRole } from '../../hooks/useEscrow';
+import { UserRole } from '../../hooks/useEscrow';
+import { TransactionStatus } from '../../lib/transactions';
 
 interface Props {
-    status: EscrowStatus;
+    status: TransactionStatus;
     currentUserRole: UserRole;
     price: number;
-    onUpdateStatus: (s: EscrowStatus, msg?: string) => void;
+    onUpdateStatus: (s: TransactionStatus, msg?: string) => void;
+    onReleaseFunds: () => void;
     onRequestMediation: () => void;
+    onCancel: () => void;
 }
 
 
-const EscrowActions: React.FC<Props> = ({ status, currentUserRole, price, onUpdateStatus, onRequestMediation }) => {
+const EscrowActions: React.FC<Props> = ({ status, currentUserRole, price, onUpdateStatus, onReleaseFunds, onRequestMediation, onCancel }) => {
 
     if (status === 'DISPUTA') {
         return (
@@ -97,6 +100,19 @@ const EscrowActions: React.FC<Props> = ({ status, currentUserRole, price, onUpda
                     Raise Dispute
                 </button>
             </div>
+
+            {/* Cancellation Option (Only for Pending/Funded states) */}
+            {(status === 'PENDING_PAYMENT' || status === 'PAID_HELD' || status === 'SHIPPED') && (
+                <div className="absolute top-4 right-4 z-20">
+                    <button
+                        onClick={onCancel}
+                        className="p-2 text-white/20 hover:text-red-500 transition-colors"
+                        title="Cancelar Transacción"
+                    >
+                        <span className="material-symbols-outlined text-lg">cancel</span>
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { createReview } from '../lib/reviews';
-import { useNotification } from '../App';
+import { useNotification } from '../context/NotificationContext';
 import RatingStars from './RatingStars';
 
 interface ReviewModalProps {
