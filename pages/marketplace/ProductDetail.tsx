@@ -14,6 +14,7 @@ import SellerSection from '../../components/product/SellerSection';
 import ProductMedia from '../../components/product/ProductMedia';
 import QuestionsSection from '../../components/product/QuestionsSection';
 import ProductActions from '../../components/product/ProductActions';
+import SellerStoreBanner from '../../components/product/SellerStoreBanner';
 
 import { toggleFavorite, checkIsFavorite, toggleProductAlert, checkHasAlert, reportItem } from '../../lib/interactions';
 import ReportModal from '../../components/product/ReportModal';
@@ -162,7 +163,7 @@ const ProductDetail = () => {
   };
 
   return (
-    <main className="max-w-[1440px] mx-auto px-6 py-10 bg-light-50 min-h-screen">
+    <main className="max-w-[1280px] mx-auto px-6 py-6 bg-light-50 min-h-screen">
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
@@ -176,7 +177,7 @@ const ProductDetail = () => {
       />
 
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-10">
+      <nav className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-6">
         <Link to="/" className="hover:text-primary-vibrant transition-colors">Inicio</Link>
         <span className="material-symbols-outlined text-xs">chevron_right</span>
         <Link to="/search" className="hover:text-primary-vibrant transition-colors">{product.category}</Link>
@@ -184,7 +185,7 @@ const ProductDetail = () => {
         <span className="text-dark-800">{product.title}</span>
       </nav>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* MEDIA & INFO (Left) */}
         <div className="lg:col-span-8 space-y-10">
           <ProductMedia
@@ -200,7 +201,7 @@ const ProductDetail = () => {
             imageRef={imageRef}
           />
 
-          <div className="p-10 bg-white border border-light-200 rounded-4xl shadow-premium">
+          <div className="p-8 bg-white border border-light-200 rounded-3xl shadow-premium">
             <h3 className="text-sm font-black uppercase tracking-widest text-dark-800 mb-8 flex items-center gap-3">
               <span className="material-symbols-outlined text-primary-vibrant">subject</span>
               Descripción
@@ -234,98 +235,135 @@ const ProductDetail = () => {
           </div>
 
           <QuestionsSection itemId={product.id} sellerId={product.seller.id} />
+
+          <SellerStoreBanner
+            sellerId={product.seller.id}
+            sellerName={product.seller.displayName || product.seller.name}
+            sellerAvatar={product.seller.avatar || product.seller.image}
+          />
         </div>
 
         {/* PURCHASING HUB (Right) */}
-        <div className="lg:col-span-4 space-y-6">
-          <ProductActions
-            onSave={() => handleAction('save')}
-            onAlert={() => handleAction('alert')}
-            onReport={() => handleAction('report')}
-            onShare={() => setIsShareModalOpen(true)}
-            isSaved={isSaved}
-            hasAlert={hasAlert}
-          />
+        <div className="lg:col-span-4 h-full">
+          <div className="sticky top-24 space-y-6">
+            <ProductActions
+              onSave={() => handleAction('save')}
+              onAlert={() => handleAction('alert')}
+              onReport={() => handleAction('report')}
+              onShare={() => setIsShareModalOpen(true)}
+              isSaved={isSaved}
+              hasAlert={hasAlert}
+            />
 
-          <div className="bg-white p-8 rounded-4xl border border-light-200 shadow-premium sticky top-28">
-            <div className="mb-6">
-              <div className="flex justify-between items-start mb-2">
-                <h1 className="text-2xl font-black text-dark-800 leading-tight bg-gradient-to-br from-dark-800 to-dark-600 bg-clip-text text-transparent">{product.title}</h1>
-                <button className="text-gray-400 hover:text-red-500 transition-colors">
-                  <span className="material-symbols-outlined" onClick={() => handleAction('save')}>{isSaved ? 'favorite' : 'favorite_border'}</span>
-                </button>
+            <div className="bg-white p-8 rounded-3xl border border-light-200 shadow-premium">
+              <div className="mb-6">
+                <div className="flex justify-between items-start mb-2">
+                  <h1 className="text-2xl font-black text-dark-800 leading-tight bg-gradient-to-br from-dark-800 to-dark-600 bg-clip-text text-transparent">{product.title}</h1>
+                  <button className="text-gray-400 hover:text-red-500 transition-colors">
+                    <span className="material-symbols-outlined" onClick={() => handleAction('save')}>{isSaved ? 'favorite' : 'favorite_border'}</span>
+                  </button>
+                </div>
+                <div className="flex items-center justify-between mb-6">
+                  <p className="text-4xl font-black text-dark-800 tracking-tight">${product.price.toLocaleString()}</p>
+                  {product.views && product.views > 10 && (
+                    <div className="flex items-center gap-2 bg-light-100/50 px-4 py-2 rounded-full border border-light-200 shadow-sm animate-in fade-in slide-in-from-right-2">
+                      <span className="material-symbols-outlined text-sm text-gray-400">visibility</span>
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        {product.views} visitas
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <p className="text-xs font-bold text-gray-400 mb-6 flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm">schedule</span>
-                Publicado en {product.location || 'Buenos Aires, AR'}
-              </p>
-              <p className="text-4xl font-black text-dark-800 tracking-tight">${product.price.toLocaleString()}</p>
-            </div>
 
-            <div className="flex flex-col gap-3 mb-6">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-3 mb-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handleBuyNow}
+                    className="bg-primary-vibrant text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-primary-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-500/30 active:scale-95 group"
+                  >
+                    <span className="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">bolt</span>
+                    Comprar Ya
+                  </button>
+                  <button
+                    onClick={handleContactSeller}
+                    className="bg-white text-dark-800 border-2 border-light-200 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-light-50 transition-all flex items-center justify-center gap-2 active:scale-95 group"
+                  >
+                    <span className="material-symbols-outlined text-gray-400 group-hover:text-primary-vibrant transition-colors text-lg">chat</span>
+                    Mensaje
+                  </button>
+                </div>
                 <button
-                  onClick={handleBuyNow}
-                  className="bg-primary-vibrant text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-primary-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-500/30 active:scale-95 group"
+                  onClick={handleAddToCart}
+                  className="w-full bg-light-100/50 hover:bg-light-100 text-dark-800 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 active:scale-95 group"
                 >
-                  <span className="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">bolt</span>
-                  Comprar Ya
-                </button>
-                <button
-                  onClick={handleContactSeller}
-                  className="bg-white text-dark-800 border-2 border-light-200 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-light-50 transition-all flex items-center justify-center gap-2 active:scale-95 group"
-                >
-                  <span className="material-symbols-outlined text-gray-400 group-hover:text-primary-vibrant transition-colors text-lg">chat</span>
-                  Mensaje
+                  <span className="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">add_shopping_cart</span>
+                  Agregar al Carrito
                 </button>
               </div>
-              <button
-                onClick={handleAddToCart}
-                className="w-full bg-light-100/50 hover:bg-light-100 text-dark-800 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 active:scale-95 group"
-              >
-                <span className="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">add_shopping_cart</span>
-                Agregar al Carrito
-              </button>
-            </div>
-          </div>
 
-          <div className="border-t border-light-100 pt-8 mb-8">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-6">Detalles</h4>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-6">
-              <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Condición</p>
-                <p className="text-sm font-bold text-dark-800 capitalize">
-                  {product.condition === 'new' ? 'Nuevo' :
-                    product.condition === 'like_new' ? 'Como Nuevo' :
-                      product.condition === 'good' ? 'Bueno' : 'Regular'}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Marca</p>
-                <p className="text-sm font-bold text-dark-800">{product.brand || 'No especificada'}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Color</p>
-                <p className="text-sm font-bold text-dark-800">{product.color || 'No especificado'}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Categoría</p>
-                <p className="text-sm font-bold text-dark-800">{product.category}</p>
-              </div>
-            </div>
-          </div>
+              <div className="border-t border-light-100 pt-8 mb-8">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-6">Detalles</h4>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-6">
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Condición</p>
+                    <p className="text-sm font-bold text-dark-800 capitalize">
+                      {product.condition === 'new' ? 'Nuevo' :
+                        product.condition === 'like_new' ? 'Como Nuevo' :
+                          product.condition === 'good' ? 'Bueno' : 'Regular'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Marca</p>
+                    <p className="text-sm font-bold text-dark-800">{product.brand || 'No especificada'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Color</p>
+                    <p className="text-sm font-bold text-dark-800">{product.color || 'No especificado'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Categoría</p>
+                    <p className="text-sm font-bold text-dark-800">{product.category}</p>
+                  </div>
+                </div>
 
-          <SellerSection seller={product.seller} />
+                {product.deliveryMethods && product.deliveryMethods.length > 0 && (
+                  <div className="mt-8 pt-8 border-t border-light-100">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Opciones de Entrega</p>
+                    <div className="space-y-3">
+                      {product.deliveryMethods.map((m: string) => {
+                        const methodMap: Record<string, { label: string, icon: string }> = {
+                          'correo_argentino': { label: 'Correo Argentino', icon: 'local_shipping' },
+                          'en_mano': { label: 'En mano (Persona a persona)', icon: 'handshake' },
+                          'acordar': { label: 'Acordar con vendedor', icon: 'chat' },
+                          'domicilio': { label: 'Envío a domicilio', icon: 'home' }
+                        };
+                        const method = methodMap[m] || { label: m, icon: 'package' };
+                        return (
+                          <div key={m} className="flex items-center gap-3 p-3 bg-light-50 rounded-xl border border-light-200/50">
+                            <span className="material-symbols-outlined text-primary-vibrant text-lg">{method.icon}</span>
+                            <span className="text-[11px] font-black text-dark-800 uppercase tracking-tight">{method.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-          <div className="mt-6 bg-primary-50 rounded-2xl p-5 border border-primary-100 flex gap-4">
-            <span className="material-symbols-outlined text-primary-vibrant">verified_user</span>
-            <div>
-              <h5 className="text-[10px] font-black uppercase tracking-widest text-primary-600 mb-1">Consejos de Seguridad</h5>
-              <ul className="text-[10px] font-bold text-primary-800/70 space-y-1 list-disc pl-3">
-                <li>Encuéntrese en un lugar público y bien iluminado</li>
-                <li>Inspeccione el artículo antes de pagar</li>
-                <li>Nunca envíe dinero por transferencia bancaria directa</li>
-              </ul>
+              <SellerSection seller={product.seller} />
+
+              <div className="mt-6 bg-primary-50 rounded-2xl p-5 border border-primary-100 flex gap-4">
+                <span className="material-symbols-outlined text-primary-vibrant">verified_user</span>
+                <div>
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-primary-600 mb-1">Consejos de Seguridad</h5>
+                  <ul className="text-[10px] font-bold text-primary-800/70 space-y-1 list-disc pl-3">
+                    <li>Encuéntrese en un lugar público y bien iluminado</li>
+                    <li>Inspeccione el artículo antes de pagar</li>
+                    <li>Nunca envíe dinero por transferencia bancaria directa</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         </div>

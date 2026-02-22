@@ -162,7 +162,7 @@ const Header = () => {
 
                 <nav className="hidden xl:flex items-center gap-10 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
                     <Link className="hover:text-dark-800 transition-colors" to="/">Explorar</Link>
-                    <Link className="hover:text-dark-800 transition-colors" to="/deals">Tratos</Link>
+                    <Link className="hover:text-dark-800 transition-colors" to="/deals">Oportunidades Ya!</Link>
                     <Link className="hover:text-dark-800 transition-colors" to="/publish">Vender</Link>
                     <Link className="hover:text-dark-800 transition-colors" to="/resolution-center">Ayuda</Link>
                 </nav>
@@ -346,7 +346,7 @@ const Header = () => {
                         <nav className="grid grid-cols-2 gap-4">
                             {[
                                 { to: '/search', label: 'Explorar Activos', icon: 'explore' },
-                                { to: '/deals', label: 'Tratos', icon: 'local_offer' },
+                                { to: '/deals', label: 'Oportunidades Ya!', icon: 'local_offer' },
                                 { to: '/publish', label: 'Iniciar Trato', icon: 'handshake' },
                                 { to: '/verification', label: 'Confianza de Red', icon: 'verified_user' },
                                 { to: '/wallet', label: 'Índice Financiero', icon: 'payments' },

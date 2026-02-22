@@ -10,7 +10,56 @@ const db = admin.firestore();
 const client = new MercadoPagoConfig({ accessToken: 'TEST-3723388313099209-010813-b29e24f815b6c621e0eb14af1a87935f-148630764' });
 
 /**
- * 2. CREAR PREFERENCIA DE PAGO
+ * 2. HELPERS
+ */
+async function getSystemAdminId(): Promise<string | null> {
+    const usersRef = db.collection('users');
+    const snapshot = await usersRef.where('role', '==', 'admin').orderBy('createdAt', 'asc').limit(1).get();
+    if (!snapshot.empty) return snapshot.docs[0].id;
+    return null;
+}
+
+async function distributeEscrowFunds(transactionId: string, data: any) {
+    const adminId = await getSystemAdminId();
+    const sellerRef = db.collection('users').doc(data.sellerId);
+
+    // Calculated based on new model (Step Id 5789 logic)
+    const sellerProceeds = data.amountProduct || data.amount;
+    const platformRevenue = data.amountPlatformFee || data.amountPlatformFee || 0;
+
+    const batch = db.batch();
+
+    // A. Pay Seller
+    batch.update(sellerRef, {
+        "wallet.available": admin.firestore.FieldValue.increment(sellerProceeds),
+        "wallet.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // B. Pay Admin
+    if (adminId && platformRevenue > 0) {
+        const adminRef = db.collection('users').doc(adminId);
+        batch.update(adminRef, {
+            "wallet.available": admin.firestore.FieldValue.increment(platformRevenue),
+            "wallet.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // C. Log Revenue
+        const logRef = db.collection('financial_logs').doc();
+        batch.set(logRef, {
+            transactionId,
+            type: 'platform_fee',
+            amount: platformRevenue,
+            currency: 'ARS',
+            relatedUser: data.sellerId,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+    }
+
+    await batch.commit();
+}
+
+/**
+ * 3. CREAR PREFERENCIA DE PAGO
  */
 export const createPayment = functions.https.onCall(async (request) => {
     const data = request.data;
@@ -135,13 +184,8 @@ export const releaseFunds = functions.https.onCall(async (request) => {
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // Mover saldo al vendedor (Simulado)
-    const sellerRef = db.collection('users').doc(data.sellerId);
-    await db.runTransaction(async (t) => {
-        const sellerDoc = await t.get(sellerRef);
-        const currentBalance = sellerDoc.data()?.balance || 0;
-        t.update(sellerRef, { balance: currentBalance + data.amount });
-    });
+    // DISTRIBUTE FUNDS (New model balanced logic)
+    await distributeEscrowFunds(transactionId, data);
 
     return { success: true };
 });
@@ -176,12 +220,11 @@ export const refundFunds = functions.https.onCall(async (request) => {
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // Mover saldo de vuelta al comprador (Simulado)
+    // Mover saldo de vuelta al comprador
     const buyerRef = db.collection('users').doc(data.buyerId);
-    await db.runTransaction(async (t) => {
-        const buyerDoc = await t.get(buyerRef);
-        const currentBalance = buyerDoc.data()?.balance || 0;
-        t.update(buyerRef, { balance: currentBalance + data.amount });
+    await buyerRef.update({
+        "wallet.available": admin.firestore.FieldValue.increment(data.amountTotal || data.total || data.amount),
+        "wallet.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
     });
 
     return { success: true };
@@ -242,4 +285,54 @@ export const submitEvidence = functions.https.onCall(async (request) => {
     });
 
     return { success: true };
+});
+
+/**
+ * 9. AUTO-RELEASE ESCROW (Scheduled 48h timer)
+ * Runs every hour to check for SHIPPED transactions older than 48 hours.
+ */
+export const autoReleaseEscrow = functions.pubsub.schedule('every 1 hours').onRun(async (context) => {
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+    // Query transactions that are SHIPPED and haven't been updated in 48h
+    const snapshot = await db.collection('transactions')
+        .where('status', '==', 'SHIPPED')
+        .where('updatedAt', '<=', fortyEightHoursAgo)
+        .get();
+
+    if (snapshot.empty) {
+        console.log('No transactions to auto-release.');
+        return null;
+    }
+
+    console.log(`Auto-releasing ${snapshot.size} transactions...`);
+
+    const results = [];
+    for (const doc of snapshot.docs) {
+        const txId = doc.id;
+        const data = doc.data();
+
+        try {
+            // 1. Update status to COMPLETED
+            await doc.ref.update({
+                status: 'COMPLETED',
+                escrowReleased: true,
+                autoReleased: true, // Tracking flag
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            // 2. Distribute funds
+            await distributeEscrowFunds(txId, data);
+
+            // 3. Optional: Send notification to buyer and seller
+            // (System notes are added via addEscrowNote if needed, but here we just log)
+
+            results.push({ id: txId, status: 'success' });
+        } catch (error: any) {
+            console.error(`Error auto-releasing transaction ${txId}:`, error);
+            results.push({ id: txId, status: 'error', message: error.message });
+        }
+    }
+
+    return results;
 });

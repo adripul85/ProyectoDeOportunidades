@@ -5,7 +5,7 @@ import { getUserTransactions, TransactionData, TransactionStatus } from '../lib/
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { getReviewForTransaction } from '../lib/reviews';
-import { getItemsBySeller, ItemData, deleteItem } from '../lib/items';
+import { getItemsBySeller, ItemData, deleteItem, toggleFeaturedItem } from '../lib/items';
 import { updateUserProfile } from '../lib/users';
 import { uploadFile } from '../lib/storage';
 import { useNotification } from '../context/NotificationContext';
@@ -87,6 +87,13 @@ export default function Dashboard() {
       setTransactions(prev => ({ ...prev, ventas }));
       setLoading(false);
     });
+
+    // Fetch User Items (Publications)
+    const fetchUserItems = async () => {
+      const items = await getItemsBySeller(user.uid);
+      setUserItems(items);
+    };
+    fetchUserItems();
 
     return () => {
       unsubBuy();
@@ -177,6 +184,21 @@ export default function Dashboard() {
       setUserItems(prev => prev.filter(item => item.id !== id));
     } else {
       notify({ type: 'error', title: 'Error', message: 'No se pudo eliminar el producto.', icon: 'error' });
+    }
+  };
+
+  const handleToggleFeatured = async (id: string, currentlyFeatured: boolean) => {
+    const result = await toggleFeaturedItem(id, currentlyFeatured);
+    if (result.success) {
+      notify({
+        type: 'success',
+        title: result.isFeatured ? '¡Producto Destacado!' : 'Destacado Removido',
+        message: result.isFeatured ? 'Ahora aparecerá en la sección de ofertas relámpago.' : 'El producto ya no es destacado.',
+        icon: 'bolt'
+      });
+      setUserItems(prev => prev.map(item => item.id === id ? { ...item, isFeatured: result.isFeatured } : item));
+    } else {
+      notify({ type: 'error', title: 'Error', message: 'No se pudo cambiar el estado de destacado.', icon: 'error' });
     }
   };
 
@@ -520,7 +542,19 @@ export default function Dashboard() {
                           </div>
                           <div className="flex gap-3 mt-8">
                             <button onClick={() => navigate(`/product/${item.id}`)} className="flex-1 py-3 bg-light-100 text-dark-800 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-light-200 transition-all">Ver Publicación</button>
-                            <button onClick={() => navigate(`/publish?edit=${item.id}`)} className="flex-1 py-3 bg-white border border-light-200 text-dark-800 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-light-50 transition-all">Editar</button>
+                            <button
+                              onClick={() => handleToggleFeatured(item.id, !!item.isFeatured)}
+                              className={`flex-1 py-3 border rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${item.isFeatured
+                                ? 'bg-amber-50 border-amber-200 text-amber-600'
+                                : 'bg-white border-light-200 text-dark-800 hover:bg-light-50'
+                                }`}
+                            >
+                              <span className={`material-symbols-outlined text-sm ${item.isFeatured ? 'fill-1' : ''}`}>bolt</span>
+                              {item.isFeatured ? 'Destacado' : 'Destacar'}
+                            </button>
+                            <button onClick={() => navigate(`/publish?edit=${item.id}`)} className="size-10 flex items-center justify-center bg-white border border-light-200 text-dark-800 rounded-xl hover:bg-light-50 transition-all">
+                              <span className="material-symbols-outlined text-lg">edit</span>
+                            </button>
                             <button onClick={() => setItemToDelete(item.id)} className="size-10 flex items-center justify-center bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all">
                               <span className="material-symbols-outlined text-lg">delete</span>
                             </button>

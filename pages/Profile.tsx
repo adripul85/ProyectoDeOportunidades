@@ -177,7 +177,23 @@ const Profile = () => {
                   <span className="material-symbols-outlined text-xl">chat_bubble</span>
                   Mensaje
                 </button>
+                <button
+                  onClick={() => navigate(`/shop/${targetProfile.uid}`)}
+                  className="h-14 px-8 rounded-2xl bg-white text-dark-800 border-2 border-light-200 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-light-50 transition-all flex items-center gap-3 active:scale-95 shadow-premium"
+                >
+                  <span className="material-symbols-outlined text-xl text-primary-vibrant">store</span>
+                  Ver Tienda
+                </button>
               </>
+            )}
+            {isOwnProfile && (
+              <button
+                onClick={() => navigate(`/shop/${targetProfile.uid}`)}
+                className="h-14 px-8 rounded-2xl bg-white text-dark-800 border-2 border-primary-200 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-primary-50 transition-all flex items-center gap-3 active:scale-95 shadow-premium"
+              >
+                <span className="material-symbols-outlined text-xl text-primary-vibrant">storefront</span>
+                Mi Tienda Pública
+              </button>
             )}
           </div>
         </div>

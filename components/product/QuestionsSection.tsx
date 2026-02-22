@@ -66,18 +66,18 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
         e.preventDefault();
 
         if (!user) {
-            notify({ type: 'warning', title: 'Identidad Requerida', message: 'Debes autenticarte para realizar consultas.', icon: 'login' });
+            notify({ type: 'warning', title: 'Inicia sesión', message: 'Debes iniciar sesión para hacer una pregunta.', icon: 'login' });
             navigate('/login');
             return;
         }
 
         if (!questionText.trim()) {
-            notify({ type: 'warning', title: 'Paquete Vacío', message: 'Contenido de consulta requerido.', icon: 'edit' });
+            notify({ type: 'warning', title: 'Escribe algo', message: 'Por favor, escribe tu pregunta.', icon: 'edit' });
             return;
         }
 
         if (questionText.length > 500) {
-            notify({ type: 'warning', title: 'Desbordamiento de Datos', message: 'La consulta excede 500 meta-unidades.', icon: 'warning' });
+            notify({ type: 'warning', title: 'Muy larga', message: 'La pregunta no puede superar los 500 caracteres.', icon: 'warning' });
             return;
         }
 
@@ -94,30 +94,30 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
         setSubmitting(false);
 
         if (result.success) {
-            notify({ type: 'success', title: 'Paquete Transmitido', message: 'El comerciante ha sido notificado de su consulta.', icon: 'check_circle' });
+            notify({ type: 'success', title: 'Pregunta enviada', message: 'El vendedor ha sido notificado.', icon: 'check_circle' });
             setQuestionText('');
             setQuestionText('');
         } else {
-            notify({ type: 'error', title: 'Fallo de Transmisión', message: 'La consulta no pudo ser enrutada.', icon: 'error' });
+            notify({ type: 'error', title: 'Error al enviar', message: 'No se pudo enviar la pregunta.', icon: 'error' });
         }
     };
 
     // Submit answer
     const handleAnswerQuestion = async (questionId: string) => {
         if (!answerText.trim()) {
-            notify({ type: 'warning', title: 'Respuesta Requerida', message: 'Provea inteligencia antes de transmitir.', icon: 'edit' });
+            notify({ type: 'warning', title: 'Escribe algo', message: 'Por favor, escribe una respuesta.', icon: 'edit' });
             return;
         }
 
         const result = await answerQuestion(questionId, answerText, user!.uid);
 
         if (result.success) {
-            notify({ type: 'success', title: 'Respuesta Sincronizada', message: 'La inteligencia es ahora pública.', icon: 'check_circle' });
+            notify({ type: 'success', title: 'Respuesta enviada', message: 'La respuesta ya es pública.', icon: 'check_circle' });
             setAnsweringId(null);
             setAnswerText('');
             setAnswerText('');
         } else {
-            notify({ type: 'error', title: 'Error de Sincronización', message: 'Fallo al transmitir la respuesta.', icon: 'error' });
+            notify({ type: 'error', title: 'Error de envío', message: 'Fallo al enviar la respuesta.', icon: 'error' });
         }
     };
 
@@ -134,8 +134,8 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
                     <span className="material-symbols-outlined text-3xl text-white">chat_bubble_outline</span>
                 </div>
                 <div>
-                    <h2 className="text-2xl font-black text-dark-800 uppercase tracking-tight">Feed de Inteligencia</h2>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-2 pl-1">Consultas de protocolo y registros técnicos del comerciante</p>
+                    <h2 className="text-2xl font-black text-dark-800 uppercase tracking-tight">Preguntas y Respuestas</h2>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-2 pl-1">Despeja todas tus dudas con el vendedor</p>
                 </div>
             </div>
 
@@ -144,18 +144,18 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
                 <form onSubmit={handleAskQuestion} className="mb-14 relative z-10">
                     <div className="bg-light-50/50 p-8 rounded-[32px] border border-light-100 shadow-inner-premium">
                         <label className="block text-[9px] font-black uppercase tracking-[0.4em] text-gray-400 mb-5 ml-2">
-                            Inicializar Nueva Consulta
+                            Haz una pregunta
                         </label>
                         <textarea
                             value={questionText}
                             onChange={(e) => setQuestionText(e.target.value)}
-                            placeholder="Solicitar especificaciones técnicas o detalles del protocolo..."
+                            placeholder="Escribe tu duda sobre el producto aquí..."
                             className="w-full p-6 rounded-2xl border border-light-200 bg-white focus:bg-white focus:border-primary-vibrant focus:ring-4 focus:ring-primary-vibrant/5 outline-none transition-all font-bold text-sm text-dark-800 resize-none h-32"
                             maxLength={500}
                         />
                         <div className="flex items-center justify-between mt-5">
                             <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest pl-2">
-                                {questionText.length} / 500 Meta-unidades
+                                {questionText.length} / 500 caracteres
                             </span>
                             <button
                                 type="submit"
@@ -165,12 +165,12 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
                                 {submitting ? (
                                     <>
                                         <div className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        Transmitiendo...
+                                        Enviando...
                                     </>
                                 ) : (
                                     <>
                                         <span className="material-symbols-outlined text-lg font-black">send</span>
-                                        Transmitir
+                                        Preguntar
                                     </>
                                 )}
                             </button>
@@ -219,7 +219,7 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
                                     </div>
                                     <div className="flex items-center gap-3 mb-4 relative z-10">
                                         <span className="material-symbols-outlined text-primary-vibrant text-lg font-black">shield_person</span>
-                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary-800 pl-1">Reporte de Inteligencia del Comerciante</span>
+                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary-800 pl-1">Respuesta del Vendedor</span>
                                         <div className="size-1 bg-primary-200 rounded-full" />
                                         <span className="text-[9px] font-bold text-primary-600 uppercase tracking-widest">{getRelativeTime(q.answeredAt)}</span>
                                     </div>
@@ -234,7 +234,7 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
                                         <textarea
                                             value={answerText}
                                             onChange={(e) => setAnswerText(e.target.value)}
-                                            placeholder="Proveer clarificación técnica..."
+                                            placeholder="Escribe tu respuesta aquí..."
                                             className="w-full p-5 rounded-2xl border border-light-200 bg-white focus:border-dark-800 focus:ring-4 focus:ring-dark-800/5 outline-none transition-all font-bold text-sm resize-none h-32"
                                             rows={3}
                                             maxLength={1000}
@@ -246,7 +246,7 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
                                                 className="bg-dark-800 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-dark-900 transition-all flex items-center gap-3 shadow-xl shadow-dark-800/10"
                                             >
                                                 <span className="material-symbols-outlined text-lg">publish</span>
-                                                Transmitir Respuesta
+                                                Enviar Respuesta
                                             </button>
                                             <button
                                                 onClick={() => {
@@ -255,7 +255,7 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
                                                 }}
                                                 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-6 py-4 hover:text-dark-800 transition-colors"
                                             >
-                                                Abortar
+                                                Cancelar
                                             </button>
                                         </div>
                                     </div>
@@ -273,7 +273,7 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
                             ) : (
                                 <div className="ml-20 mt-5 flex items-center gap-3 opacity-40 grayscale pl-2">
                                     <span className="material-symbols-outlined text-lg animate-pulse">history</span>
-                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Sincronización Mercante Pendiente...</span>
+                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Esperando respuesta del vendedor...</span>
                                 </div>
                             )}
                         </div>
@@ -285,9 +285,9 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
                     <div className="bg-white size-24 rounded-3xl mb-8 flex items-center justify-center mx-auto shadow-sm border border-light-100">
                         <span className="material-symbols-outlined text-5xl text-gray-200">question_answer</span>
                     </div>
-                    <h3 className="text-xl font-black text-dark-800 mb-3 uppercase tracking-tight">Cero Consultas Registradas</h3>
+                    <h3 className="text-xl font-black text-dark-800 mb-3 uppercase tracking-tight">Sin preguntas aún</h3>
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 max-w-xs mx-auto leading-relaxed">
-                        {isSeller ? 'Esperando comunicaciones de posibles socios de adquisición' : 'Sé el primer participante en inicializar una consulta en este activo'}
+                        {isSeller ? 'Aun no hay consultas sobre este producto' : 'Sé el primero en hacer una pregunta'}
                     </p>
                 </div>
             )}

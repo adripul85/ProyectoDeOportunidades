@@ -21,9 +21,13 @@ export interface TransactionData {
     sellerId: string;
     itemId: string;
     itemTitle: string;
-    amount: number;
-    platformFee: number;
-    total: number;
+    amount: number;             // Legacy compatibility (maps to amountProduct)
+    amountProduct: number;      // Item price
+    amountGatewayFee: number;   // Processor fee (MP, etc.)
+    amountPlatformFee: number;  // Fixed Escrow protection fee ($2500)
+    amountTotal: number;        // Final paid amount
+    platformFee: number;        // Legacy compatibility (maps to amountPlatformFee)
+    total: number;              // Legacy compatibility (maps to amountTotal)
     status: TransactionStatus;
     paymentMethod: PaymentMethod;
     deliveryMethod: 'SHIPPING' | 'MEETING';
@@ -36,7 +40,7 @@ export interface TransactionData {
     shippingEvidence?: string[]; // URLs of photos uploaded by seller
     deliveryEvidence?: string[]; // URLs of photos uploaded by buyer
     lastSystemMessage?: string;
-    notes?: string; // Especificaciones/Notas del trato
+    notes?: string;
     disputeStartedAt?: any;
     createdAt: any;
     updatedAt: any;
@@ -63,15 +67,27 @@ export interface EscrowEvidence {
 const functions = getFunctions();
 
 // Create a new transaction
-export const createTransaction = async (data: Omit<TransactionData, 'status' | 'escrowReleased' | 'createdAt' | 'updatedAt' | 'qrCode' | 'platformFee'>) => {
+export const createTransaction = async (data: Omit<TransactionData, 'status' | 'escrowReleased' | 'createdAt' | 'updatedAt' | 'qrCode' | 'platformFee' | 'total' | 'amountPlatformFee' | 'amountTotal'> & { gatewayFee?: number }) => {
     try {
         const qrCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-        // 10% Platform Fee
-        const platformFee = data.amount * 0.10;
+
+        // NEW MODEL: Fixed $2500 Fee
+        const productPrice = data.amountProduct || data.amount;
+        const platformProtectionFee = 2500;
+
+        // Estimate Gateway Fee if not provided (approx 6% as recommended in analysis)
+        const estimatedGatewayFee = data.gatewayFee || Math.round(productPrice * 0.06);
+        const totalToPay = productPrice + platformProtectionFee + estimatedGatewayFee;
 
         const docRef = await addDoc(collection(db, "transactions"), {
             ...data,
-            platformFee,
+            amount: productPrice, // legacy
+            amountProduct: productPrice,
+            amountPlatformFee: platformProtectionFee,
+            amountGatewayFee: estimatedGatewayFee,
+            amountTotal: totalToPay,
+            platformFee: platformProtectionFee, // legacy
+            total: totalToPay, // legacy
             qrCode: qrCode,
             status: "PENDING_PAYMENT" as TransactionStatus,
             escrowReleased: false,
@@ -162,25 +178,29 @@ export const releaseFunds = async (id: string, qrToken?: string) => {
             const adminId = await getSystemAdminId();
 
             const sellerRef = doc(db, "users", data.sellerId);
-            const netAmount = data.amount - (data.platformFee || 0);
 
-            // A. Pay Seller (Net Amount)
+            // In the new model, amountProduct is what the seller receives.
+            // amountPlatformFee is the protection fee that goes to Admin.
+            const sellerProceeds = data.amountProduct || data.amount;
+            const platformRevenue = data.amountPlatformFee || data.platformFee;
+
+            // A. Pay Seller (Product Price)
             await import("firebase/firestore").then(({ updateDoc, increment }) =>
-                updateDoc(sellerRef, { "wallet.available": increment(netAmount) })
+                updateDoc(sellerRef, { "wallet.available": increment(sellerProceeds) })
             );
 
-            // B. Pay Admin (Fee)
-            if (adminId && data.platformFee > 0) {
+            // B. Pay Admin (Protection Fee)
+            if (adminId && platformRevenue > 0) {
                 const adminRef = doc(db, "users", adminId);
                 await import("firebase/firestore").then(({ updateDoc, increment }) =>
-                    updateDoc(adminRef, { "wallet.available": increment(data.platformFee) })
+                    updateDoc(adminRef, { "wallet.available": increment(platformRevenue) })
                 );
 
                 // C. LOG REVENUE
                 await addDoc(collection(db, "financial_logs"), {
                     transactionId: id,
                     type: 'platform_fee',
-                    amount: data.platformFee,
+                    amount: platformRevenue,
                     currency: 'ARS',
                     relatedUser: data.sellerId,
                     timestamp: serverTimestamp()

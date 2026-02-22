@@ -26,7 +26,8 @@ export default function Publish() {
         condition: 'like_new' as const,
         brand: '',
         color: '',
-        shippingAvailable: true
+        shippingAvailable: true,
+        deliveryMethods: ['en_mano'] as string[]
     });
 
     // Load existing data if editing
@@ -43,7 +44,8 @@ export default function Publish() {
                         condition: item.condition,
                         brand: item.brand || '',
                         color: item.color || '',
-                        shippingAvailable: item.shippingAvailable !== undefined ? item.shippingAvailable : true
+                        shippingAvailable: item.shippingAvailable !== undefined ? item.shippingAvailable : true,
+                        deliveryMethods: item.deliveryMethods || ['en_mano']
                     });
                     setExistingImages(item.images || []);
                     setPreviews(item.images || []);
@@ -137,7 +139,8 @@ export default function Publish() {
                     condition: form.condition,
                     brand: form.brand,
                     color: form.color,
-                    shippingAvailable: form.shippingAvailable,
+                    shippingAvailable: form.shippingAvailable || form.deliveryMethods.includes('correo_argentino'),
+                    deliveryMethods: form.deliveryMethods,
                     images: finalImages.length > 0 ? finalImages : ["https://picsum.photos/400/400?random=1"],
                     location: sellerLocation
                 });
@@ -152,10 +155,12 @@ export default function Publish() {
                     condition: form.condition,
                     brand: form.brand,
                     color: form.color,
-                    shippingAvailable: form.shippingAvailable,
+                    shippingAvailable: form.shippingAvailable || form.deliveryMethods.includes('correo_argentino'),
+                    deliveryMethods: form.deliveryMethods,
                     images: finalImages.length > 0 ? finalImages : ["https://picsum.photos/400/400?random=1"],
                     sellerId: user.uid,
-                    location: sellerLocation
+                    location: sellerLocation,
+                    views: 0
                 });
             }
 
@@ -347,28 +352,41 @@ export default function Publish() {
                             </div>
                         </div>
 
-                        {/* Shipping Toggle */}
-                        {/* Shipping Toggle (Hidden per user request) */}
-                        {/* 
-                         <div className="bg-white p-6 rounded-2xl border border-light-200">
-                             <div className="flex items-center justify-between">
-                                 <div>
-                                     <h4 className="font-black text-dark-800 text-sm mb-1">Habilitar Envíos</h4>
-                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">¿Estás dispuesto a enviar este producto?</p>
-                                 </div>
-                                 <label className="relative inline-flex items-center cursor-pointer">
-                                     <input
-                                         type="checkbox"
-                                         name="shippingAvailable"
-                                         checked={form.shippingAvailable}
-                                         onChange={handleChange}
-                                         className="sr-only peer"
-                                     />
-                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-vibrant"></div>
-                                 </label>
-                             </div>
-                         </div>
-                         */}
+                        {/* Delivery Methods Selection */}
+                        <div className="space-y-4">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 ml-1">Métodos de Entrega</label>
+                            <div className="grid grid-cols-1 gap-3">
+                                {[
+                                    { id: 'correo_argentino', label: 'Correo Argentino', icon: 'local_shipping', sub: 'Servicio postal nacional' },
+                                    { id: 'en_mano', label: 'En mano', icon: 'handshake', sub: 'Entrega en persona' },
+                                    { id: 'acordar', label: 'Acordar con el vendedor', icon: 'chat', sub: 'Detalles a coordinar' },
+                                    { id: 'domicilio', label: 'Envío a domicilio', icon: 'home', sub: 'Envío al domicilio del comprador' }
+                                ].map((method) => (
+                                    <div
+                                        key={method.id}
+                                        onClick={() => {
+                                            const current = form.deliveryMethods;
+                                            const updated = current.includes(method.id)
+                                                ? current.filter(m => m !== method.id)
+                                                : [...current, method.id];
+                                            setForm({ ...form, deliveryMethods: updated });
+                                        }}
+                                        className={`flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all ${form.deliveryMethods.includes(method.id) ? 'bg-primary-50 border-primary-200' : 'bg-white border-light-200 hover:bg-light-50'}`}
+                                    >
+                                        <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${form.deliveryMethods.includes(method.id) ? 'bg-white text-primary-vibrant shadow-sm' : 'bg-light-50 text-gray-400'}`}>
+                                            <span className="material-symbols-outlined text-xl">{method.icon}</span>
+                                        </div>
+                                        <div className="flex-grow">
+                                            <p className={`text-xs font-black uppercase tracking-tight ${form.deliveryMethods.includes(method.id) ? 'text-dark-800' : 'text-gray-500'}`}>{method.label}</p>
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase">{method.sub}</p>
+                                        </div>
+                                        {form.deliveryMethods.includes(method.id) && (
+                                            <span className="material-symbols-outlined text-primary-vibrant text-xl">check_circle</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
 
                         {/* Submit Buttons */}
                         <div className="flex gap-4 pt-4">
@@ -465,20 +483,7 @@ export default function Publish() {
                                 </div>
                             </div>
 
-                            <div className="pt-10 border-t border-light-100 space-y-4">
-                                <div className="flex items-center gap-4 p-4 bg-light-50 rounded-2xl border border-light-200/50">
-                                    <div className="size-10 rounded-full bg-primary-vibrant text-white flex items-center justify-center font-black">
-                                        <span className="material-symbols-outlined text-lg">person</span>
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-xs font-black text-dark-800 truncate">Información del Vendedor</p>
-                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Se unió en 2023</p>
-                                    </div>
-                                </div>
-                                <button className="w-full h-14 bg-light-100 rounded-2xl text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] cursor-not-allowed border border-light-200/50">
-                                    Enviar Mensaje
-                                </button>
-                            </div>
+
                         </div>
                     </div>
 

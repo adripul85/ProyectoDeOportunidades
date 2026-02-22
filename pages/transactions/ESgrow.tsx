@@ -164,25 +164,40 @@ const ESgrow = () => {
             </div>
           )}
 
-          {/* BUYER VIEW: Confirm Receipt / Remote Confirmation */}
+          {/* BUYER VIEW: Confirm Receipt / QR Display */}
           {currentUserRole === 'COMPRADOR' && (status === 'PAID_HELD' || status === 'SHIPPED') && (
             <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium mb-6 text-center animate-in fade-in zoom-in duration-500">
               <div className="size-16 bg-primary-50 text-primary-vibrant rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="material-symbols-outlined text-3xl">check_circle</span>
+                <span className="material-symbols-outlined text-3xl">qr_code_2</span>
               </div>
-              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-2">Confirmar Recepción</h3>
-              <p className="text-[11px] text-gray-500 mb-6">
-                Haz clic aquí solo si ya tienes el producto y coincide con lo esperado. Esto liberará los fondos al vendedor.
-              </p>
 
-              <input
-                type="file"
-                accept="image/*"
-                ref={buyerInputRef}
-                className="hidden"
-                onChange={(e) => handleFileUpload(e, 'RECEPCION')}
-              />
+              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-2">Código de Entrega</h3>
+              <p className="text-[10px] text-gray-500 mb-6 font-bold uppercase tracking-tight">Muestra este código al vendedor para confirmar la recepción.</p>
+
+              {/* QR Display */}
+              <div className="bg-white p-4 rounded-3xl border-2 border-primary-100 mb-6 inline-block shadow-sm">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${transaction?.qrCode || 'ERROR'}`}
+                  alt="QR Code"
+                  className="size-32 grayscale hover:grayscale-0 transition-all cursor-pointer"
+                  onClick={() => notify({ type: 'info', title: 'Token de Seguridad', message: `Tu código es: ${transaction?.qrCode}`, icon: 'key' })}
+                />
+                <div className="mt-4 py-2 px-4 bg-light-50 rounded-xl border border-light-100">
+                  <span className="text-lg font-black text-dark-800 tracking-[0.3em] font-mono">{transaction?.qrCode}</span>
+                </div>
+              </div>
+
+              <div className="h-px bg-light-100 my-8"></div>
+
               <div className="flex flex-col gap-4">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">O confirma de forma remota:</p>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={buyerInputRef}
+                  className="hidden"
+                  onChange={(e) => handleFileUpload(e, 'RECEPCION')}
+                />
                 <button
                   onClick={() => buyerInputRef.current?.click()}
                   className="w-full btn-secondary py-4 flex items-center justify-center gap-2 border border-light-200"
@@ -201,7 +216,7 @@ const ESgrow = () => {
                   className="w-full btn-primary bg-emerald-600 py-4 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
                 >
                   <span className="material-symbols-outlined">verified</span>
-                  Confirmar que recibí el producto
+                  Confirmar sin código
                 </button>
               </div>
             </div>
@@ -244,22 +259,36 @@ const ESgrow = () => {
                   <option>Personal (Entregado en mano)</option>
                 </select>
 
-                {courier !== 'Personal (Entregado en mano)' && (
-                  <input
-                    type="text"
-                    placeholder="Número de Tracking"
-                    value={trackingId}
-                    onChange={(e) => setTrackingId(e.target.value)}
-                    className="w-full bg-light-50 border border-light-200 rounded-2xl py-4 px-6 font-bold text-xs outline-none"
-                  />
+                {courier === 'Personal (Entregado en mano)' && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="h-px bg-light-100 my-2"></div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary-vibrant ml-1">Código de Seguridad del Comprador</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: A1B2C3D4"
+                      value={trackingId}
+                      onChange={(e) => setTrackingId(e.target.value.toUpperCase())}
+                      className="w-full bg-primary-50 border-2 border-primary-200 rounded-2xl py-5 px-6 font-black text-xl text-center tracking-[0.2em] outline-none focus:border-primary-vibrant transition-all"
+                    />
+                    <p className="text-[9px] text-gray-400 font-bold uppercase text-center">Pide el código al comprador antes de entregar el activo.</p>
+                  </div>
                 )}
 
                 <button
-                  onClick={() => actions.registerTracking(trackingId || 'ENTREGA_PERSONAL', courier)}
-                  disabled={!hasEvidence}
-                  className="w-full btn-primary py-4 text-[10px] font-black tracking-widest uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={async () => {
+                    if (courier === 'Personal (Entregado en mano)') {
+                      const res = await actions.releaseEscrow(trackingId);
+                      if (res.success) {
+                        triggerSuccessEffects();
+                      }
+                    } else {
+                      actions.registerTracking(trackingId || 'ENTREGA_PERSONAL', courier);
+                    }
+                  }}
+                  disabled={!hasEvidence && courier !== 'Personal (Entregado en mano)'}
+                  className="w-full btn-primary py-4 text-[10px] font-black tracking-widest uppercase disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-primary-vibrant/20"
                 >
-                  Confirmar Envío / Entrega
+                  {courier === 'Personal (Entregado en mano)' ? 'Validar y Liberar Fondos' : 'Confirmar Envío / Entrega'}
                 </button>
               </div>
             </div>

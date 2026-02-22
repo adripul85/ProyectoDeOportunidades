@@ -36,6 +36,7 @@ import { CartProvider } from './context/CartContext';
 import Header from './components/Header';
 import Deals from './pages/Deals';
 import Cart from './pages/Cart';
+import Shop from './pages/marketplace/Shop';
 
 // --- App Infrastructure ---
 const ScrollToTop = () => {
@@ -94,6 +95,7 @@ function App() {
                     <Route path="/search" element={<Search />} />
                     <Route path="/deals" element={<Deals />} />
                     <Route path="/cart" element={<Cart />} />
+                    <Route path="/shop/:uid" element={<Shop />} />
                     <Route path="/product/:id" element={<ProductDetail />} />
                     <Route path="/publish" element={<RequireProfile><Publish /></RequireProfile>} />
                     <Route path="/transaction/:id" element={<RequireProfile><ESgrow /></RequireProfile>} />

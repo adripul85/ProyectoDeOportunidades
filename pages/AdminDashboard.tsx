@@ -28,6 +28,7 @@ export default function AdminDashboard() {
     const [settings, setSettings] = useState<PlatformSettings | null>(null);
     const [financialLogs, setFinancialLogs] = useState<any[]>([]);
     const [withdrawals, setWithdrawals] = useState<any[]>([]);
+    const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
     useEffect(() => {
         if (!user || (userProfile?.role !== 'admin' && userProfile?.role !== 'moderator')) {
@@ -950,7 +951,8 @@ export default function AdminDashboard() {
                                     ].map(img => (
                                         <div key={img.key} className="group">
                                             <p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] mb-4 ml-1">{img.label}</p>
-                                            <div className="aspect-video bg-light-50 rounded-[32px] overflow-hidden border-2 border-dashed border-light-200 group-hover:border-primary-100 flex items-center justify-center transition-all bg-cover bg-center relative"
+                                            <div className="aspect-video bg-light-50 rounded-[32px] overflow-hidden border-2 border-dashed border-light-200 group-hover:border-primary-100 flex items-center justify-center transition-all bg-cover bg-center relative cursor-zoom-in"
+                                                onClick={() => selectedUser.verificationEvidence?.[img.key as keyof typeof selectedUser.verificationEvidence] && setZoomedImage(selectedUser.verificationEvidence[img.key as keyof typeof selectedUser.verificationEvidence] as string)}
                                                 style={{ backgroundImage: selectedUser.verificationEvidence?.[img.key as keyof typeof selectedUser.verificationEvidence] ? `none` : `none` }}>
                                                 {selectedUser.verificationEvidence?.[img.key as keyof typeof selectedUser.verificationEvidence] ? (
                                                     <img
@@ -964,7 +966,9 @@ export default function AdminDashboard() {
                                                         <p className="text-[9px] font-black uppercase tracking-widest">Sin evidencia cargada</p>
                                                     </div>
                                                 )}
-                                                <div className="absolute inset-0 bg-dark-800/0 group-hover:bg-dark-800/20 transition-all"></div>
+                                                <div className="absolute inset-0 bg-dark-800/0 group-hover:bg-dark-800/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                    <span className="material-symbols-outlined text-white text-3xl font-black">zoom_in</span>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -1024,10 +1028,14 @@ export default function AdminDashboard() {
                                     <h3 className="text-xl font-black text-dark-800 uppercase tracking-tight mb-8">Evidencia de Transacción</h3>
                                     <div className="grid grid-cols-2 gap-6 mb-12">
                                         {disputeEvidence.map((ev, idx) => (
-                                            <div key={idx} className="group relative">
-                                                <img src={ev.url} className="aspect-video w-full rounded-3xl object-cover shadow-lg group-hover:scale-[1.02] transition-transform" />
-                                                <div className="absolute inset-0 bg-dark-800/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-center justify-center p-6 text-center">
-                                                    <p className="text-white text-[10px] font-black uppercase tracking-widest">{ev.type}: {ev.description}</p>
+                                            <div key={idx} className="group relative cursor-zoom-in" onClick={() => setZoomedImage(ev.url)}>
+                                                <div className="aspect-video w-full rounded-2xl overflow-hidden border border-light-200 bg-light-50 shadow-sm transition-all group-hover:shadow-xl group-hover:border-primary-200">
+                                                    <img src={ev.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                                </div>
+                                                <div className="absolute inset-0 bg-dark-800/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex flex-col items-center justify-center p-6 text-center backdrop-blur-[2px]">
+                                                    <span className="material-symbols-outlined text-white text-3xl mb-2">zoom_in</span>
+                                                    <p className="text-white text-[10px] font-black uppercase tracking-widest">{ev.type}</p>
+                                                    <p className="text-white/60 text-[8px] font-bold uppercase mt-1 line-clamp-2">{ev.description}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -1055,6 +1063,22 @@ export default function AdminDashboard() {
                     </div>
                 )
             }
+            {/* Image Zoom Modal */}
+            {zoomedImage && (
+                <div
+                    className="fixed inset-0 bg-dark-950/95 backdrop-blur-3xl z-[300] flex items-center justify-center p-8 lg:p-20 animate-in fade-in duration-300"
+                    onClick={() => setZoomedImage(null)}
+                >
+                    <button className="absolute top-10 right-10 size-16 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white transition-all">
+                        <span className="material-symbols-outlined text-3xl font-black">close</span>
+                    </button>
+                    <img
+                        src={zoomedImage}
+                        className="max-w-full max-h-full rounded-[40px] shadow-[0_0_100px_rgba(34,34,255,0.2)] object-contain animate-in zoom-in-95 duration-500"
+                        alt="Zoomed Evidence"
+                    />
+                </div>
+            )}
         </div>
     );
 }

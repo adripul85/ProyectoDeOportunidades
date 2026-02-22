@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp, where } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import { deleteUser } from "firebase/auth";
 
@@ -334,5 +334,34 @@ export const withdrawFunds = async (uid: string, amount: number, bankDetails: Us
     } catch (error: any) {
         console.error("Error withdrawing funds:", error);
         return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Fetch top sellers based on reputation
+ */
+export const getTopSellers = async (limitCount: number = 5): Promise<UserProfile[]> => {
+    try {
+        const usersRef = collection(db, "users");
+        // We filter for users who have at least 1 review and a high rating
+        const q = query(
+            usersRef,
+            where("reputation.totalReviews", ">", 0),
+            orderBy("reputation.totalReviews", "desc"),
+            orderBy("reputation.averageRating", "desc")
+        );
+
+        const snapshot = await getDocs(q);
+        const users = snapshot.docs.map(doc => doc.data() as UserProfile);
+
+        // Sort by averageRating descending and then totalReviews
+        // (Firestore multiple orderBy on different fields requires index, 
+        // using simple logic here or client sort for small numbers)
+        return users
+            .sort((a, b) => (b.reputation?.averageRating || 0) - (a.reputation?.averageRating || 0))
+            .slice(0, limitCount);
+    } catch (error) {
+        console.error("Error fetching top sellers:", error);
+        return [];
     }
 };

@@ -10,38 +10,30 @@ export interface ItemData {
     condition: 'new' | 'like_new' | 'good' | 'fair';
     images: string[];
     shippingAvailable?: boolean;
+    deliveryMethods?: string[]; // ['correo_argentino', 'en_mano', 'acordar', 'domicilio']
+    views?: number;
     sellerId: string; // ID del usuario que vende
     brand?: string;
     color?: string;
     location?: string; // Ubicación del vendedor (ej: "Mendoza, AR")
     status?: 'AVAILABLE' | 'SOLD';
+    isFeatured?: boolean;
+    featuredUntil?: any;
+    createdAt?: any;
 }
 
-export const CATEGORIES = [
-    "Computación",
-    "Celulares y Teléfonos",
-    "Audio y Video",
-    "Videojuegos",
-    "Muebles y Decoración",
-    "Electrodomésticos",
-    "Moda y Accesorios",
-    "Joyas y Relojes",
-    "Belleza y Salud",
-    "Deportes y Fitness",
-    "Accesorios Vehículos",
-    "Construcción",
-    "Vehículos",
-    "Bebés",
-    "Oficina y Papelería",
-    "Alimentos y Bebidas",
-    "Juegos y Juguetes",
-    "Mascotas",
-    "Instrumentos Musicales",
-    "Cámaras y Accesorios",
-    "Inmuebles",
-    "Servicios",
-    "Otras categorías"
-];
+export type ItemCondition = 'new' | 'like_new' | 'good' | 'used' | 'repair' | 'digital' | 'service';
+
+export const CATEGORIES_STRUCTURE = {
+    "Electrónica": ["Celulares", "Tablets", "Computadoras", "Audio", "TV y Video", "Cámaras y Accesorios", "Accesorios Electrónicos", "Consolas de Videojuegos", "Drones"],
+    "Hogar": ["Muebles", "Electrodomésticos", "Decoración", "Cocina", "Baño", "Dormitorio"],
+    "Moda": ["Ropa Mujer", "Ropa Hombre", "Calzado", "Relojes", "Joyas", "Bolsos y Accesorios"],
+    "Deportes": ["Fitness", "Ciclismo", "Fútbol", "Camping", "Suplementos"],
+    "Vehículos": ["Autos y Camionetas", "Motos", "Accesorios y Repuestos"],
+    "Otros": ["Juguetes", "Mascotas", "Libros", "Herramientas", "Servicios"]
+};
+
+export const CATEGORIES = Object.values(CATEGORIES_STRUCTURE).flat();
 
 export const publishItem = async (data: ItemData) => {
     try {
@@ -103,6 +95,25 @@ export const getItemsBySeller = async (sellerId: string) => {
     }
 };
 
+// Fetch featured items
+export const getFeaturedItems = async () => {
+    try {
+        const now = new Date();
+        const q = query(
+            collection(db, "items"),
+            where("isFeatured", "==", true),
+            where("status", "==", "AVAILABLE")
+        );
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as (ItemData & { id: string })))
+            .filter(item => !item.featuredUntil || item.featuredUntil.toDate() > now);
+    } catch (error) {
+        console.error("Error fetching featured items:", error);
+        return [];
+    }
+};
+
 // Fetch single item by ID
 export const getProduct = async (id: string) => {
     try {
@@ -154,4 +165,22 @@ export const subscribeToProduct = (id: string, callback: (item: (ItemData & { id
             }
         });
     });
+};
+
+// Toggle featured status for an item
+export const toggleFeaturedItem = async (id: string, currentlyFeatured: boolean) => {
+    try {
+        const docRef = doc(db, "items", id);
+        const featuredUntil = !currentlyFeatured ? new Date(Date.now() + 48 * 60 * 60 * 1000) : null;
+
+        await import("firebase/firestore").then(({ updateDoc }) => updateDoc(docRef, {
+            isFeatured: !currentlyFeatured,
+            featuredUntil: featuredUntil
+        }));
+
+        return { success: true, isFeatured: !currentlyFeatured };
+    } catch (error) {
+        console.error("Error toggling featured status:", error);
+        return { success: false, error };
+    }
 };

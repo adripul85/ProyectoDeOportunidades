@@ -100,21 +100,11 @@ export default function Checkout() {
     );
   }
 
-  // Dynamic Service Fee
-  const [serviceFeePercentage, setServiceFeePercentage] = useState(0.20); // Default fallback
-
-  React.useEffect(() => {
-    import('../../lib/settings').then(({ getPlatformSettings }) => {
-      getPlatformSettings().then(settings => {
-        if (settings.escrowFeePercentage) {
-          setServiceFeePercentage(settings.escrowFeePercentage);
-        }
-      });
-    });
-  }, []);
-
-  const serviceFee = productPrice * serviceFeePercentage;
-  const total = productPrice + serviceFee;
+  // NEW MODEL: Fixed Fees
+  const protectionFee = 2500;
+  // Gateway fee estimation (6% as suggested in analysis)
+  const gatewayFee = Math.round(productPrice * 0.06);
+  const total = productPrice + protectionFee + gatewayFee;
 
   const handlePayment = async () => {
     if (!user) {
@@ -133,10 +123,11 @@ export default function Checkout() {
         sellerId: sellerId,
         itemId: productId,
         itemTitle: productTitle,
+        amountProduct: productPrice,
         amount: productPrice,
-        total: total,
         paymentMethod: selectedMethod,
         deliveryMethod: deliveryMethod,
+        amountGatewayFee: gatewayFee,
         notes: notes
       });
 
@@ -237,9 +228,9 @@ export default function Checkout() {
                 </div>
               )}
 
-              <div className="flex justify-between items-center px-4 pt-4 border-t border-light-100">
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Subtotal de Activos</span>
-                <span className="text-xl font-black text-dark-800">$ {productPrice.toLocaleString()}</span>
+              <div className="flex justify-between items-center px-4 py-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Gastos de Pasarela</span>
+                <span className="text-sm font-black text-dark-800">$ {gatewayFee.toLocaleString()}</span>
               </div>
 
               <div className="flex justify-between items-center text-primary-vibrant bg-primary-50 p-6 rounded-[24px] border border-primary-100 shadow-sm relative overflow-hidden group">
@@ -251,11 +242,14 @@ export default function Checkout() {
                     <span className="material-symbols-outlined text-2xl font-black">gpp_good</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest block mb-0.5 text-primary-700">Zona Segura</span>
-                    <span className="text-[9px] font-bold text-primary-600/60 uppercase tracking-widest">Garantía de Satisfacción 100%</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest block mb-0.5 text-primary-700">Protección Escrow</span>
+                    <span className="text-[9px] font-bold text-primary-600/60 uppercase tracking-widest leading-none">Tarifa Plana Seguro</span>
                   </div>
                 </div>
-                <span className="font-black text-lg relative z-10 text-dark-800">$ {serviceFee.toLocaleString()}</span>
+                <div className="text-right relative z-10">
+                  <span className="font-black text-lg block text-dark-800">$ {protectionFee.toLocaleString()}</span>
+                  <span className="text-[10px] font-black text-primary-600/60 uppercase">Cobro Único</span>
+                </div>
               </div>
             </div>
 

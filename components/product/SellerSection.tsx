@@ -114,8 +114,8 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
                 </div>
             </div>
 
-            <div className="flex items-center justify-between mb-8 bg-light-50/50 p-6 rounded-3xl border border-light-100/50">
-                <div className="flex flex-col gap-2">
+            <div className="flex flex-col sm:flex-row items-center gap-4 mb-8 bg-light-50/50 p-6 rounded-3xl border border-light-100/50 shadow-inner">
+                <div className="flex-1 flex flex-col gap-2">
                     <div className="flex items-center gap-1">
                         {[1, 2, 3, 4, 5].map((i) => (
                             <span key={i} className={`material-symbols-outlined text-base drop-shadow-sm ${i <= Math.round(seller.reputation?.averageRating || 0) ? 'text-amber-400 fill-1' : 'text-gray-200'}`}>star</span>
@@ -123,9 +123,14 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
                     </div>
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">{seller.reputation?.totalReviews || 0} Protocolos Registrados</span>
                 </div>
-                <Link to={`/profile/${seller.uid}`} className="bg-white px-6 py-3 rounded-xl text-dark-800 text-[9px] font-black uppercase tracking-[0.2em] border border-light-200 hover:bg-light-50 transition-all shadow-sm">
-                    Revisar Registros
-                </Link>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Link to={`/shop/${seller.uid}`} className="flex-1 sm:flex-none text-center bg-primary-vibrant text-white px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary-vibrant/20 hover:scale-105 active:scale-95 transition-all">
+                        Ver Tienda
+                    </Link>
+                    <Link to={`/profile/${seller.uid}`} className="flex-1 sm:flex-none text-center bg-white px-6 py-3 rounded-xl text-dark-800 text-[9px] font-black uppercase tracking-[0.2em] border border-light-200 hover:bg-light-50 transition-all shadow-sm">
+                        Registros
+                    </Link>
+                </div>
             </div>
 
             <div className="bg-primary-50/50 rounded-3xl p-6 border border-primary-100/30 flex items-center gap-5 transition-colors hover:bg-primary-50">
