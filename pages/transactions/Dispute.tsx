@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useNotification } from '../../context/NotificationContext';
 import { useAuth } from '../../lib/auth';
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { subscribeToTransaction, subscribeToEvidence, submitEvidence, cancelTransaction, TransactionData, EscrowEvidence as IEscrowEvidence } from '../../lib/transactions';
 import { getUserProfile } from '../../lib/users';
 import { doc, getDoc } from 'firebase/firestore';
@@ -62,48 +61,11 @@ const SupportChat = ({ transactionId }: { transactionId: string }) => {
 
     setIsTyping(true);
 
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' }); // Ensure API KEY is avail
-      // Use fallback if no key (mock response) for demo
-      if (!process.env.API_KEY) {
-        setTimeout(() => {
-          setMessages(prev => [...prev, { role: 'model', text: "Modo Demo: No se detectó API Key. Pero entiendo tu mensaje." }]);
-          setIsTyping(false);
-        }, 1000);
-        return;
-      }
-
-      const chat = ai.chats.create({
-        model: 'gemini-2.0-flash-exp',
-        config: {
-          systemInstruction: `Eres un Mediador Profesional para la plataforma "De Oportunidades 🎯".
-          Tu objetivo es resolver disputas de manera imparcial, técnica y eficiente.
-          Tono: Profesional, neutral y decisivo. Evita el uso excesivo de emojis.
-          Contexto: Trato #${transactionId}.
-          Prioridad: Solicitar evidencia objetiva y citar políticas de protección al comprador.
-          Tu respuesta DEBE estar en ESPAÑOL.`,
-        },
-      });
-
-      const responseStream = await chat.sendMessageStream({ message: userMsg });
-      let fullResponse = '';
-      setMessages(prev => [...prev, { role: 'model', text: '' }]);
-
-      for await (const chunk of responseStream) {
-        const c = chunk as GenerateContentResponse;
-        const chunkText = c.text || '';
-        fullResponse += chunkText;
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1].text = fullResponse;
-          return newMessages;
-        });
-      }
-    } catch (error: any) {
-      setMessages(prev => [...prev, { role: 'model', text: 'Error de protocolo. Por favor reintenta.', isError: true }]);
-    } finally {
+    // Fallback since the client no longer has direct access to the API_KEY
+    setTimeout(() => {
+      setMessages(prev => [...prev, { role: 'model', text: "Modo Demo: Funcionalidad de IA deshabilitada por seguridad. Pero entiendo tu mensaje y la disputa será revisada por un administrador." }]);
       setIsTyping(false);
-    }
+    }, 1000);
   };
 
   return (
