@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { TransactionQR } from '../../components/TransactionQR';
 
 
 
@@ -14,7 +13,6 @@ const Success = () => {
   const paymentMethod = queryParams.get('payment_method') || 'MERCADO_PAGO';
   const transactionId = queryParams.get('external_reference') || 'N/A';
   const [transactionData, setTransactionData] = React.useState<any>(null);
-  const qrUrl = transactionData?.qrCode ? `${window.location.protocol}//${window.location.host}/#/verify-delivery?token=${transactionData.qrCode}&txId=${transactionData.id}` : '';
 
   React.useEffect(() => {
     if (transactionId && transactionId !== 'N/A') {
@@ -30,6 +28,17 @@ const Success = () => {
                   updateItem(data.itemId, { status: 'SOLD' }) // Mark item as SOLD
                 ]).then(() => {
                   setTransactionData((prev: any) => ({ ...prev, status: 'PAID_HELD' }));
+                  // Notify seller about the sale
+                  if (data.sellerId) {
+                    import('../../lib/interactions').then(({ sendNotification }) => {
+                      sendNotification(data.sellerId, {
+                        title: '🎉 ¡Nueva Venta!',
+                        message: `Tu producto "${data.itemTitle || title}" se vendió por $${data.amount?.toLocaleString() || total?.toLocaleString()}. Los fondos están en garantía hasta que confirmes la entrega.`,
+                        type: 'success',
+                        link: `/escrow/${transactionId}`
+                      });
+                    });
+                  }
                 });
               }
             }
@@ -161,26 +170,19 @@ const Success = () => {
               </div>
             </div>
 
-            {/* QR Code Section - ONLY if meeting in person */}
-            {transactionData?.qrCode && transactionData.deliveryMethod !== 'SHIPPING' && (
-              <div className="mt-10 pt-10 border-t border-light-100 flex flex-col md:flex-row items-center gap-10">
-                <div className="flex-1">
-                  <div className="inline-flex items-center gap-2 bg-dark-800 text-white px-4 py-2 rounded-full mb-4">
-                    <span className="material-symbols-outlined text-sm">qr_code_scanner</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest">Código de Retiro</span>
-                  </div>
-                  <h3 className="text-2xl font-black text-dark-800 mb-2">Escanea para Liberar Fondos</h3>
-                  <p className="text-xs font-bold text-gray-400 leading-relaxed uppercase tracking-wide">
-                    Muestra este código al vendedor. Al escanearlo, se abrirá un enlace seguro para confirmar la recepción y liberar el pago.
-                  </p>
-                  <div className="mt-6 flex items-center gap-3 text-amber-600 bg-amber-50 p-4 rounded-2xl border border-amber-100">
-                    <span className="material-symbols-outlined">timer</span>
-                    <p className="text-[10px] font-black uppercase tracking-widest">Autoliberación en 48hs si no hay reclamos.</p>
-                  </div>
+            {/* Next Steps Section */}
+            {!isTransfer && (
+              <div className="mt-10 pt-10 border-t border-light-100 text-center">
+                <div className="size-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="material-symbols-outlined text-3xl">task_alt</span>
                 </div>
-                <div className="shrink-0 bg-white p-6 rounded-[32px] border-2 border-dashed border-light-200 shadow-sm relative group">
-                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 bg-red-500/20 blur-sm animate-pulse z-10 pointer-events-none"></div>
-                  <TransactionQR value={qrUrl} label={transactionData.qrCode} />
+                <h3 className="text-xl font-black text-dark-800 mb-3">¿Qué sigue?</h3>
+                <p className="text-xs font-bold text-gray-400 leading-relaxed max-w-md mx-auto mb-6">
+                  Cuando recibas el producto, confirmá la recepción desde tu Dashboard para liberar los fondos al vendedor.
+                </p>
+                <div className="flex items-center gap-3 text-amber-600 bg-amber-50 p-4 rounded-2xl border border-amber-100 justify-center">
+                  <span className="material-symbols-outlined">schedule</span>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Autoliberación en 48hs si no hay reclamos.</p>
                 </div>
               </div>
             )}

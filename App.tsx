@@ -53,10 +53,10 @@ const Footer = () => (
         <h2 className="text-xl font-black tracking-tighter text-red-600">De Oportunidades 🎯</h2>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 text-[10px] font-black uppercase tracking-[0.3em] text-gray-300 mb-12">
-        <Link className="hover:text-dark-800 transition-colors" to="/">Protocolos</Link>
-        <Link className="hover:text-dark-800 transition-colors" to="/">Cumplimiento</Link>
-        <Link className="hover:text-dark-800 transition-colors" to="/">Infraestructura</Link>
-        <Link className="hover:text-dark-800 transition-colors" to="/">Nodo de Soporte</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/escrow-info">Seguridad Escrow</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/legal/costs">Términos y Costos</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/escrow-info">Cómo Funciona</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/resolution-center">Centro de Ayuda</Link>
       </div>
       <p className="text-[9px] font-bold text-gray-300 uppercase tracking-[0.4em] text-center">
         © 2026 De Oportunidades Inc. Transacciones seguras mediante protocolos encriptados.

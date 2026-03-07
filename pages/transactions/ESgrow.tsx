@@ -74,6 +74,7 @@ const ESgrow = () => {
       body: [
         ['Producto', dealData.title],
         ['Monto Liberado', `$${dealData.price}`],
+        ['Método de Entrega', transaction?.deliveryMethod?.replace('_', ' ').toUpperCase() || 'NO ESPECIFICADO'],
         ['Vendedor ID', transaction?.sellerId || 'Verificado'],
         ['Comprador ID', transaction?.buyerId || 'Verificado'],
         ['Estado Final', 'COMPLETADO / FONDOS LIBERADOS'],
@@ -164,33 +165,19 @@ const ESgrow = () => {
             </div>
           )}
 
-          {/* BUYER VIEW: Confirm Receipt / QR Display */}
+          {/* BUYER VIEW: Confirm Receipt */}
           {currentUserRole === 'COMPRADOR' && (status === 'PAID_HELD' || status === 'SHIPPED') && (
             <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium mb-6 text-center animate-in fade-in zoom-in duration-500">
-              <div className="size-16 bg-primary-50 text-primary-vibrant rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="material-symbols-outlined text-3xl">qr_code_2</span>
+              <div className="size-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-3xl">inventory_2</span>
               </div>
 
-              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-2">Código de Entrega</h3>
-              <p className="text-[10px] text-gray-500 mb-6 font-bold uppercase tracking-tight">Muestra este código al vendedor para confirmar la recepción.</p>
-
-              {/* QR Display */}
-              <div className="bg-white p-4 rounded-3xl border-2 border-primary-100 mb-6 inline-block shadow-sm">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${transaction?.qrCode || 'ERROR'}`}
-                  alt="QR Code"
-                  className="size-32 grayscale hover:grayscale-0 transition-all cursor-pointer"
-                  onClick={() => notify({ type: 'info', title: 'Token de Seguridad', message: `Tu código es: ${transaction?.qrCode}`, icon: 'key' })}
-                />
-                <div className="mt-4 py-2 px-4 bg-light-50 rounded-xl border border-light-100">
-                  <span className="text-lg font-black text-dark-800 tracking-[0.3em] font-mono">{transaction?.qrCode}</span>
-                </div>
-              </div>
-
-              <div className="h-px bg-light-100 my-8"></div>
+              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-2">Confirmación de Recepción</h3>
+              <p className="text-[10px] text-gray-500 mb-6 font-bold leading-relaxed max-w-xs mx-auto">
+                Cuando recibas el producto en las condiciones acordadas, confirmá la recepción para liberar los fondos al vendedor.
+              </p>
 
               <div className="flex flex-col gap-4">
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">O confirma de forma remota:</p>
                 <input
                   type="file"
                   accept="image/*"
@@ -203,29 +190,37 @@ const ESgrow = () => {
                   className="w-full btn-secondary py-4 flex items-center justify-center gap-2 border border-light-200"
                 >
                   <span className="material-symbols-outlined">add_a_photo</span>
-                  Subir Foto de Recepción
+                  Subir Foto de Recepción (Opcional)
                 </button>
                 <button
                   onClick={async () => {
-                    const res = await actions.updateStatus('COMPLETED', '✅ El comprador confirmó la recepción del paquete de forma remota.');
+                    if (!window.confirm('¿Confirmás que recibiste el producto en las condiciones acordadas?\n\nEsta acción liberará los fondos al vendedor y no se puede deshacer.')) return;
+                    const res = await actions.updateStatus('COMPLETED', '✅ El comprador confirmó la recepción del producto.');
                     if (res.success) {
                       triggerSuccessEffects();
                       notify({ type: 'success', title: '¡Trato Hecho!', message: 'Fondos liberados al vendedor.', icon: 'verified' });
                     }
                   }}
-                  className="w-full btn-primary bg-emerald-600 py-4 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+                  className="w-full btn-primary bg-emerald-600 py-5 flex items-center justify-center gap-3 shadow-lg shadow-emerald-500/20 text-[11px] font-black uppercase tracking-widest"
                 >
-                  <span className="material-symbols-outlined">verified</span>
-                  Confirmar sin código
+                  <span className="material-symbols-outlined text-xl">check_circle</span>
+                  Ya recibí el producto
                 </button>
+              </div>
+
+              <div className="mt-6 bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                <p className="text-[9px] font-black text-amber-700 uppercase tracking-tight flex items-center justify-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm">schedule</span>
+                  Autoliberación en 48hs si no hay reclamos.
+                </p>
               </div>
             </div>
           )}
 
-          {/* SELLER VIEW: Tracking Input */}
+          {/* SELLER VIEW: Confirm Delivery */}
           {currentUserRole === 'VENDEDOR' && status === 'PAID_HELD' && (
             <div className="bg-white p-8 rounded-[32px] border border-light-200 shadow-premium mb-6 animate-in slide-in-from-bottom-4 duration-500">
-              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-6">Registrar Envío / Entrega</h3>
+              <h3 className="text-sm font-black text-dark-800 uppercase tracking-widest mb-6">Confirmar Entrega</h3>
 
               {!hasEvidence && (
                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-4 mb-6 cursor-pointer hover:bg-amber-100 transition-colors" onClick={() => sellerInputRef.current?.click()}>
@@ -233,7 +228,7 @@ const ESgrow = () => {
                   <div>
                     <p className="text-[10px] font-black text-amber-900 uppercase tracking-tight">Foto Requerida - Toca para subir</p>
                     <p className="text-[9px] text-amber-700 mt-1 leading-relaxed">
-                      Sube una foto del paquete o producto antes de confirmar el envío.
+                      Sube una foto del paquete o producto antes de confirmar la entrega.
                     </p>
                   </div>
                 </div>
@@ -253,43 +248,43 @@ const ESgrow = () => {
                   onChange={(e) => setCourier(e.target.value)}
                   className="w-full bg-light-50 border border-light-200 rounded-2xl py-4 px-6 font-bold text-xs outline-none"
                 >
-                  <option>Correo Argentino</option>
-                  <option>Andreani</option>
-                  <option>OCASA</option>
-                  <option>Personal (Entregado en mano)</option>
+                  <option value="Correo Argentino">Correo Argentino (Protocolo Oficial)</option>
+                  <option value="Andreani">Andreani</option>
+                  <option value="OCASA">OCASA</option>
+                  <option value="Entrega en domicilio">Entrega a domicilio (Vehículo propio)</option>
+                  <option value="En mano">En mano (Entrega personal)</option>
+                  <option value="Acordado">Acordado con el comprador</option>
                 </select>
 
-                {courier === 'Personal (Entregado en mano)' && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                    <div className="h-px bg-light-100 my-2"></div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-primary-vibrant ml-1">Código de Seguridad del Comprador</label>
+                {courier !== 'En mano' && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Número de Seguimiento (Opcional)</label>
                     <input
                       type="text"
-                      placeholder="Ej: A1B2C3D4"
+                      placeholder="Ej: AR123456789"
                       value={trackingId}
                       onChange={(e) => setTrackingId(e.target.value.toUpperCase())}
-                      className="w-full bg-primary-50 border-2 border-primary-200 rounded-2xl py-5 px-6 font-black text-xl text-center tracking-[0.2em] outline-none focus:border-primary-vibrant transition-all"
+                      className="w-full bg-light-50 border border-light-200 rounded-2xl py-4 px-6 font-bold text-sm tracking-widest outline-none focus:border-primary-vibrant transition-all"
                     />
-                    <p className="text-[9px] text-gray-400 font-bold uppercase text-center">Pide el código al comprador antes de entregar el activo.</p>
                   </div>
                 )}
 
                 <button
                   onClick={async () => {
-                    if (courier === 'Personal (Entregado en mano)') {
-                      const res = await actions.releaseEscrow(trackingId);
-                      if (res.success) {
-                        triggerSuccessEffects();
-                      }
-                    } else {
-                      actions.registerTracking(trackingId || 'ENTREGA_PERSONAL', courier);
-                    }
+                    if (!window.confirm('¿Confirmás que ya entregaste/despachaste el producto?\n\nEsto quedará registrado como evidencia para el tribunal de disputas.')) return;
+                    actions.registerTracking(trackingId || 'ENTREGA_PERSONAL', courier);
+                    notify({ type: 'success', title: 'Entrega Registrada', message: 'El comprador será notificado. Los fondos se liberarán cuando confirme la recepción.', icon: 'local_shipping' });
                   }}
-                  disabled={!hasEvidence && courier !== 'Personal (Entregado en mano)'}
-                  className="w-full btn-primary py-4 text-[10px] font-black tracking-widest uppercase disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-primary-vibrant/20"
+                  disabled={!hasEvidence}
+                  className="w-full btn-primary py-5 text-[11px] font-black tracking-widest uppercase disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-primary-vibrant/20 flex items-center justify-center gap-3"
                 >
-                  {courier === 'Personal (Entregado en mano)' ? 'Validar y Liberar Fondos' : 'Confirmar Envío / Entrega'}
+                  <span className="material-symbols-outlined text-xl">local_shipping</span>
+                  Ya entregué el producto
                 </button>
+
+                <p className="text-[8px] text-gray-400 font-bold text-center leading-relaxed">
+                  Los fondos se liberarán cuando el comprador confirme la recepción o tras 48hs sin reclamos.
+                </p>
               </div>
             </div>
           )}
@@ -313,19 +308,27 @@ const ESgrow = () => {
             </div>
           )}
 
-          {/* COMPLETED VIEW: Download Ticket */}
-          {status === 'COMPLETED' && (
-            <div className="bg-emerald-50 p-8 rounded-[32px] border border-emerald-100 text-center animate-in zoom-in shadow-premium mt-6">
-              <span className="material-symbols-outlined text-emerald-600 text-5xl mb-4">task_alt</span>
-              <h3 className="text-xl font-black text-emerald-900 uppercase tracking-tight">Transacción Exitosa</h3>
-              <p className="text-xs text-emerald-700 mb-6 font-bold">El activo ha sido entregado y los fondos transferidos.</p>
-              <button
-                onClick={downloadTicket}
-                className="btn-primary bg-dark-800 w-full py-4 flex items-center justify-center gap-2 shadow-lg shadow-dark-800/20"
-              >
-                <span className="material-symbols-outlined">download</span>
-                Descargar Ticket Legal (PDF)
-              </button>
+          {/* COMPLETED/REFUNDED VIEW: Result display */}
+          {(status === 'COMPLETED' || status === 'REFUNDED') && (
+            <div className={`p-8 rounded-[32px] border text-center animate-in zoom-in shadow-premium mt-6 ${status === 'COMPLETED' ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
+              <span className={`material-symbols-outlined text-5xl mb-4 ${status === 'COMPLETED' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {status === 'COMPLETED' ? 'task_alt' : 'history'}
+              </span>
+              <h3 className={`text-xl font-black uppercase tracking-tight ${status === 'COMPLETED' ? 'text-emerald-900' : 'text-amber-900'}`}>
+                {status === 'COMPLETED' ? 'Transacción Exitosa' : 'Transacción Reembolsada'}
+              </h3>
+              <p className={`text-xs mb-6 font-bold ${status === 'COMPLETED' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {status === 'COMPLETED' ? 'El activo ha sido entregado y los fondos transferidos.' : 'Los fondos han sido devueltos al comprador conforme a la resolución.'}
+              </p>
+              {status === 'COMPLETED' && (
+                <button
+                  onClick={downloadTicket}
+                  className="btn-primary bg-dark-800 w-full py-4 flex items-center justify-center gap-2 shadow-lg shadow-dark-800/20"
+                >
+                  <span className="material-symbols-outlined">download</span>
+                  Descargar Ticket Legal (PDF)
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -349,8 +352,11 @@ const ESgrow = () => {
             status={status}
             currentUserRole={currentUserRole}
             price={dealData.price}
+            isAmicableReturnAccepted={transaction?.isAmicableReturnAccepted}
             onUpdateStatus={actions.updateStatus}
             onReleaseFunds={() => actions.releaseEscrow()}
+            onAcceptReturn={actions.acceptReturn}
+            onConfirmReturnReceipt={actions.confirmReturnReceipt}
             onRequestMediation={() => actions.updateStatus('DISPUTED', '⚖️ Protocolo de mediación iniciado por el usuario.')}
             onCancel={() => {
               if (window.confirm("⚠️ ¿Estás seguro de cancelar este trato?\n\nSi eres COMPRADOR: Se te devolverá el dinero MENOS una penalización del 3% ($" + (dealData.price * 0.03).toFixed(2) + ") por gastos administrativos.\n\nEsta acción es irreversible.")) {

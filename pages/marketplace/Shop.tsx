@@ -117,7 +117,7 @@ const Shop = () => {
                         {/* Info */}
                         <div className="flex-1 text-center md:text-left space-y-4">
                             <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
-                                <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter">
+                                <h1 className="text-3xl md:text-5xl font-black text-white tracking-tighter">
                                     {seller.displayName}
                                 </h1>
                                 <div className="flex items-center justify-center md:justify-start gap-2">
@@ -172,9 +172,9 @@ const Shop = () => {
             <main className="max-w-7xl mx-auto px-6 py-20">
                 <div className="flex items-end justify-between mb-12 border-b border-light-200 pb-8">
                     <div>
-                        <h2 className="text-3xl font-black text-dark-800 tracking-tight flex items-center gap-4">
+                        <h2 className="text-2xl font-black text-dark-800 tracking-tight flex items-center gap-4">
                             Catálogo Premium
-                            <span className="bg-primary-50 text-primary-vibrant text-[10px] px-3 py-1 rounded-full border border-primary-100">
+                            <span className="bg-primary-50 text-primary-vibrant text-[9px] px-3 py-1 rounded-full border border-primary-100 uppercase font-black tracking-widest">
                                 {products.length} ACTIVOS
                             </span>
                         </h2>
@@ -194,7 +194,7 @@ const Shop = () => {
                 </div>
 
                 {products.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                         {products.map(p => <ProductCard key={p.id} product={p} />)}
                     </div>
                 ) : (

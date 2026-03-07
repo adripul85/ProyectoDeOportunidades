@@ -65,12 +65,7 @@ const Deals = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
                         {deals.map((product, index) => (
                             <div key={product.id} className="animate-in fade-in slide-in-from-bottom-6 duration-1000" style={{ animationDelay: `${index * 150}ms` }}>
-                                <div className="relative group">
-                                    <div className="absolute -top-3 -right-3 z-10 bg-red-600 text-white size-12 rounded-2xl flex items-center justify-center font-black text-xs shadow-xl shadow-red-600/30 transform group-hover:rotate-12 transition-transform">
-                                        -{Math.floor(Math.random() * 20 + 20)}%
-                                    </div>
-                                    <ProductCard product={product} />
-                                </div>
+                                <ProductCard product={product} />
                             </div>
                         ))}
                     </div>

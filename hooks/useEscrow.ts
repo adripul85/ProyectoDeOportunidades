@@ -15,7 +15,9 @@ import {
     submitEvidence,
     EscrowMessage,
     EscrowEvidence,
-    cancelTransaction
+    cancelTransaction,
+    acceptAmicableReturn,
+    confirmReturnReceipt
 } from '../lib/transactions';
 import { uploadFile } from '../lib/storage';
 
@@ -37,15 +39,19 @@ export const useEscrow = (id: string | undefined) => {
     // Derived values
     const status = transaction?.status || 'PENDING_PAYMENT';
     const deadline = useMemo(() => {
+        if (transaction?.inspectionDeadline) {
+            return transaction.inspectionDeadline.toDate ? transaction.inspectionDeadline.toDate() : new Date(transaction.inspectionDeadline);
+        }
         if (!transaction?.createdAt) return null;
         const start = transaction.createdAt.toDate ? transaction.createdAt.toDate() : new Date();
-        return new Date(start.getTime() + 3 * 24 * 60 * 60 * 1000);
+        return new Date(start.getTime() + 3 * 24 * 60 * 60 * 1000); // Original fallback
     }, [transaction]);
 
     const dealData = useMemo(() => ({
         id: id || '...',
         title: transaction?.itemTitle || "Cargando protocolo...",
         price: transaction?.amount || 0,
+        image: transaction?.itemImage || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200",
         startDate: transaction?.createdAt?.toDate ? transaction.createdAt.toDate().toLocaleDateString() : '...',
         seller: {
             name: "Vendedor #" + (transaction?.sellerId?.substring(0, 4) || '...'),
@@ -56,7 +62,7 @@ export const useEscrow = (id: string | undefined) => {
         },
         buyer: {
             name: user?.displayName || user?.email?.split('@')[0] || "Comprador",
-            avatar: user?.photoURL || "https://ui-avatars.com/api/?name=User",
+            avatar: user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || user?.email?.split('@')[0] || 'U')}&background=random`,
             points: "450",
             level: "Buen Vecino"
         }
@@ -88,6 +94,28 @@ export const useEscrow = (id: string | undefined) => {
             unsubEvidence();
         };
     }, [id]);
+
+    // --- Passive Auto-Release Logic ---
+    useEffect(() => {
+        if (!id || status !== 'DELIVERED_PENDING_REVIEW' || !transaction?.inspectionDeadline) return;
+
+        const checkAutoRelease = () => {
+            const now = new Date();
+            const deadlineDate = transaction.inspectionDeadline.toDate
+                ? transaction.inspectionDeadline.toDate()
+                : new Date(transaction.inspectionDeadline);
+
+            if (now > deadlineDate) {
+                // Auto-release deadline reached
+                releaseEscrow();
+            }
+        };
+
+        const interval = setInterval(checkAutoRelease, 1000 * 60 * 5); // Check every 5 mins
+        checkAutoRelease(); // Initial check
+
+        return () => clearInterval(interval);
+    }, [id, status, transaction?.inspectionDeadline]);
 
     const scrollToBottom = () => {
         const chatContainer = document.getElementById('escrow-chat-container');
@@ -186,8 +214,6 @@ export const useEscrow = (id: string | undefined) => {
     const cancelEscrow = async () => {
         if (!id || !user) return { success: false, error: 'Datos incompletos' };
         setIsTyping(true);
-        // Note: cancelTransaction logic in lib/transactions handles the penalty
-        // We just pass the transaction ID and the user ID who is cancelling.
         const result = await cancelTransaction(id, user.uid);
         setIsTyping(false);
 
@@ -195,6 +221,34 @@ export const useEscrow = (id: string | undefined) => {
             notify({ type: 'info', title: 'Trato Cancelado', message: 'La transacción ha sido cancelada y los fondos reembolsados (menos penalización si aplica).', icon: 'cancel' });
         } else {
             notify({ type: 'error', title: 'Error de Cancelación', message: result.error || 'No se pudo cancelar el trato.', icon: 'error' });
+        }
+        return result;
+    };
+
+    const handleAcceptReturn = async () => {
+        if (!id || !user) return { success: false, error: 'Datos incompletos' };
+        setIsTyping(true);
+        const result = await acceptAmicableReturn(id, user.uid);
+        setIsTyping(false);
+
+        if (result.success) {
+            notify({ type: 'success', title: 'Devolución Aceptada', message: 'Has aceptado la devolución. El sistema espera el envío de retorno.', icon: 'handshake' });
+        } else {
+            notify({ type: 'error', title: 'Error', message: result.error || 'No se pudo procesar la devolución.', icon: 'error' });
+        }
+        return result;
+    };
+
+    const handleConfirmReturnReceipt = async () => {
+        if (!id || !user) return { success: false, error: 'Datos incompletos' };
+        setIsTyping(true);
+        const result = await confirmReturnReceipt(id, user.uid);
+        setIsTyping(false);
+
+        if (result.success) {
+            notify({ type: 'success', title: 'Retorno Confirmado', message: 'Has confirmado la recepción del producto devuelto. Reembolso emitido.', icon: 'receipt_long' });
+        } else {
+            notify({ type: 'error', title: 'Error', message: result.error || 'No se pudo confirmar la recepción del retorno.', icon: 'error' });
         }
         return result;
     };
@@ -217,7 +271,9 @@ export const useEscrow = (id: string | undefined) => {
             registerTracking,
             uploadEvidence,
             addSystemMessage,
-            cancelEscrow
+            cancelEscrow,
+            acceptReturn: handleAcceptReturn,
+            confirmReturnReceipt: handleConfirmReturnReceipt
         }
     };
 };

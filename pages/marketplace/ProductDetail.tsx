@@ -17,6 +17,7 @@ import ProductActions from '../../components/product/ProductActions';
 import SellerStoreBanner from '../../components/product/SellerStoreBanner';
 
 import { toggleFavorite, checkIsFavorite, toggleProductAlert, checkHasAlert, reportItem } from '../../lib/interactions';
+import { trackProductView } from '../../lib/users';
 import ReportModal from '../../components/product/ReportModal';
 import { useCart } from '../../context/CartContext';
 
@@ -48,13 +49,16 @@ const ProductDetail = () => {
   const [hasAlert, setHasAlert] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  // Check initial state
+  // Check initial state & Track View
   useEffect(() => {
     if (user && product.id) {
       checkIsFavorite(user.uid, product.id).then(setIsSaved);
       checkHasAlert(user.uid, product.id).then(setHasAlert);
+
+      // Track behavior
+      trackProductView(user.uid, product.id, product.category);
     }
-  }, [user, product.id]);
+  }, [user, product.id, product.category]);
 
   const handleAction = async (action: string) => {
     if (!user) {
@@ -146,7 +150,12 @@ const ProductDetail = () => {
         productPrice: product.price,
         sellerName: product.seller.displayName || product.seller.name,
         sellerAvatar: product.seller.avatar,
-        sellerId: product.seller.id
+        sellerId: product.seller.id,
+        deliveryMethods: product.deliveryMethods || ['en_mano'],
+        productImage: product.images[0],
+        isFeatured: product.isFeatured,
+        featuredUntil: product.featuredUntil,
+        featuredFeeApplied: product.featuredFeeApplied
       }
     });
   };
@@ -234,13 +243,14 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          <QuestionsSection itemId={product.id} sellerId={product.seller.id} />
 
           <SellerStoreBanner
             sellerId={product.seller.id}
             sellerName={product.seller.displayName || product.seller.name}
             sellerAvatar={product.seller.avatar || product.seller.image}
           />
+
+          <QuestionsSection itemId={product.id} sellerId={product.seller.id} itemTitle={product.title} />
         </div>
 
         {/* PURCHASING HUB (Right) */}
@@ -264,7 +274,14 @@ const ProductDetail = () => {
                   </button>
                 </div>
                 <div className="flex items-center justify-between mb-6">
-                  <p className="text-4xl font-black text-dark-800 tracking-tight">${product.price.toLocaleString()}</p>
+                  <div className="flex items-baseline gap-3">
+                    <p className="text-4xl font-black text-dark-800 tracking-tight">${product.price.toLocaleString()}</p>
+                    {product.oldPrice && product.oldPrice > product.price && (
+                      <p className="text-xl font-bold text-gray-400 line-through opacity-60">
+                        ${product.oldPrice.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
                   {product.views && product.views > 10 && (
                     <div className="flex items-center gap-2 bg-light-100/50 px-4 py-2 rounded-full border border-light-200 shadow-sm animate-in fade-in slide-in-from-right-2">
                       <span className="material-symbols-outlined text-sm text-gray-400">visibility</span>

@@ -20,6 +20,20 @@ export default function PaymentSuccess() {
 
             if (status === 'approved') {
                 await updateTransactionStatus(externalReference, 'PAID_HELD');
+                // Notify seller about the sale
+                try {
+                    const { getTransaction } = await import('../../lib/transactions');
+                    const txData = await getTransaction(externalReference);
+                    if (txData?.sellerId) {
+                        const { sendNotification } = await import('../../lib/interactions');
+                        await sendNotification(txData.sellerId, {
+                            title: '🎉 ¡Nueva Venta!',
+                            message: `Tu producto "${txData.itemTitle || 'Producto'}" se vendió por $${txData.amount?.toLocaleString() || '0'}. Los fondos están en garantía hasta que confirmes la entrega.`,
+                            type: 'success',
+                            link: `/escrow/${externalReference}`
+                        });
+                    }
+                } catch (e) { console.error('Error notifying seller:', e); }
             } else if (status === 'pending') {
                 await updateTransactionStatus(externalReference, 'PENDING_PAYMENT');
             }

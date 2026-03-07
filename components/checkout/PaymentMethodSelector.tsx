@@ -9,17 +9,17 @@ interface Props {
 const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) => {
     return (
         <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Selecciona tu método de pago</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Selecciona tu método de pago</h3>
 
             {/* Mercado Pago */}
             <div
                 onClick={() => onSelect('MERCADO_PAGO')}
-                className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-4 hover:shadow-md ${selectedMethod === 'MERCADO_PAGO'
+                className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 hover:shadow-md ${selectedMethod === 'MERCADO_PAGO'
                     ? 'border-blue-500 bg-blue-50/50'
                     : 'border-border-light bg-white hover:border-gray-300'
                     }`}
             >
-                <div className="size-10 rounded-full bg-white border border-gray-100 flex items-center justify-center shrink-0 p-1">
+                <div className="size-8 rounded-full bg-white border border-gray-100 flex items-center justify-center shrink-0 p-1">
                     <img
                         src="https://logotipoz.com/wp-content/uploads/2021/10/version-horizontal-large-logo-mercado-pago.webp"
                         alt="Mercado Pago"
@@ -28,8 +28,8 @@ const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) =>
                 </div>
                 <div className="flex-1">
                     <div className="flex justify-between items-center mb-1">
-                        <h4 className="font-bold text-dark-charcoal">Mercado Pago</h4>
-                        {selectedMethod === 'MERCADO_PAGO' && <span className="material-symbols-outlined text-blue-600">check_circle</span>}
+                        <h4 className="font-bold text-dark-charcoal text-sm">Mercado Pago</h4>
+                        {selectedMethod === 'MERCADO_PAGO' && <span className="material-symbols-outlined text-blue-600 text-sm">check_circle</span>}
                     </div>
                     <p className="text-xs text-gray-500 leading-relaxed">
                         Tarjetas de crédito, débito y dinero en cuenta. Acreditación instantánea.
@@ -40,7 +40,7 @@ const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) =>
             {/* MODO */}
             <div
                 onClick={() => onSelect('MODO')}
-                className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-4 hover:shadow-md ${selectedMethod === 'MODO'
+                className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 hover:shadow-md ${selectedMethod === 'MODO'
                     ? 'border-emerald-600 bg-emerald-50/50'
                     : 'border-border-light bg-white hover:border-gray-300'
                     }`}
@@ -54,8 +54,8 @@ const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) =>
                 </div>
                 <div className="flex-1">
                     <div className="flex justify-between items-center mb-1">
-                        <h4 className="font-bold text-dark-charcoal">MODO</h4>
-                        {selectedMethod === 'MODO' && <span className="material-symbols-outlined text-emerald-600">check_circle</span>}
+                        <h4 className="font-bold text-dark-charcoal text-sm">MODO</h4>
+                        {selectedMethod === 'MODO' && <span className="material-symbols-outlined text-emerald-600 text-sm">check_circle</span>}
                     </div>
                     <p className="text-xs text-gray-500 leading-relaxed">
                         Paga con QR usando tu app bancaria o billetera favorita. Sin comisiones extra.
@@ -66,7 +66,7 @@ const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) =>
             {/* Transferencia */}
             <div
                 onClick={() => onSelect('TRANSFER')}
-                className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-4 hover:shadow-md ${selectedMethod === 'TRANSFER'
+                className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 hover:shadow-md ${selectedMethod === 'TRANSFER'
                     ? 'border-dark-charcoal bg-gray-50'
                     : 'border-border-light bg-white hover:border-gray-300'
                     }`}
@@ -76,8 +76,8 @@ const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) =>
                 </div>
                 <div className="flex-1">
                     <div className="flex justify-between items-center mb-1">
-                        <h4 className="font-bold text-dark-charcoal">Transferencia Bancaria</h4>
-                        {selectedMethod === 'TRANSFER' && <span className="material-symbols-outlined text-dark-charcoal">check_circle</span>}
+                        <h4 className="font-bold text-dark-charcoal text-sm">Transferencia Bancaria</h4>
+                        {selectedMethod === 'TRANSFER' && <span className="material-symbols-outlined text-dark-charcoal text-sm">check_circle</span>}
                     </div>
                     <p className="text-xs text-gray-500 leading-relaxed">
                         Transfiere directamente a nuestra cuenta de custodia. Procesamiento en 1-2 horas hábiles.
@@ -88,7 +88,7 @@ const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) =>
             {/* Efectivo */}
             <div
                 onClick={() => onSelect('CASH')}
-                className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-4 hover:shadow-md ${selectedMethod === 'CASH'
+                className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 hover:shadow-md ${selectedMethod === 'CASH'
                     ? 'border-emerald-500 bg-emerald-50/50'
                     : 'border-border-light bg-white hover:border-gray-300'
                     }`}
@@ -98,10 +98,10 @@ const PaymentMethodSelector: React.FC<Props> = ({ selectedMethod, onSelect }) =>
                 </div>
                 <div className="flex-1">
                     <div className="flex justify-between items-center mb-1">
-                        <h4 className="font-bold text-dark-charcoal">Efectivo / Punto de Encuentro</h4>
-                        {selectedMethod === 'CASH' && <span className="material-symbols-outlined text-emerald-600">check_circle</span>}
+                        <h4 className="font-bold text-dark-charcoal text-sm">Efectivo / Punto de Encuentro</h4>
+                        {selectedMethod === 'CASH' && <span className="material-symbols-outlined text-emerald-600 text-sm">check_circle</span>}
                     </div>
-                    <p className="text-xs text-gray-500 leading-relaxed">
+                    <p className="text-[10px] text-gray-500 leading-relaxed font-medium">
                         Acuerdas el pago directamente con el vendedor al momento de la entrega.
                     </p>
                 </div>

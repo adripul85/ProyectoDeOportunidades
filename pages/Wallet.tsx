@@ -1,29 +1,85 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/auth';
-import { getUserTransactions, TransactionData } from '../lib/transactions';
+import { subscribeToUserTransactions, TransactionData } from '../lib/transactions';
+import { subscribeToUserWalletMovements } from '../lib/users';
 
 const Wallet = () => {
   const { userProfile, user } = useAuth();
   const wallet = userProfile?.wallet || { available: 0, inEscrow: 0, pending: 0, currency: 'ARS' };
-  const [transactions, setTransactions] = useState<(TransactionData & { id: string, role: 'buyer' | 'seller' })[]>([]);
-  const [loadingTransactions, setLoadingTransactions] = useState(true);
+  const [movements, setMovements] = useState<any[]>([]);
+  const [loadingMovements, setLoadingMovements] = useState(true);
 
   useEffect(() => {
-    if (user?.uid) {
-      getUserTransactions(user.uid).then(({ compras, ventas, retiros }) => {
-        const allTxs = [
-          ...compras.map(t => ({ ...t, role: 'buyer' as const })),
-          ...ventas.map(t => ({ ...t, role: 'seller' as const })),
-          ...(retiros || []).map(t => ({ ...t, role: 'withdrawal' as const, amount: t.amount, itemTitle: 'Retiro Bancario', status: t.status === 'completed' ? 'COMPLETED' : 'PENDING_PAYMENT' }))
-        ].sort((a, b) => {
-          const dateA = a.createdAt?.seconds || 0;
-          const dateB = b.createdAt?.seconds || 0;
-          return dateB - dateA;
-        });
-        setTransactions(allTxs);
-        setLoadingTransactions(false);
+    if (!user?.uid) return;
+
+    let movementsData: any[] = [];
+    let legacyTransactions: any = { compras: [], ventas: [], retiros: [] };
+
+    const updateCombinedMovements = () => {
+      const existingRefIds = new Set(movementsData.map(m => m.referenceId));
+
+      const mappedLegacy: any[] = [
+        ...legacyTransactions.compras
+          .filter((t: any) => !existingRefIds.has(t.id))
+          .map((t: any) => ({
+            id: `legacy-${t.id}`,
+            uid: user.uid,
+            type: 'BUY_DEDUCTION',
+            amount: t.amountTotal || t.total || t.amount,
+            referenceId: t.id,
+            itemTitle: t.itemTitle,
+            description: `Compra (Sistema Anterior): ${t.itemTitle}`,
+            timestamp: t.createdAt
+          })),
+        ...legacyTransactions.ventas
+          .filter((t: any) => !existingRefIds.has(t.id))
+          .map((t: any) => ({
+            id: `legacy-${t.id}`,
+            uid: user.uid,
+            type: t.status === 'COMPLETED' ? 'SALE_REVENUE' : 'ESCROW_HOLD',
+            amount: t.status === 'COMPLETED' ? (t.amountProduct || t.amount) : t.amountProduct || t.amount,
+            referenceId: t.id,
+            itemTitle: t.itemTitle,
+            description: t.status === 'COMPLETED' ? `Venta (Sistema Anterior): ${t.itemTitle}` : `Venta en Garantía (Ant.): ${t.itemTitle}`,
+            timestamp: t.createdAt
+          })),
+        ...(legacyTransactions.retiros || [])
+          .filter((t: any) => !existingRefIds.has(t.id))
+          .map((t: any) => ({
+            id: `legacy-${t.id}`,
+            uid: user.uid,
+            type: t.status === 'completed' ? 'WITHDRAWAL_COMPLETED' : 'WITHDRAWAL_REQUEST',
+            amount: t.amount,
+            referenceId: t.id,
+            description: `Retiro Bancario (Sistema Anterior)`,
+            timestamp: t.createdAt
+          }))
+      ];
+
+      const allMovements = [...movementsData, ...mappedLegacy].sort((a, b) => {
+        const dateA = a.timestamp?.seconds || 0;
+        const dateB = b.timestamp?.seconds || 0;
+        return dateB - dateA;
       });
-    }
+
+      setMovements(allMovements);
+      setLoadingMovements(false);
+    };
+
+    const unsubMovements = subscribeToUserWalletMovements(user.uid, (data) => {
+      movementsData = data;
+      updateCombinedMovements();
+    });
+
+    const unsubLegacy = subscribeToUserTransactions(user.uid, (data) => {
+      legacyTransactions = data;
+      updateCombinedMovements();
+    });
+
+    return () => {
+      unsubMovements();
+      unsubLegacy();
+    };
   }, [user]);
 
   // Chart Data Calculation
@@ -32,22 +88,22 @@ const Wallet = () => {
     const data = new Array(days).fill(0);
     const today = new Date();
 
-    transactions.forEach(tx => {
-      if (!tx.createdAt?.seconds) return;
-      if (tx.role === 'withdrawal') return; // Don't show withdrawals in activity volume for now
-      const txDate = new Date(tx.createdAt.seconds * 1000);
+    movements.forEach(mv => {
+      if (!mv.timestamp?.seconds) return;
+      if (mv.type === 'WITHDRAWAL_REQUEST') return;
+      const txDate = new Date(mv.timestamp.seconds * 1000);
       const diffTime = Math.abs(today.getTime() - txDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       if (diffDays <= days) {
-        data[days - diffDays] += tx.amount;
+        data[days - diffDays] += mv.amount;
       }
     });
 
     // Normalize to percentage for height (max 100%)
     const maxVal = Math.max(...data, 1);
-    return data.map(val => ({ value: val, height: Math.max((val / maxVal) * 100, 10) })); // Min height 10%
-  }, [transactions]);
+    return data.map(val => ({ value: val, height: Math.max((val / maxVal) * 100, 10) }));
+  }, [movements]);
 
   // Bank & Withdrawal Logic
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
@@ -60,6 +116,45 @@ const Wallet = () => {
     accountType: userProfile?.bankDetails?.accountType || 'CA'
   });
 
+  const [isValidating, setIsValidating] = useState(false);
+
+  // Sync form with profile when it loads
+  useEffect(() => {
+    if (userProfile?.bankDetails) {
+      setBankForm(prev => ({
+        ...prev,
+        ...userProfile.bankDetails
+      }));
+    }
+  }, [userProfile]);
+
+  // Auto-fill mock verification when CBU or Alias is entered
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      const { cbu, alias } = bankForm;
+      const cleanInput = (cbu || alias).trim();
+
+      if ((cleanInput.length === 22 || (cleanInput.includes('.') && cleanInput.length > 5)) && !bankForm.bankName) {
+        setIsValidating(true);
+        // Simulate Coelsa/Link lookup
+        await new Promise(r => setTimeout(r, 1000));
+
+        const { identifyBank, identifyHolder } = await import('../lib/banking');
+        const mockBank = identifyBank(cleanInput);
+        const mockHolder = identifyHolder(cleanInput, userProfile?.displayName || '');
+
+        setBankForm(prev => ({
+          ...prev,
+          bankName: mockBank,
+          holderName: mockHolder
+        }));
+        setIsValidating(false);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [bankForm.cbu, bankForm.alias]);
+
   const handleLinkBank = async () => {
     if (!user?.uid) return;
     const { updateUserProfile } = await import('../lib/users');
@@ -67,7 +162,7 @@ const Wallet = () => {
     if (result.success) {
       alert('Datos bancarios vinculados correctamente.');
       setShowBankModal(false);
-      window.location.reload(); // Simple reload to refresh profile context
+      window.location.reload();
     } else {
       alert('Error al guardar datos bancarios.');
     }
@@ -99,7 +194,6 @@ const Wallet = () => {
       if (result.success) {
         alert('Solicitud de retiro enviada. Los fondos estarán acreditados en 24hs hábiles.');
         setWithdrawalAmount('');
-        // Refresh local state to avoid full reload
         window.location.reload();
       } else {
         alert('Error al procesar el retiro: ' + result.error);
@@ -176,12 +270,12 @@ const Wallet = () => {
             </div>
 
             <div className="p-0">
-              {loadingTransactions ? (
+              {loadingMovements ? (
                 <div className="p-20 text-center">
                   <span className="material-symbols-outlined animate-spin text-4xl text-primary-vibrant mb-4">progress_activity</span>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Cargando movimientos...</p>
                 </div>
-              ) : transactions.length === 0 ? (
+              ) : movements.length === 0 ? (
                 <div className="p-20 text-center">
                   <div className="size-16 bg-light-100 rounded-full flex items-center justify-center mx-auto mb-6">
                     <span className="material-symbols-outlined text-gray-400">history</span>
@@ -192,41 +286,64 @@ const Wallet = () => {
                 </div>
               ) : (
                 <div className="divide-y divide-light-100">
-                  {transactions.map((tx) => (
-                    <div key={tx.id} className="p-6 hover:bg-light-50 transition-colors flex items-center justify-between group">
-                      <div className="flex items-center gap-6">
-                        <div className={`size-12 rounded-2xl flex items-center justify-center ${tx.role === 'seller' ? 'bg-emerald-50 text-emerald-600' : tx.role === 'buyer' ? 'bg-rose-50 text-rose-600' : 'bg-gray-50 text-gray-600'}`}>
-                          <span className="material-symbols-outlined">
-                            {tx.role === 'seller' ? 'arrow_downward' : tx.role === 'buyer' ? 'arrow_upward' : 'account_balance_wallet'}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-dark-800 mb-1">{tx.itemTitle}</p>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${tx.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                              tx.status === 'PAID_HELD' ? 'bg-primary-50 text-primary-vibrant border-primary-100' :
-                                'bg-gray-50 text-gray-500 border-gray-100'
-                              }`}>
-                              {tx.status === 'COMPLETED' ? 'Completado' :
-                                tx.status === 'PAID_HELD' ? 'En Custodia' :
-                                  tx.status === 'PENDING_PAYMENT' ? 'Pendiente' : tx.status}
-                            </span>
-                            <span className="text-[10px] font-bold text-gray-400">
-                              {tx.createdAt?.seconds ? new Date(tx.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
+                  {movements.map((mv) => {
+                    const isPositive = ['SALE_REVENUE', 'ESCROW_RELEASE', 'PLATFORM_REVENUE'].includes(mv.type);
+                    const isEscrow = ['ESCROW_HOLD', 'ESCROW_RELEASE'].includes(mv.type);
+
+                    return (
+                      <div key={mv.id} className="p-6 hover:bg-light-50 transition-colors flex items-center justify-between group">
+                        <div className="flex items-center gap-6">
+                          <div className={`size-12 rounded-2xl flex items-center justify-center ${mv.type === 'ESCROW_HOLD' ? 'bg-primary-50 text-primary-vibrant' :
+                            mv.type === 'ESCROW_RELEASE' ? 'bg-emerald-50 text-emerald-600' :
+                              mv.type === 'SALE_REVENUE' ? 'bg-emerald-50 text-emerald-600' :
+                                mv.type === 'PLATFORM_REVENUE' ? 'bg-indigo-50 text-indigo-600' :
+                                  mv.type === 'BUY_DEDUCTION' ? 'bg-rose-50 text-rose-600' :
+                                    'bg-gray-50 text-gray-600'
+                            }`}>
+                            <span className="material-symbols-outlined">
+                              {mv.type === 'ESCROW_HOLD' ? 'shield' :
+                                mv.type === 'ESCROW_RELEASE' ? 'lock_open' :
+                                  mv.type === 'SALE_REVENUE' ? 'payments' :
+                                    mv.type === 'PLATFORM_REVENUE' ? 'trending_up' :
+                                      mv.type === 'BUY_DEDUCTION' ? 'shopping_cart' :
+                                        mv.type === 'FEE_PROTECTION' ? 'verified_user' :
+                                          'account_balance_wallet'}
                             </span>
                           </div>
+                          <div>
+                            <p className="text-sm font-black text-dark-800 mb-1">{mv.itemTitle || mv.description}</p>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${isEscrow ? 'bg-primary-50 text-primary-vibrant border-primary-100' :
+                                mv.type === 'SALE_REVENUE' || mv.type === 'PLATFORM_REVENUE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                  'bg-gray-50 text-gray-500 border-gray-100'
+                                }`}>
+                                {mv.type === 'ESCROW_HOLD' ? 'PROTECCIÓN ESCROW' :
+                                  mv.type === 'ESCROW_RELEASE' ? 'LIBERACIÓN DE FONDOS' :
+                                    mv.type === 'SALE_REVENUE' ? 'GANANCIA POR VENTA' :
+                                      mv.type === 'BUY_DEDUCTION' ? 'PAGO REALIZADO' :
+                                        mv.type === 'PLATFORM_REVENUE' ? 'INGRESO PLATAFORMA' :
+                                          mv.type === 'WITHDRAWAL_REQUEST' ? 'SOLICITUD RETIRO' :
+                                            mv.type === 'WITHDRAWAL_COMPLETED' ? 'RETIRO COMPLETADO' :
+                                              mv.type === 'PENALTY' ? 'PENALIZACIÓN' :
+                                                mv.type.replace('_', ' ')}
+                              </span>
+                              <span className="text-[10px] font-bold text-gray-400">
+                                {mv.timestamp?.seconds ? new Date(mv.timestamp.seconds * 1000).toLocaleDateString() : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-lg font-black ${isPositive ? 'text-emerald-600' : 'text-dark-800'}`}>
+                            {isPositive ? '+' : '-'}${mv.amount.toLocaleString()}
+                          </p>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                            {mv.description}
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className={`text-lg font-black ${tx.role === 'seller' ? 'text-emerald-600' : 'text-dark-800'}`}>
-                          {tx.role === 'seller' ? '+' : '-'}${tx.amount.toLocaleString()}
-                        </p>
-                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                          {tx.role === 'withdrawal' ? 'Transferencia Bancaria' : tx.paymentMethod === 'MERCADO_PAGO' ? 'Mercado Pago' : 'Transferencia'}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -300,27 +417,42 @@ const Wallet = () => {
             </div>
 
             <div className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest mb-2">CBU / CVU</label>
-                <input className="w-full bg-light-50 border border-light-200 rounded-xl px-4 py-3 font-bold text-dark-800 outline-none focus:ring-2 focus:ring-primary-100"
-                  placeholder="0000000000000000000000"
-                  value={bankForm.cbu} onChange={e => setBankForm({ ...bankForm, cbu: e.target.value })}
+              <div className="relative">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest">CBU / CVU</label>
+                  {isValidating && <div className="size-3 border-2 border-primary-vibrant/20 border-t-primary-vibrant rounded-full animate-spin"></div>}
+                </div>
+                <input className="w-full bg-light-50 border border-light-200 rounded-xl px-4 py-3 font-bold text-dark-800 outline-none focus:ring-2 focus:ring-primary-100 placeholder:opacity-30"
+                  placeholder="22 dígitos"
+                  value={bankForm.cbu}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setBankForm({ ...bankForm, cbu: val, bankName: '', holderName: '' });
+                  }}
                 />
               </div>
               <div>
                 <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest mb-2">Alias</label>
-                <input className="w-full bg-light-50 border border-light-200 rounded-xl px-4 py-3 font-bold text-dark-800 outline-none focus:ring-2 focus:ring-primary-100"
+                <input className="w-full bg-light-50 border border-light-200 rounded-xl px-4 py-3 font-bold text-dark-800 outline-none focus:ring-2 focus:ring-primary-100 placeholder:opacity-30"
                   placeholder="nombre.apellido.mp"
-                  value={bankForm.alias} onChange={e => setBankForm({ ...bankForm, alias: e.target.value })}
+                  value={bankForm.alias}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setBankForm({ ...bankForm, alias: val, bankName: '', holderName: '' });
+                  }}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest mb-2">Banco / Entidad</label>
-                  <input className="w-full bg-light-50 border border-light-200 rounded-xl px-4 py-3 font-bold text-dark-800 outline-none focus:ring-2 focus:ring-primary-100"
-                    placeholder="Mercado Pago"
-                    value={bankForm.bankName} onChange={e => setBankForm({ ...bankForm, bankName: e.target.value })}
+                  <input className="w-full bg-light-100 border border-transparent rounded-xl px-4 py-3 font-bold text-dark-800 outline-none read-only:text-gray-500"
+                    placeholder="Sincronizando..."
+                    value={bankForm.bankName}
+                    readOnly
                   />
+                  {bankForm.bankName && (
+                    <span className="material-symbols-outlined absolute right-3 top-[38px] text-emerald-500 text-sm animate-in zoom-in">verified</span>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest mb-2">Tipo Cuenta</label>
@@ -333,19 +465,21 @@ const Wallet = () => {
                   </select>
                 </div>
               </div>
-              <div>
+              <div className="relative">
                 <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest mb-2">Titular de la Cuenta</label>
-                <input className="w-full bg-light-50 border border-light-200 rounded-xl px-4 py-3 font-bold text-dark-800 outline-none focus:ring-2 focus:ring-primary-100"
-                  placeholder="Nombre Completo"
-                  value={bankForm.holderName} onChange={e => setBankForm({ ...bankForm, holderName: e.target.value })}
+                <input className="w-full bg-light-100 border border-transparent rounded-xl px-4 py-3 font-bold text-dark-800 outline-none read-only:text-gray-500"
+                  placeholder="Confirmando identidad..."
+                  value={bankForm.holderName}
+                  readOnly
                 />
               </div>
 
               <button
                 onClick={handleLinkBank}
-                className="w-full bg-dark-800 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg mt-4"
+                disabled={!bankForm.bankName || isValidating}
+                className="w-full bg-dark-800 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg mt-4 disabled:opacity-50 disabled:grayscale"
               >
-                Guardar Datos
+                {isValidating ? 'Validando...' : 'Guardar Datos'}
               </button>
               <p className="text-center text-[10px] text-gray-400 mt-4 leading-relaxed max-w-xs mx-auto">
                 Al guardar, confirmas que eres el titular de la cuenta. Los retiros a terceros serán rechazados.

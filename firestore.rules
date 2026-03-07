@@ -21,11 +21,19 @@ service cloud.firestore {
       
       // Actualizar: PROTECCIÓN CRÍTICA
       allow update: if request.auth != null && (
-        // Solo permitir actualizaciones que NO toquen campos de estado o dinero
-        // (Estos campos se manejan vía Cloud Functions)
-        !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['status', 'amount', 'total', 'escrowReleased', 'sellerId', 'buyerId'])
-        || isAdmin()
+        isAdmin() || (
+          // El usuario solo puede cambiar el estado bajo reglas estrictas (FSM limitado)
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'trackingId', 'courier', 'deliveredAt', 'inspectionDeadline', 'disputeReason', 'disputeStartedAt', 'lastSystemMessage', 'isAmicableReturnAccepted']) && (
+            // Regla: Pasar a DISPUTED es permitido para Comprador/Vendedor
+            (request.resource.data.status == 'DISPUTED' && resource.data.status != 'COMPLETED' && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid)) ||
+            // Regla: El COMPRADOR libera fondos (Completa el trato)
+            (request.resource.data.status == 'COMPLETED' && resource.data.status != 'DISPUTED' && resource.data.buyerId == request.auth.uid) ||
+            // Regla: EL VENDEDOR registra envío
+            (request.resource.data.status == 'SHIPPED' && resource.data.status == 'PAID_HELD' && resource.data.sellerId == request.auth.uid) ||
+            // Regla: Pasar a PAID_HELD (Devolución amigable o pago) suele ser via Admin/CF, pero permitimos retorno amigable
+            (request.resource.data.status == 'PAID_HELD' && resource.data.status == 'DISPUTED' && resource.data.sellerId == request.auth.uid && request.resource.data.isAmicableReturnAccepted == true)
+          )
+        )
       );
       
       allow delete: if isAdmin();

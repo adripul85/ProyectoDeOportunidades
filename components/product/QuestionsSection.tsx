@@ -7,11 +7,12 @@ import { useNotification } from '../../context/NotificationContext';
 interface QuestionsSectionProps {
     itemId: string;
     sellerId: string;
+    itemTitle: string; // Added for notifications
 }
 
 // Helper function to format relative time
 const getRelativeTime = (timestamp: any) => {
-    if (!timestamp) return 'Live Stream';
+    if (!timestamp) return 'En este momento';
 
     const now = new Date();
     const then = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -27,7 +28,7 @@ const getRelativeTime = (timestamp: any) => {
     return then.toLocaleDateString();
 };
 
-export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionProps) {
+export default function QuestionsSection({ itemId, sellerId, itemTitle }: QuestionsSectionProps) {
     const { user, userProfile } = useAuth();
     const navigate = useNavigate();
     const { notify } = useNotification();
@@ -46,6 +47,7 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
         let unsubscribe: (() => void) | undefined;
 
         const setupSubscription = async () => {
+            if (!itemId) return;
             setLoading(true);
             const { subscribeToQuestions } = await import('../../lib/questions');
             unsubscribe = await subscribeToQuestions(itemId, (data) => {
@@ -88,7 +90,9 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
             questionText,
             user.uid,
             userProfile?.displayName || user.displayName || 'Productor Anónimo',
-            userProfile?.avatar || user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'U')}`
+            userProfile?.avatar || user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'U')}`,
+            sellerId,
+            itemTitle
         );
 
         setSubmitting(false);
@@ -103,13 +107,20 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
     };
 
     // Submit answer
-    const handleAnswerQuestion = async (questionId: string) => {
+    const handleAnswerQuestion = async (questionId: string, buyerId: string) => {
         if (!answerText.trim()) {
-            notify({ type: 'warning', title: 'Escribe algo', message: 'Por favor, escribe una respuesta.', icon: 'edit' });
+            notify({ type: 'warning', title: 'Escrib algo', message: 'Por favor, escribe una respuesta.', icon: 'edit' });
             return;
         }
 
-        const result = await answerQuestion(questionId, answerText, user!.uid);
+        const result = await answerQuestion(
+            questionId,
+            answerText,
+            user!.uid,
+            buyerId,
+            itemId,
+            itemTitle
+        );
 
         if (result.success) {
             notify({ type: 'success', title: 'Respuesta enviada', message: 'La respuesta ya es pública.', icon: 'check_circle' });
@@ -242,7 +253,7 @@ export default function QuestionsSection({ itemId, sellerId }: QuestionsSectionP
                                         />
                                         <div className="flex items-center gap-4 mt-5">
                                             <button
-                                                onClick={() => handleAnswerQuestion(q.id)}
+                                                onClick={() => handleAnswerQuestion(q.id, q.askedBy)}
                                                 className="bg-dark-800 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-dark-900 transition-all flex items-center gap-3 shadow-xl shadow-dark-800/10"
                                             >
                                                 <span className="material-symbols-outlined text-lg">publish</span>

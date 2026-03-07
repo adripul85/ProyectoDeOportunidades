@@ -1,10 +1,28 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { getPlatformSettings, PlatformSettings } from '../lib/settings';
 
 const Cart = () => {
-    const { cart, removeFromCart, total, clearCart } = useCart();
+    const { cart, removeFromCart, total: subtotal, clearCart } = useCart();
     const navigate = useNavigate();
+    const [settings, setSettings] = useState<PlatformSettings | null>(null);
+
+    useEffect(() => {
+        getPlatformSettings().then(setSettings);
+    }, []);
+
+    // Default values if settings are not loaded yet
+    const escrowFeePercentage = settings?.escrowFeePercentage ?? 0.05;
+    const gatewayFeePercentage = settings?.paymentProcessingFeePercentage ?? 0.06;
+
+    // Calculations
+    const escrowFee = settings?.useFixedEscrowFee
+        ? (settings.escrowFixedFee ?? 2500)
+        : Math.round(subtotal * escrowFeePercentage);
+
+    const gatewayFee = Math.round(subtotal * gatewayFeePercentage);
+    const finalTotal = subtotal + escrowFee + gatewayFee;
 
     if (cart.length === 0) {
         return (
@@ -77,16 +95,20 @@ const Cart = () => {
                         <div className="space-y-4 mb-8 relative z-10">
                             <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest text-white/50">
                                 <span>Subtotal ({cart.length} ítems)</span>
-                                <span>${total.toLocaleString()}</span>
+                                <span>${subtotal.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest text-white/50">
-                                <span>Costo de Protección</span>
-                                <span className="text-emerald-400">Gratis (Escrow)</span>
+                                <span>Comisión de Pago (Pasarela)</span>
+                                <span>${gatewayFee.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest text-white/50 shadow-emerald-500/10">
+                                <span>Costo de Protección (Escrow)</span>
+                                <span className="text-emerald-400">${escrowFee.toLocaleString()}</span>
                             </div>
                             <div className="h-px bg-white/10 my-6"></div>
                             <div className="flex justify-between items-end">
                                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Total Final</span>
-                                <span className="text-4xl font-black tracking-tighter text-primary-vibrant">${total.toLocaleString()}</span>
+                                <span className="text-4xl font-black tracking-tighter text-primary-vibrant">${finalTotal.toLocaleString()}</span>
                             </div>
                         </div>
 

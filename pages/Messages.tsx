@@ -134,7 +134,8 @@ export default function Messages() {
 
     const getPhotoURL = (chat: Chat) => {
         const otherId = getOtherParticipantId(chat);
-        return chat.participantsData?.[otherId]?.photoURL || `https://ui-avatars.com/api/?name=User&background=random`;
+        const name = chat.participantsData?.[otherId]?.displayName || 'U';
+        return chat.participantsData?.[otherId]?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
     };
 
     if (!user) return <div className="p-10 text-center">Debes iniciar sesión.</div>;

@@ -15,6 +15,7 @@ export default function CompleteProfile() {
         phone: '',
         city: '',
         state: '',
+        dni: '',
         bio: ''
     });
 
@@ -30,7 +31,7 @@ export default function CompleteProfile() {
             return;
         }
 
-        if (!form.displayName || !form.phone || !form.city || !form.state) {
+        if (!form.displayName || !form.phone || !form.city || !form.state || !form.dni) {
             notify({ type: 'warning', title: 'Campos Incompletos', message: 'Por favor completa toda la información requerida.', icon: 'warning' });
             return;
         }
@@ -39,6 +40,7 @@ export default function CompleteProfile() {
 
         const result = await completeUserProfile(user.uid, {
             displayName: form.displayName,
+            dni: form.dni,
             email: user.email || '',
             phone: form.phone,
             location: {
@@ -62,18 +64,18 @@ export default function CompleteProfile() {
 
     return (
         <div className="min-h-screen bg-light-50 flex items-center justify-center px-6 py-20">
-            <div className="max-w-2xl w-full animate-in fade-in zoom-in-95 duration-700">
+            <div className="max-w-lg w-full animate-in fade-in zoom-in-95 duration-700">
                 {/* Header */}
-                <div className="text-center mb-12">
-                    <div className="inline-flex items-center justify-center size-20 bg-primary-50 rounded-[32px] mb-8 shadow-sm">
-                        <span className="material-symbols-outlined text-4xl text-primary-vibrant font-black">person_add</span>
+                <div className="text-center mb-10">
+                    <div className="inline-flex items-center justify-center size-16 bg-primary-50 rounded-[28px] mb-6 shadow-sm">
+                        <span className="material-symbols-outlined text-3xl text-primary-vibrant font-black">person_add</span>
                     </div>
-                    <h1 className="text-4xl font-black text-dark-800 mb-3 tracking-tight uppercase">Inicializar Perfil</h1>
-                    <p className="text-sm font-bold text-gray-400">Asegura tu identidad en el mercado para comenzar a operar.</p>
+                    <h1 className="text-3xl font-black text-dark-800 mb-2 tracking-tight uppercase">Inicializar Perfil</h1>
+                    <p className="text-[11px] font-bold text-gray-400">Asegura tu identidad en el mercado para comenzar a operar.</p>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="bg-white p-12 rounded-[40px] shadow-premium border border-light-200 space-y-8">
+                <form onSubmit={handleSubmit} className="bg-white p-10 rounded-[40px] shadow-premium border border-light-200 space-y-6">
 
                     {/* Display Name */}
                     <div>
@@ -102,6 +104,22 @@ export default function CompleteProfile() {
                             value={form.phone}
                             onChange={handleChange}
                             placeholder="ej. +1 (555) 000-0000"
+                            className="w-full p-5 rounded-2xl border-2 border-transparent bg-light-50 focus:bg-white focus:border-primary-100 outline-none transition-all font-bold text-dark-800 placeholder:text-gray-200"
+                            required
+                        />
+                    </div>
+
+                    {/* DNI */}
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 ml-1">
+                            Número de DNI *
+                        </label>
+                        <input
+                            type="text"
+                            name="dni"
+                            value={form.dni}
+                            onChange={handleChange}
+                            placeholder="ej. 12.345.678"
                             className="w-full p-5 rounded-2xl border-2 border-transparent bg-light-50 focus:bg-white focus:border-primary-100 outline-none transition-all font-bold text-dark-800 placeholder:text-gray-200"
                             required
                         />

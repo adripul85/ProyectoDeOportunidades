@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { publishItem, ItemData, CATEGORIES, getProduct, updateItem } from '../../lib/items';
+import { publishItem, ItemData, getProduct, updateItem } from '../../lib/items';
+import { CATEGORIES } from '../../lib/constants';
 import { useNotification } from '../../context/NotificationContext';
 import { useAuth } from '../../lib/auth';
 import { uploadFile } from '../../lib/storage';
+import { getPlatformSettings, PlatformSettings } from '../../lib/settings';
+import { Timestamp } from 'firebase/firestore';
 
 export default function Publish() {
     const navigate = useNavigate();
@@ -22,13 +25,22 @@ export default function Publish() {
         title: '',
         price: '',
         description: '',
-        category: 'Tecnología',
+        category: CATEGORIES[0].name,
+        subcategory: '',
         condition: 'like_new' as const,
         brand: '',
         color: '',
         shippingAvailable: true,
-        deliveryMethods: ['en_mano'] as string[]
+        deliveryMethods: ['en_mano'] as string[],
+        isFeatured: false
     });
+
+    const [settings, setSettings] = useState<PlatformSettings | null>(null);
+
+    // Cargar configuración global al montar
+    React.useEffect(() => {
+        getPlatformSettings().then(setSettings);
+    }, []);
 
     // Load existing data if editing
     React.useEffect(() => {
@@ -41,11 +53,13 @@ export default function Publish() {
                         price: item.price.toLocaleString('es-AR'),
                         description: item.description,
                         category: item.category,
+                        subcategory: item.subcategory || '',
                         condition: item.condition,
                         brand: item.brand || '',
                         color: item.color || '',
                         shippingAvailable: item.shippingAvailable !== undefined ? item.shippingAvailable : true,
-                        deliveryMethods: item.deliveryMethods || ['en_mano']
+                        deliveryMethods: item.deliveryMethods || ['en_mano'],
+                        isFeatured: item.isFeatured || false
                     });
                     setExistingImages(item.images || []);
                     setPreviews(item.images || []);
@@ -56,8 +70,14 @@ export default function Publish() {
     }, [editId]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const value = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value;
-        setForm({ ...form, [e.target.name]: value });
+        const { name, value, type } = e.target;
+        const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+
+        if (name === 'category') {
+            setForm({ ...form, category: val, subcategory: '' });
+        } else {
+            setForm({ ...form, [name]: val });
+        }
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,10 +156,11 @@ export default function Publish() {
                     price: parsedPrice,
                     description: form.description,
                     category: form.category,
+                    subcategory: form.subcategory,
                     condition: form.condition,
                     brand: form.brand,
                     color: form.color,
-                    shippingAvailable: form.shippingAvailable || form.deliveryMethods.includes('correo_argentino'),
+                    shippingAvailable: form.deliveryMethods.some(m => ['correo_argentino', 'domicilio'].includes(m)),
                     deliveryMethods: form.deliveryMethods,
                     images: finalImages.length > 0 ? finalImages : ["https://picsum.photos/400/400?random=1"],
                     location: sellerLocation
@@ -147,6 +168,13 @@ export default function Publish() {
                 result = { success: updateResult.success, id: editId };
             } else {
                 // Publish new item
+                let featuredUntil = null;
+                if (form.isFeatured && settings) {
+                    const expirationDate = new Date();
+                    expirationDate.setHours(expirationDate.getHours() + settings.featuredDurationHours);
+                    featuredUntil = Timestamp.fromDate(expirationDate);
+                }
+
                 result = await publishItem({
                     title: form.title,
                     price: parsedPrice,
@@ -155,12 +183,15 @@ export default function Publish() {
                     condition: form.condition,
                     brand: form.brand,
                     color: form.color,
-                    shippingAvailable: form.shippingAvailable || form.deliveryMethods.includes('correo_argentino'),
+                    shippingAvailable: form.deliveryMethods.some(m => ['correo_argentino', 'domicilio'].includes(m)),
                     deliveryMethods: form.deliveryMethods,
                     images: finalImages.length > 0 ? finalImages : ["https://picsum.photos/400/400?random=1"],
                     sellerId: user.uid,
                     location: sellerLocation,
-                    views: 0
+                    views: 0,
+                    isFeatured: form.isFeatured,
+                    featuredUntil: featuredUntil,
+                    featuredFeeApplied: form.isFeatured ? (settings?.featuredExtraPercentage || 0.05) : 0
                 });
             }
 
@@ -290,11 +321,33 @@ export default function Publish() {
                                             onChange={handleChange}
                                             className="w-full bg-white border border-light-200 rounded-2xl py-4 px-6 font-bold text-dark-800 outline-none appearance-none cursor-pointer"
                                         >
-                                            {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                            {CATEGORIES.map(cat => (
+                                                <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                            ))}
                                         </select>
                                         <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
                                     </div>
                                 </div>
+                                {CATEGORIES.find(c => c.name === form.category)?.sub && (
+                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 ml-1">Subcategoría</label>
+                                        <div className="relative">
+                                            <select
+                                                name="subcategory"
+                                                value={form.subcategory}
+                                                onChange={handleChange}
+                                                className="w-full bg-white border border-light-200 rounded-2xl py-4 px-6 font-bold text-dark-800 outline-none appearance-none cursor-pointer"
+                                                required
+                                            >
+                                                <option value="" disabled>Seleccionar Subcategoría</option>
+                                                {CATEGORIES.find(c => c.name === form.category)?.sub.map(sub => (
+                                                    <option key={sub} value={sub}>{sub}</option>
+                                                ))}
+                                            </select>
+                                            <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+                                        </div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 ml-1">Condición</label>
                                     <div className="relative">
@@ -306,8 +359,11 @@ export default function Publish() {
                                         >
                                             <option value="new">Nuevo</option>
                                             <option value="like_new">Como Nuevo</option>
-                                            <option value="good">Bueno</option>
-                                            <option value="fair">Regular</option>
+                                            <option value="good">Buen estado</option>
+                                            <option value="used">Usado</option>
+                                            <option value="repair">Para reparar</option>
+                                            <option value="digital">Producto digital</option>
+                                            <option value="service">Servicio</option>
                                         </select>
                                         <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
                                     </div>
@@ -385,6 +441,37 @@ export default function Publish() {
                                         )}
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+
+                        {/* Flash Deal Promotion */}
+                        <div className={`p-8 rounded-[32px] border transition-all duration-500 overflow-hidden relative group ${form.isFeatured ? 'bg-primary-50 border-primary-200 shadow-xl shadow-primary-500/10' : 'bg-white border-light-200 hover:border-primary-100'}`}>
+                            {form.isFeatured && (
+                                <div className="absolute top-0 right-0 size-40 bg-primary-vibrant/10 blur-[60px] -mr-10 -mt-10" />
+                            )}
+
+                            <div className="flex items-center justify-between mb-6 relative z-10">
+                                <div className="flex items-center gap-4">
+                                    <div className={`size-12 rounded-2xl flex items-center justify-center transition-colors ${form.isFeatured ? 'bg-primary-vibrant text-white shadow-lg shadow-primary-500/20' : 'bg-light-100 text-gray-400 group-hover:text-primary-vibrant'}`}>
+                                        <span className="material-symbols-outlined font-black">bolt</span>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-dark-800 uppercase tracking-tight">Convertir en Oferta Relámpago</h4>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mt-1">Tu producto en la portada por {settings?.featuredDurationHours || 48}hs</p>
+                                    </div>
+                                </div>
+                                <div
+                                    onClick={() => setForm(prev => ({ ...prev, isFeatured: !prev.isFeatured }))}
+                                    className={`w-14 h-8 rounded-full relative cursor-pointer transition-all duration-300 ${form.isFeatured ? 'bg-primary-vibrant' : 'bg-light-200'}`}
+                                >
+                                    <div className={`absolute top-1 size-6 bg-white rounded-full shadow-sm transition-all duration-300 ${form.isFeatured ? 'left-7' : 'left-1'}`} />
+                                </div>
+                            </div>
+
+                            <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-5 border border-white relative z-10">
+                                <p className="text-[11px] font-bold text-gray-500 leading-relaxed">
+                                    ¡Destacarlo es <span className="text-primary-vibrant font-black">GRATIS</span>! Solo pagas un <span className="text-dark-800 font-black">+{((settings?.featuredExtraPercentage || 0.05) * 100).toFixed(0)}% extra</span> de comisión si vendes el producto mientras el destacado está activo.
+                                </p>
                             </div>
                         </div>
 
@@ -466,13 +553,18 @@ export default function Publish() {
                                         <p className="text-sm font-black text-dark-800 uppercase tracking-tight">
                                             {form.condition === 'new' ? 'Nuevo' :
                                                 form.condition === 'like_new' ? 'Como Nuevo' :
-                                                    form.condition === 'good' ? 'Bueno' :
-                                                        form.condition === 'fair' ? 'Regular' : '—'}
+                                                    form.condition === 'good' ? 'Buen estado' :
+                                                        form.condition === 'used' ? 'Usado' :
+                                                            form.condition === 'repair' ? 'Para reparar' :
+                                                                form.condition === 'digital' ? 'Producto digital' :
+                                                                    form.condition === 'service' ? 'Servicio' : '—'}
                                         </p>
                                     </div>
                                     <div>
                                         <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em] mb-2 leading-none">Categoría</p>
-                                        <p className="text-sm font-black text-dark-800 uppercase tracking-tight">{form.category || '—'}</p>
+                                        <p className="text-sm font-black text-dark-800 uppercase tracking-tight">
+                                            {form.category}{form.subcategory ? ` > ${form.subcategory}` : ''}
+                                        </p>
                                     </div>
                                     <div>
                                         <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em] mb-2 leading-none">Descripción</p>

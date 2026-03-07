@@ -1,10 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getItems, ItemData, CATEGORIES } from '../../lib/items';
+import { getItems, ItemData } from '../../lib/items';
+import { CATEGORIES } from '../../lib/constants';
+import { trackUserSearch } from '../../lib/users';
+import { useAuth } from '../../lib/auth';
 import SkeletonCard from '../../components/SkeletonCard';
 import { useNotification } from '../../context/NotificationContext';
 
 const Search = () => {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [localSearch, setLocalSearch] = useState('');
@@ -14,6 +18,8 @@ const Search = () => {
   // Filter States
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 2000000]);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string>('');
+  const [activeSubcategory, setActiveSubcategory] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
@@ -44,6 +50,13 @@ const Search = () => {
     return q || '';
   }, [location.search, location.hash]);
 
+  // Track search behavior
+  useEffect(() => {
+    if (user && query) {
+      trackUserSearch(user.uid, query);
+    }
+  }, [user, query]);
+
   const results = useMemo(() => {
     let filtered = allProducts;
 
@@ -52,8 +65,17 @@ const Search = () => {
       filtered = filtered.filter(p =>
         p.title.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q) ||
+        p.subcategory?.toLowerCase().includes(q) ||
         p.description?.toLowerCase().includes(q)
       );
+    }
+
+    if (activeCategory) {
+      filtered = filtered.filter(p => p.category === activeCategory);
+    }
+
+    if (activeSubcategory) {
+      filtered = filtered.filter(p => p.subcategory === activeSubcategory);
     }
 
     filtered = filtered.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
@@ -87,8 +109,8 @@ const Search = () => {
             <span className="material-symbols-outlined text-xl">arrow_back</span>
           </button>
           <div>
-            <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Explorador de Activos</p>
-            <h1 className="text-2xl font-black text-dark-charcoal">{query ? `Resultados: ${query}` : 'Catálogo Institucional'}</h1>
+            <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-0.5">Explorador de Activos</p>
+            <h1 className="text-xl font-black text-dark-charcoal tracking-tight">{query ? `Resultados: ${query}` : 'Catálogo Institucional'}</h1>
           </div>
         </div>
 
@@ -99,7 +121,7 @@ const Search = () => {
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
               placeholder="Filtro rápido..."
-              className="w-full py-4 pl-6 pr-14 bg-gray-50 border border-border-light rounded-2xl font-bold text-sm focus:bg-white focus:border-dark-charcoal/20 outline-none transition-all"
+              className="w-full py-3 pl-6 pr-14 bg-gray-50 border border-border-light rounded-xl font-bold text-xs focus:bg-white focus:border-dark-charcoal/20 outline-none transition-all"
             />
             <button className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-dark-charcoal">
               <span className="material-symbols-outlined">search</span>
@@ -166,16 +188,38 @@ const Search = () => {
 
             {/* Category Filter */}
             <div className="mb-10">
-              <p className="text-xs font-black text-dark-charcoal uppercase tracking-tighter mb-6">Categoría</p>
-              <select
-                className="w-full p-3 bg-light-50 border border-border-light rounded-lg text-xs font-bold text-dark-charcoal outline-none focus:border-dark-charcoal/20"
-                onChange={(e) => navigate(`/search?q=${e.target.value}`)}
-              >
-                <option value="">Todas las categorías</option>
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+              <p className="text-xs font-black text-dark-charcoal uppercase tracking-tighter mb-6">Categoría Principal</p>
+              <div className="space-y-4">
+                <select
+                  value={activeCategory}
+                  className="w-full p-3 bg-light-50 border border-border-light rounded-lg text-xs font-bold text-dark-charcoal outline-none focus:border-dark-charcoal/20"
+                  onChange={(e) => {
+                    setActiveCategory(e.target.value);
+                    setActiveSubcategory('');
+                  }}
+                >
+                  <option value="">Todas las categorías</option>
+                  {CATEGORIES.map(cat => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
+                </select>
+
+                {activeCategory && CATEGORIES.find(c => c.name === activeCategory)?.sub && (
+                  <div className="animate-in slide-in-from-top-2 duration-300">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Específicamente en</p>
+                    <select
+                      value={activeSubcategory}
+                      className="w-full p-3 bg-gray-50 border border-border-light rounded-lg text-[10px] font-black uppercase text-dark-charcoal outline-none focus:border-dark-charcoal/20"
+                      onChange={(e) => setActiveSubcategory(e.target.value)}
+                    >
+                      <option value="">Cualquier subcategoría</option>
+                      {CATEGORIES.find(c => c.name === activeCategory)?.sub.map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Institutional Meta */}
@@ -211,7 +255,7 @@ const Search = () => {
               <SkeletonCard />
             </div>
           ) : results.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {results.map(p => (
                 <div
                   key={p.id}
@@ -222,7 +266,7 @@ const Search = () => {
                     <img src={p.img} alt={p.title} className="w-full h-full object-cover grayscale-[0.2] transition-all duration-700 group-hover:grayscale-0 group-hover:scale-105" />
                     <div className="absolute top-4 left-4 flex flex-col gap-2">
                       <span className="bg-white/90 backdrop-blur-md px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest text-dark-charcoal shadow-sm border border-white/20">
-                        {p.category}
+                        {p.subcategory || p.category}
                       </span>
                       <span className="bg-dark-charcoal/80 backdrop-blur-md px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
                         {p.condition}
@@ -237,18 +281,18 @@ const Search = () => {
                       <span className="material-symbols-outlined text-lg">arrow_forward</span>
                     </div>
                   </div>
-                  <div className="p-8 flex-1 flex flex-col">
-                    <h3 className="font-bold text-dark-charcoal mb-2 leading-tight line-clamp-2 h-10 group-hover:text-emerald-500 transition-colors uppercase tracking-tight text-sm">
+                  <div className="p-6 flex-1 flex flex-col">
+                    <h3 className="font-bold text-dark-charcoal mb-1.5 leading-tight line-clamp-2 h-9 group-hover:text-emerald-500 transition-colors uppercase tracking-tight text-xs">
                       {p.title}
                     </h3>
-                    <div className="mt-auto pt-6 border-t border-gray-50 flex items-end justify-between">
+                    <div className="mt-auto pt-4 border-t border-gray-50 flex items-end justify-between">
                       <div>
-                        <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Valor Asegurado</p>
-                        <p className="text-2xl font-black text-dark-charcoal leading-none">${p.price.toLocaleString()}</p>
+                        <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mb-0.5">Valor Asegurado</p>
+                        <p className="text-xl font-black text-dark-charcoal leading-none">${p.price.toLocaleString()}</p>
                       </div>
                       <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1 text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md mb-1 uppercase">
-                          Trust {p.trust}
+                        <div className="flex items-center gap-1 text-[8px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md mb-0.5 uppercase">
+                          Trust {p.trust.toFixed(1)}
                         </div>
                       </div>
                     </div>
@@ -264,7 +308,12 @@ const Search = () => {
               <h2 className="text-xl font-black text-dark-charcoal mb-4 uppercase tracking-widest">Sin coincidencias</h2>
               <p className="text-sm text-gray-400 max-w-xs mx-auto font-medium">No se han localizado activos bajo los parámetros de filtrado seleccionados.</p>
               <button
-                onClick={() => { setPriceRange([0, 2000000]); setSelectedConditions([]); }}
+                onClick={() => {
+                  setPriceRange([0, 2000000]);
+                  setSelectedConditions([]);
+                  setActiveCategory('');
+                  setActiveSubcategory('');
+                }}
                 className="mt-10 btn-secondary"
               >
                 Resetear Filtros

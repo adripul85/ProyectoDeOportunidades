@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useNotification } from '../context/NotificationContext';
 import { getProduct, ItemData } from '../lib/items';
 import { getUserProfile } from '../lib/users';
+import { db } from '../lib/firebase';
 
 export const useProduct = () => {
     const { id } = useParams<{ id: string }>();
@@ -27,23 +28,24 @@ export const useProduct = () => {
             if (data) {
                 // Increment views
                 import("firebase/firestore").then(({ updateDoc, doc, increment }) => {
-                    const { db } = require("../lib/firebase");
                     updateDoc(doc(db, "items", id), { views: increment(1) });
                 });
 
                 const sellerData = await getUserProfile(data.sellerId);
                 setProduct({
                     ...data,
-                    seller: sellerData ? { ...sellerData, id: data.sellerId } : {
+                    seller: sellerData ? {
+                        ...sellerData,
                         id: data.sellerId,
-                        displayName: getFakeName(data.sellerId),
-                        reputation: (Math.random() * (5 - 3.5) + 3.5).toFixed(1), // Random literal 3.5-5.0
-                        avatar: `https://ui-avatars.com/api/?name=${getFakeName(data.sellerId)}&background=random`,
-                        deals: Math.floor(Math.random() * 50) + 1,
-                        responseTime: "Menos de 1h",
-                        yearsInPlatform: "2 años",
-                        status: "Regular",
-                        phrase: "Vendedor de confianza"
+                        displayName: sellerData.displayName || 'Comerciante de la Red',
+                        avatar: sellerData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(sellerData.displayName || 'V')}&background=random`,
+                        responseTime: sellerData.responseTime || 'No especificado'
+                    } : {
+                        id: data.sellerId,
+                        displayName: 'Usuario de la Red',
+                        reputation: { averageRating: 0, totalReviews: 0 },
+                        avatar: `https://ui-avatars.com/api/?name=U&background=random`,
+                        responseTime: 'Pendiente de sincronización'
                     }
                 });
             }
@@ -67,7 +69,7 @@ export const useProduct = () => {
         condition: "...",
         description: "Obteniendo especificaciones del servidor seguro...",
         images: ["https://picsum.photos/1200/900?tech"],
-        seller: { id: "unknown", name: "...", reputation: "0.0", avatar: "", deals: 0, responseTime: "...", yearsInPlatform: "...", status: "...", phrase: "..." }
+        seller: { id: "unknown", name: "...", reputation: { averageRating: 0, totalReviews: 0 }, avatar: "", deals: 0, responseTime: "...", yearsInPlatform: "...", status: "...", phrase: "..." }
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {

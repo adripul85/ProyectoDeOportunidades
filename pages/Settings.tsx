@@ -5,6 +5,9 @@ import { updateUserProfile, deleteUserAccount } from '../lib/users';
 import { uploadFile } from '../lib/storage';
 import { useNotification } from '../context/NotificationContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { motion, AnimatePresence } from 'framer-motion';
+
+type TabType = 'profile' | 'safety' | 'billing';
 
 export default function Settings() {
     const navigate = useNavigate();
@@ -12,6 +15,7 @@ export default function Settings() {
     const { notify } = useNotification();
     const [loading, setLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState<TabType>('profile');
 
     // Form state
     const [formData, setFormData] = useState({
@@ -22,11 +26,27 @@ export default function Settings() {
         state: '',
         avatar: '',
         coverImage: '',
-        cbu: '',
-        alias: '',
-        bankName: '',
-        holderName: '',
-        accountType: 'Caja de Ahorro',
+        dni: '',
+        social: {
+            whatsapp: '',
+            instagram: '',
+            tiktok: '',
+        },
+        identity: {
+            birthday: '',
+            gender: '',
+        },
+        logistics: {
+            deliveryMethods: [] as string[],
+            businessHours: '',
+        },
+        bankDetails: {
+            cbu: '',
+            alias: '',
+            bankName: '',
+            holderName: '',
+            accountType: 'Caja de Ahorro',
+        }
     });
 
     const [previews, setPreviews] = useState({
@@ -47,11 +67,27 @@ export default function Settings() {
                 state: userProfile.location?.state || '',
                 avatar: userProfile.avatar || '',
                 coverImage: userProfile.coverImage || '',
-                cbu: userProfile.bankDetails?.cbu || '',
-                alias: userProfile.bankDetails?.alias || '',
-                bankName: userProfile.bankDetails?.bankName || '',
-                holderName: userProfile.bankDetails?.holderName || '',
-                accountType: userProfile.bankDetails?.accountType || 'Caja de Ahorro',
+                dni: userProfile.dni || '',
+                social: {
+                    whatsapp: userProfile.social?.whatsapp || '',
+                    instagram: userProfile.social?.instagram || '',
+                    tiktok: userProfile.social?.tiktok || '',
+                },
+                identity: {
+                    birthday: userProfile.identity?.birthday || '',
+                    gender: userProfile.identity?.gender || '',
+                },
+                logistics: {
+                    deliveryMethods: userProfile.logistics?.deliveryMethods || [],
+                    businessHours: userProfile.logistics?.businessHours || '',
+                },
+                bankDetails: {
+                    cbu: userProfile.bankDetails?.cbu || '',
+                    alias: userProfile.bankDetails?.alias || '',
+                    bankName: userProfile.bankDetails?.bankName || '',
+                    holderName: userProfile.bankDetails?.holderName || '',
+                    accountType: userProfile.bankDetails?.accountType || 'Caja de Ahorro',
+                }
             });
             setPreviews({
                 avatar: userProfile.avatar || '',
@@ -68,17 +104,15 @@ export default function Settings() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Preview locally
         const reader = new FileReader();
         reader.onloadend = () => {
             setPreviews(prev => ({ ...prev, [type]: reader.result as string }));
         };
         reader.readAsDataURL(file);
 
-        // Upload to storage
         setIsSaving(true);
         try {
-            const path = `profiles / ${user.uid}/${type}_${Date.now()}`;
+            const path = `profiles/${user.uid}/${type}_${Date.now()}`;
             const url = await uploadFile(file, path);
             setFormData(prev => ({ ...prev, [type]: url }));
             notify({ type: 'success', title: 'Imagen Cargada', message: 'Se ha sincronizado la nueva imagen.', icon: 'image' });
@@ -102,13 +136,11 @@ export default function Settings() {
                 city: formData.city,
                 state: formData.state,
             },
-            bankDetails: {
-                cbu: formData.cbu,
-                alias: formData.alias,
-                bankName: formData.bankName,
-                holderName: formData.holderName,
-                accountType: formData.accountType
-            }
+            social: formData.social,
+            identity: formData.identity,
+            logistics: formData.logistics,
+            bankDetails: formData.bankDetails,
+            dni: formData.dni,
         });
 
         setIsSaving(false);
@@ -117,222 +149,462 @@ export default function Settings() {
             await refreshProfile();
             notify({
                 type: 'success',
-                title: 'Identidad Actualizada',
-                message: 'Tus cambios de perfil han sido sincronizados de forma segura.',
+                title: 'Perfil Actualizado',
+                message: 'Tus cambios han sido guardados correctamente.',
                 icon: 'check_circle'
             });
-            navigate(`/profile/${user.uid}`);
         } else {
             notify({
                 type: 'error',
-                title: 'Fallo de Sincronización',
-                message: 'No pudimos actualizar tu perfil en este momento.',
+                title: 'Error',
+                message: 'No se pudieron guardar los cambios.',
                 icon: 'error'
             });
         }
     };
 
     const handlePurgeData = async () => {
-        if (window.confirm("¿ESTÁS SEGURO? Esta acción purgará permanentemente tu identidad, historial de transacciones y certificados de la red de confianza. No se puede deshacer.")) {
+        if (window.confirm("¿ESTÁS SEGURO? Esta acción eliminará permanentemente tu cuenta y todos tus datos. No se puede deshacer.")) {
             setLoading(true);
             const res = await deleteUserAccount(user.uid);
             if (res.success) {
-                notify({ type: 'warning', title: 'Identidad Purgada', message: 'Tu cuenta ha sido eliminada de la infraestructura.', icon: 'delete_forever' });
+                notify({ type: 'warning', title: 'Cuenta Eliminada', message: 'Tu cuenta ha sido eliminada permanentemente.', icon: 'delete_forever' });
                 logout();
                 navigate('/');
+            } else if (res.requiresReauth) {
+                notify({
+                    type: 'info',
+                    title: 'Seguridad',
+                    message: 'Por seguridad, debes volver a iniciar sesión para eliminar tu cuenta.',
+                    icon: 'lock_reset'
+                });
             } else {
-                notify({ type: 'error', title: 'Fallo Crítico', message: res.message || 'No se pudo completar la purga de datos.', icon: 'report' });
+                notify({ type: 'error', title: 'Error', message: 'No se pudo eliminar la cuenta.', icon: 'report' });
             }
             setLoading(false);
         }
     };
 
+    const tabs = [
+        { id: 'profile', label: 'Perfil Público', icon: 'person' },
+        { id: 'safety', label: 'Seguridad y Logística', icon: 'verified_user' },
+        { id: 'billing', label: 'Datos de Cobro', icon: 'account_balance' },
+    ] as const;
+
     return (
-        <div className="min-h-screen bg-light-50 pb-40">
-            {/* Header Area */}
-            <div className="max-w-[1200px] mx-auto px-6 pt-12">
-                <div className="flex items-center gap-6 mb-12">
+        <div className="min-h-screen bg-slate-50 font-sans pb-20">
+            <div className="max-w-4xl mx-auto px-4 py-8">
+                {/* Header */}
+                <div className="mb-8 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-extrabold text-slate-900 font-display tracking-tight">Configuración</h1>
+                        <p className="text-slate-500 font-medium mt-1">Gestiona tu identidad, logística y pagos.</p>
+                    </div>
                     <button
-                        onClick={() => navigate(-1)}
-                        className="size-14 bg-white rounded-2xl flex items-center justify-center border border-light-200 shadow-sm hover:bg-light-100 transition-all active:scale-95 group"
+                        onClick={() => navigate('/dashboard')}
+                        className="p-2 hover:bg-white rounded-full transition-colors text-slate-400 hover:text-slate-600"
                     >
-                        <span className="material-symbols-outlined font-black text-dark-800 group-hover:-translate-x-1 transition-transform">arrow_back</span>
+                        <span className="material-symbols-outlined">close</span>
                     </button>
-                    <h1 className="text-3xl font-black text-dark-800 uppercase tracking-tighter">Configuración de Protocolo de Seguridad</h1>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+                {/* Tabs Navigation */}
+                <div className="flex gap-2 p-1.5 bg-slate-200/50 rounded-2xl mb-8">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as TabType)}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === tab.id
+                                ? 'bg-white text-slate-900 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                        >
+                            <span className="material-symbols-outlined text-xl">{tab.icon}</span>
+                            <span className="hidden sm:inline">{tab.label}</span>
+                        </button>
+                    ))}
+                </div>
 
-                    {/* LEFT SIDEBAR: PROFILE SUMMARY & DANGER ZONE */}
-                    <div className="lg:col-span-4 space-y-8 animate-in fade-in slide-in-from-left-4 duration-700">
-                        {/* Profile Summary Card */}
-                        <div className="bg-white p-10 rounded-[40px] shadow-premium border border-light-200 relative overflow-hidden group">
-                            {/* Mini Cover Preview */}
-                            <div className="absolute top-0 left-0 w-full h-32 bg-light-100 cursor-pointer overflow-hidden group/cover" onClick={() => coverInputRef.current?.click()}>
-                                <img src={previews.coverImage || 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=2670'} className="w-full h-full object-cover opacity-60 group-hover/cover:opacity-100 transition-all duration-500" alt="Cover Preview" />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity bg-dark-800/40 backdrop-blur-[2px]">
-                                    <span className="material-symbols-outlined text-white text-2xl font-black mb-1">landscape</span>
-                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Cambiar Portada</span>
-                                </div>
-                            </div>
-
-                            <div className="relative pt-16 flex flex-col items-center">
-                                <div className="relative group/avatar cursor-pointer mb-6" onClick={() => avatarInputRef.current?.click()}>
-                                    <div className="size-32 rounded-3xl border-[6px] border-white shadow-2xl overflow-hidden bg-white relative z-10 transition-transform group-hover/avatar:scale-105 duration-500">
-                                        <img src={previews.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.displayName)}&background=random`} className="w-full h-full object-cover" alt="Avatar Preview" />
-                                    </div>
-                                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity bg-dark-800/40 rounded-3xl backdrop-blur-sm">
-                                        <span className="material-symbols-outlined text-white text-2xl mb-1">add_a_photo</span>
-                                        <span className="text-[8px] font-black text-white uppercase tracking-widest">Avatar</span>
-                                    </div>
-                                </div>
-                                <h2 className="text-xl font-black text-dark-800 text-center mb-1">{formData.displayName}</h2>
-                                <p className="text-[10px] font-black text-primary-vibrant uppercase tracking-widest bg-primary-50 px-3 py-1 rounded-full">{user.email}</p>
-                            </div>
-
-                            <input type="file" ref={avatarInputRef} hidden accept="image/*" onChange={(e) => handleFileChange(e, 'avatar')} />
-                            <input type="file" ref={coverInputRef} hidden accept="image/*" onChange={(e) => handleFileChange(e, 'coverImage')} />
-                        </div>
-
-                        {/* Danger Zone */}
-                        <div className="bg-red-50/50 p-10 rounded-[40px] border border-red-100/50 space-y-6">
-                            <div className="flex items-center gap-4 text-red-600">
-                                <span className="material-symbols-outlined font-black">report</span>
-                                <h3 className="text-sm font-black uppercase tracking-widest text-red-600">Zona de Advertencia</h3>
-                            </div>
-                            <p className="text-[10px] font-bold text-red-900/60 uppercase leading-relaxed">
-                                Eliminación permanente de historial de transacciones, activos y certificados de verificación registrados en este nodo.
-                            </p>
-                            <button
-                                onClick={handlePurgeData}
-                                disabled={loading}
-                                className="w-full bg-white border border-red-100 text-red-500 font-black py-4 rounded-2xl hover:bg-red-500 hover:text-white transition-all text-[10px] uppercase tracking-widest shadow-sm active:scale-95"
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <AnimatePresence mode="wait">
+                        {/* TAB: PERFIL PUBLICO */}
+                        {activeTab === 'profile' && (
+                            <motion.div
+                                key="profile"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-8"
                             >
-                                {loading ? 'PURGANDO...' : 'PURGAR DATOS'}
-                            </button>
-                        </div>
-                    </div>
+                                <div className="flex flex-col sm:flex-row items-center gap-8">
+                                    <div className="relative group">
+                                        <div className="size-32 rounded-3xl overflow-hidden border-4 border-slate-50 shadow-inner bg-slate-100 relative">
+                                            <img src={previews.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.displayName || user.email || 'U')}&background=random`} className="w-full h-full object-cover" />
+                                            {isSaving && (
+                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                    <div className="size-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <label className="absolute -bottom-2 -right-2 size-10 bg-slate-900 text-white rounded-xl flex items-center justify-center cursor-pointer hover:scale-110 transition-transform shadow-lg">
+                                            <span className="material-symbols-outlined text-xl">photo_camera</span>
+                                            <input type="file" className="hidden" onChange={(e) => handleFileChange(e, 'avatar')} accept="image/*" />
+                                        </label>
+                                    </div>
+                                    <div className="flex-1 text-center sm:text-left">
+                                        <h3 className="text-xl font-bold text-slate-900 font-display">Imagen de Perfil</h3>
+                                        <p className="text-slate-400 text-sm font-medium mt-1">Sube una foto clara. Los perfiles con foto generan 3x más confianza.</p>
+                                    </div>
+                                </div>
 
-                    {/* RIGHT FORM: MAIN SETTINGS */}
-                    <div className="lg:col-span-8 animate-in fade-in slide-in-from-right-4 duration-700">
-                        <form onSubmit={handleSubmit} className="bg-white p-12 lg:p-16 rounded-[40px] shadow-premium border border-light-200/50 space-y-10">
+                                {/* Cover Image Section */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-sm font-bold text-slate-900">Imagen de Portada</h3>
+                                            <p className="text-slate-400 text-xs font-medium mt-0.5">Define la estética de tu tienda o perfil personal.</p>
+                                        </div>
+                                        <label className="bg-slate-50 hover:bg-slate-100 px-4 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 cursor-pointer transition-colors">
+                                            Cambiar Portada
+                                            <input type="file" className="hidden" onChange={(e) => handleFileChange(e, 'coverImage')} accept="image/*" />
+                                        </label>
+                                    </div>
+                                    <div className="h-32 rounded-3xl overflow-hidden border-2 border-slate-50 bg-slate-100 group relative cursor-pointer hover:ring-2 hover:ring-primary-500/20 transition-all">
+                                        <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-all z-10">
+                                            <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-all transform scale-90 group-hover:scale-100">
+                                                <span className="material-symbols-outlined text-white text-3xl">photo_camera</span>
+                                                <span className="text-[10px] font-bold text-white uppercase tracking-widest">Cambiar Portada</span>
+                                            </div>
+                                            <input type="file" className="hidden" onChange={(e) => handleFileChange(e, 'coverImage')} accept="image/*" />
+                                        </label>
+                                        <img
+                                            src={previews.coverImage || formData.coverImage || "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=2670"}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        {isSaving && (
+                                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-20">
+                                                <div className="size-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
 
-                            {/* Merchant Name */}
-                            <div>
-                                <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-4 ml-2">Nombre de Protocolo Mercante</label>
-                                <input
-                                    type="text"
-                                    value={formData.displayName}
-                                    onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                                    className="w-full bg-light-50/50 border border-light-100 rounded-3xl py-6 px-8 focus:bg-white focus:border-primary-vibrant focus:ring-4 focus:ring-primary-vibrant/5 outline-none font-bold text-base transition-all placeholder:opacity-30"
-                                    placeholder="ej. Lucas Adrian Pulido"
-                                    required
-                                />
-                            </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nombre Público</label>
+                                        <input
+                                            type="text"
+                                            value={formData.displayName}
+                                            onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all"
+                                            placeholder="Tu nombre o tienda"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Instagram (@usuario)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.social.instagram}
+                                            onChange={(e) => setFormData({ ...formData, social: { ...formData.social, instagram: e.target.value } })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all"
+                                            placeholder="@usuario"
+                                        />
+                                    </div>
+                                </div>
 
-                            {/* Bio */}
-                            <div>
-                                <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-4 ml-2">Bio de Inteligencia</label>
-                                <textarea
-                                    value={formData.bio}
-                                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                                    className="w-full bg-light-50/50 border border-light-100 rounded-3xl py-6 px-8 focus:bg-white focus:border-primary-vibrant focus:ring-4 focus:ring-primary-vibrant/5 outline-none font-bold text-base transition-all h-40 resize-none placeholder:opacity-30"
-                                    placeholder="Describe tu trayectoria o enfoque comercial..."
-                                />
-                            </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">TikTok (@usuario)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.social.tiktok || ''}
+                                            onChange={(e) => setFormData({ ...formData, social: { ...formData.social, tiktok: e.target.value } })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all"
+                                            placeholder="@usuario"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Twitter / X (@usuario)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.social.twitter || ''}
+                                            onChange={(e) => setFormData({ ...formData, social: { ...formData.social, twitter: e.target.value } })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all"
+                                            placeholder="@usuario"
+                                        />
+                                    </div>
+                                </div>
 
-                            {/* Location & Secure Contact */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div>
-                                    <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-4 ml-2">Nodo de Ciudad</label>
-                                    <input
-                                        type="text"
-                                        value={formData.city}
-                                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                                        className="w-full bg-light-50/50 border border-light-100 rounded-3xl py-6 px-8 focus:bg-white focus:border-primary-vibrant focus:ring-4 focus:ring-primary-vibrant/5 outline-none font-bold text-base transition-all placeholder:opacity-30"
-                                        placeholder="ej. Buenos Aires"
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Biografía / Acerca de ti</label>
+                                    <textarea
+                                        rows={4}
+                                        value={formData.bio}
+                                        onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                                        className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all resize-none"
+                                        placeholder="Cuéntales a tus compradores quién eres o qué vendes..."
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-4 ml-2">Contacto Seguro (Teléfono)</label>
-                                    <input
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full bg-light-50/50 border border-light-100 rounded-3xl py-6 px-8 focus:bg-white focus:border-primary-vibrant focus:ring-4 focus:ring-primary-vibrant/5 outline-none font-bold text-base transition-all placeholder:opacity-30"
-                                        placeholder="+541168499501"
-                                    />
-                                </div>
-                            </div>
+                            </motion.div>
+                        )}
 
-                            {/* Bank Details Section */}
-                            <div className="bg-light-50/30 p-8 rounded-[32px] border border-light-100">
-                                <div className="flex items-center gap-3 mb-6 opacity-60">
-                                    <span className="material-symbols-outlined text-primary-vibrant">account_balance</span>
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-dark-800">Datos Bancarios de Cobro (Privado)</h3>
+                        {/* TAB: SEGURIDAD Y LOGISTICA */}
+                        {activeTab === 'safety' && (
+                            <motion.div
+                                key="safety"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-8"
+                            >
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">DNI (Identidad Verificada)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.dni}
+                                            onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all"
+                                            placeholder="Número de documento"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">WhatsApp de Contacto</label>
+                                        <input
+                                            type="text"
+                                            value={formData.social.whatsapp}
+                                            onChange={(e) => setFormData({ ...formData, social: { ...formData.social, whatsapp: e.target.value } })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all"
+                                            placeholder="Ej: +54911..."
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Fecha de Nacimiento</label>
+                                        <input
+                                            type="date"
+                                            value={formData.identity.birthday}
+                                            onChange={(e) => setFormData({ ...formData, identity: { ...formData.identity, birthday: e.target.value } })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ciudad</label>
+                                        <input
+                                            type="text"
+                                            value={formData.city}
+                                            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all"
+                                            placeholder="Ej: Rosario"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-3 ml-2">CBU / CVU</label>
-                                        <input
-                                            type="text"
-                                            value={formData.cbu}
-                                            onChange={(e) => setFormData({ ...formData, cbu: e.target.value })}
-                                            className="w-full bg-white border border-light-100 rounded-2xl py-4 px-6 focus:border-primary-vibrant outline-none font-mono text-sm transition-all placeholder:opacity-30"
-                                            placeholder="22 dígitos"
-                                            maxLength={22}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-3 ml-2">Alias</label>
-                                        <input
-                                            type="text"
-                                            value={formData.alias}
-                                            onChange={(e) => setFormData({ ...formData, alias: e.target.value })}
-                                            className="w-full bg-white border border-light-100 rounded-2xl py-4 px-6 focus:border-primary-vibrant outline-none font-bold text-sm transition-all placeholder:opacity-30 uppercase"
-                                            placeholder="MI.ALIAS.MP"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-3 ml-2">Banco / Entidad</label>
-                                        <input
-                                            type="text"
-                                            value={formData.bankName}
-                                            onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                                            className="w-full bg-white border border-light-100 rounded-2xl py-4 px-6 focus:border-primary-vibrant outline-none font-bold text-sm transition-all placeholder:opacity-30"
-                                            placeholder="ej. Mercado Pago / Santander"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-3 ml-2">Titular de Cuenta</label>
-                                        <input
-                                            type="text"
-                                            value={formData.holderName}
-                                            onChange={(e) => setFormData({ ...formData, holderName: e.target.value })}
-                                            className="w-full bg-white border border-light-100 rounded-2xl py-4 px-6 focus:border-primary-vibrant outline-none font-bold text-sm transition-all placeholder:opacity-30"
-                                            placeholder="Nombre Completo"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div className="pt-8 flex flex-col items-center">
-                                <button
-                                    type="submit"
-                                    disabled={isSaving}
-                                    className="w-full max-w-sm bg-primary-vibrant text-white font-black py-6 rounded-3xl hover:shadow-2xl hover:shadow-primary-vibrant/20 transition-all text-xs uppercase tracking-[0.3em] shadow-xl shadow-primary-vibrant/10 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-4"
-                                >
-                                    {isSaving && <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>}
-                                    {isSaving ? 'ASEGURANDO...' : 'ASEGURAR CAMBIOS'}
-                                </button>
-                                <p className="mt-6 text-[9px] font-bold text-gray-300 uppercase tracking-widest text-center opacity-40">
-                                    Los cambios se propagarán instantáneamente a través de todos los nodos de la red.
-                                </p>
-                            </div>
-                        </form>
+                                <div className="space-y-4">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Métodos de Entrega</label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {[
+                                            { id: 'pickup', label: 'Retiro en domicilio', icon: 'home' },
+                                            { id: 'shipping', label: 'Envío por correo', icon: 'local_shipping' },
+                                            { id: 'meeting', label: 'Punto de encuentro', icon: 'handshake' },
+                                            { id: 'agreement', label: 'Acordar con vendedor', icon: 'chat' },
+                                        ].map(method => (
+                                            <label
+                                                key={method.id}
+                                                className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all cursor-pointer ${formData.logistics.deliveryMethods.includes(method.id)
+                                                    ? 'bg-slate-900 border-slate-900 text-white'
+                                                    : 'bg-slate-50 border-transparent text-slate-500 hover:bg-slate-100'
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="hidden"
+                                                    checked={formData.logistics.deliveryMethods.includes(method.id)}
+                                                    onChange={() => {
+                                                        const methods = [...formData.logistics.deliveryMethods];
+                                                        if (methods.includes(method.id)) {
+                                                            setFormData({ ...formData, logistics: { ...formData.logistics, deliveryMethods: methods.filter(m => m !== method.id) } });
+                                                        } else {
+                                                            setFormData({ ...formData, logistics: { ...formData.logistics, deliveryMethods: [...methods, method.id] } });
+                                                        }
+                                                    }}
+                                                />
+                                                <span className="material-symbols-outlined text-xl">{method.icon}</span>
+                                                <span className="text-sm font-bold">{method.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* TAB: DATOS DE COBRO */}
+                        {activeTab === 'billing' && (
+                            <motion.div
+                                key="billing"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-8"
+                            >
+                                <div className="p-6 bg-slate-900 rounded-2xl flex gap-4 text-white">
+                                    <span className="material-symbols-outlined text-primary-vibrant">science</span>
+                                    <div>
+                                        <p className="text-sm font-bold">Simulación de Validación Coelsa</p>
+                                        <p className="text-xs font-medium text-slate-400 mt-1">
+                                            Para los objetivos de este demo, el sistema utiliza un algoritmo científico de validación de CBU (Checksum).
+                                            Puedes configurar datos de prueba específicos en el archivo de protocolos de la red.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
+                                    <span className="material-symbols-outlined text-amber-600">info</span>
+                                    <div>
+                                        <p className="text-sm font-bold text-amber-800">Transferencias de Ventas</p>
+                                        <p className="text-xs font-medium text-amber-700 mt-1">Asegúrate de que los datos coincidan con tu DNI para evitar demoras en los cobros reales.</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-4 p-6 bg-slate-50 rounded-[24px] border border-slate-100">
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center px-1">
+                                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">CBU / CVU o Alias</label>
+                                                {formData.bankDetails.bankName && (
+                                                    <span className="text-[9px] font-black text-emerald-500 uppercase flex items-center gap-1 animate-in fade-in slide-in-from-right-2">
+                                                        <span className="material-symbols-outlined text-xs">verified</span>
+                                                        Cuenta Validada
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={formData.bankDetails.cbu || formData.bankDetails.alias}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (/^\d+$/.test(val)) {
+                                                            setFormData({ ...formData, bankDetails: { ...formData.bankDetails, cbu: val, alias: '' } });
+                                                        } else {
+                                                            setFormData({ ...formData, bankDetails: { ...formData.bankDetails, alias: val, cbu: '' } });
+                                                        }
+                                                    }}
+                                                    className="flex-1 bg-white border-2 border-slate-200 focus:border-slate-900 rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all font-mono text-sm"
+                                                    placeholder="22 dígitos o alias.ejemplo"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        if (!formData.bankDetails.cbu && !formData.bankDetails.alias) return;
+                                                        setIsSaving(true);
+                                                        notify({ type: 'info', title: 'Validando...', message: 'Consultando Coelsa / Red Link...', icon: 'account_balance' });
+
+                                                        // Simulate API delay
+                                                        await new Promise(r => setTimeout(r, 1500));
+
+                                                        const { identifyBank, identifyHolder } = await import('../lib/banking');
+                                                        const cleanInput = (formData.bankDetails.cbu || formData.bankDetails.alias).trim();
+                                                        const mockBank = identifyBank(cleanInput);
+                                                        const mockHolder = identifyHolder(cleanInput, userProfile.displayName || '');
+
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            bankDetails: {
+                                                                ...prev.bankDetails,
+                                                                bankName: mockBank,
+                                                                holderName: mockHolder
+                                                            }
+                                                        }));
+
+                                                        setIsSaving(false);
+                                                        notify({
+                                                            type: 'success',
+                                                            title: 'Cuenta Encontrada',
+                                                            message: `Vinculada a ${mockBank} - ${mockHolder}`,
+                                                            icon: 'check_circle'
+                                                        });
+                                                    }}
+                                                    disabled={isSaving || (!formData.bankDetails.cbu && !formData.bankDetails.alias)}
+                                                    className="px-6 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all disabled:opacity-30 disabled:grayscale shrink-0"
+                                                >
+                                                    Validar
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {formData.bankDetails.bankName && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2"
+                                            >
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Banco / Entidad</label>
+                                                    <div className="w-full bg-white/50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-500 text-xs">
+                                                        {formData.bankDetails.bankName}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Titular Confirmado</label>
+                                                    <div className="w-full bg-white/50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-500 text-xs">
+                                                        {formData.bankDetails.holderName}
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2 px-1">
+                                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Tipo de Cuenta</label>
+                                        <select
+                                            value={formData.bankDetails.accountType}
+                                            onChange={(e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, accountType: e.target.value } })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all appearance-none cursor-pointer"
+                                        >
+                                            <option>Caja de Ahorro</option>
+                                            <option>Cuenta Corriente</option>
+                                            <option>Cuenta Digital (Fintech)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Submit Button */}
+                    <div className="flex items-center gap-4">
+                        <button
+                            type="submit"
+                            disabled={isSaving}
+                            className="flex-1 bg-slate-900 text-white py-5 rounded-[20px] font-black text-xs uppercase tracking-widest hover:bg-black transition-all active:scale-[0.98] shadow-xl shadow-slate-200 flex items-center justify-center gap-3 disabled:opacity-50"
+                        >
+                            {isSaving ? (
+                                <>
+                                    <div className="size-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                    GUARDANDO...
+                                </>
+                            ) : (
+                                <>
+                                    <span className="material-symbols-outlined text-base">save</span>
+                                    GUARDAR CAMBIOS
+                                </>
+                            )}
+                        </button>
                     </div>
+                </form>
+
+                {/* Account Purge */}
+                <div className="mt-12 pt-8 border-t border-slate-200">
+                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Zona de Peligro</h4>
+                    <button
+                        onClick={handlePurgeData}
+                        className="text-red-500 text-sm font-bold flex items-center gap-2 hover:bg-red-50 p-3 rounded-xl transition-all"
+                    >
+                        <span className="material-symbols-outlined text-lg">delete_forever</span>
+                        Eliminar todos mis datos y cuenta
+                    </button>
                 </div>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 }

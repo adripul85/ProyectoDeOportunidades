@@ -114,29 +114,24 @@ export default function AdminDashboard() {
     };
 
     const handleResolveDispute = async (txId: string, result: 'release' | 'refund') => {
-        const { releaseFunds } = await import('../lib/transactions');
-        const { httpsCallable, getFunctions } = await import('firebase/functions');
-        const functions = getFunctions();
+        const { releaseFunds, adminRefundFunds } = await import('../lib/transactions');
 
         setIsUpdating(txId);
         try {
-            let res;
-            if (result === 'release') {
-                res = await releaseFunds(txId);
-            } else {
-                const refund = httpsCallable(functions, 'refundFunds');
-                const callRes = await refund({ transactionId: txId });
-                res = callRes.data as any;
-            }
+            const res = result === 'release'
+                ? await releaseFunds(txId)
+                : await adminRefundFunds(txId, user?.uid || 'admin');
 
             if (res.success) {
                 notify({ type: 'success', title: 'Disputa Resuelta', message: `Fondos ${result === 'release' ? 'liberados' : 'reembolsados'}.`, icon: 'gavel' });
                 setDisputes(prev => prev.filter(d => d.id !== txId));
+                setSelectedDispute(null);
             } else {
                 notify({ type: 'error', title: 'Error', message: res.error || 'No se pudo resolver la disputa.', icon: 'error' });
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
+            notify({ type: 'error', title: 'Fallo Crítico', message: error.message, icon: 'dangerous' });
         }
         setIsUpdating(null);
     };
@@ -199,14 +194,26 @@ export default function AdminDashboard() {
             return;
         }
 
-        if (!window.confirm('ADVERTENCIA: ¿Estás seguro de que deseas finalizar permanentemente el acceso de este usuario?')) return;
+        const targetUser = users.find(u => u.uid === uid);
+        if (!window.confirm(`ADVERTENCIA: ¿Eliminar permanentemente a "${targetUser?.displayName || uid}"?\n\nSe borrará:\n• Items publicados\n• Chats y mensajes\n• Reseñas y preguntas\n• Movimientos de billetera\n• Retiros y reportes\n\nSolo se conservará el EMAIL.`)) return;
+
+        const confirmKey = prompt('Escribe "ELIMINAR" para confirmar la eliminación total:');
+        if (confirmKey !== 'ELIMINAR') return;
 
         setIsUpdating(uid);
         const result = await deleteUserByAdmin(uid);
         if (result.success) {
-            notify({ type: 'success', title: 'Usuario Terminado', message: 'El acceso ha sido revocado.', icon: 'delete' });
+            const counts = (result as any).deletedCounts;
+            notify({
+                type: 'success',
+                title: 'Usuario Eliminado',
+                message: `Data eliminada: ${counts?.items || 0} items, ${counts?.chats || 0} chats, ${counts?.reviews || 0} reseñas, ${counts?.movements || 0} movimientos. Email preservado.`,
+                icon: 'delete_forever'
+            });
             setUsers(prev => prev.filter(u => u.uid !== uid));
             setSelectedUser(null);
+        } else {
+            notify({ type: 'error', title: 'Error', message: 'No se pudo eliminar al usuario.', icon: 'error' });
         }
         setIsUpdating(null);
     };
@@ -219,6 +226,38 @@ export default function AdminDashboard() {
             notify({ type: 'success', title: 'Configuración Guardada', message: 'Los parámetros del sistema han sido actualizados.', icon: 'save_as' });
         } else {
             notify({ type: 'error', title: 'Error de Guardado', message: 'No se pudo actualizar la configuración.', icon: 'error' });
+        }
+        setIsUpdating(null);
+    };
+
+    const handleClearWalletMovements = async () => {
+        if (!window.confirm('¿ELIMINAR TODOS LOS MOVIMIENTOS? Esta acción no se puede deshacer.')) return;
+        if (!window.confirm('CONFIRMACIÓN FINAL: Se borrarán todos los registros de activos en la red.')) return;
+
+        setIsUpdating('dev-tools');
+        const { clearAllWalletMovements } = await import('../lib/admin');
+        const result = await clearAllWalletMovements();
+        if (result.success) {
+            notify({ type: 'success', title: 'Limpieza Completada', message: 'Historial de movimientos eliminado.', icon: 'delete_sweep' });
+            loadData();
+        } else {
+            notify({ type: 'error', title: 'Fallo', message: 'No se pudo limpiar la base de datos.', icon: 'error' });
+        }
+        setIsUpdating(null);
+    };
+
+    const handleResetReputations = async () => {
+        if (!window.confirm('¿RESETEAR TODAS LAS REPUTACIONES? Todos los vendedores volverán a 0 estrellas.')) return;
+        if (!window.confirm('CONFIRMACIÓN FINAL: Se borrarán todas las reseñas y promedios de la plataforma.')) return;
+
+        setIsUpdating('dev-tools');
+        const { resetAllUserReputations } = await import('../lib/admin');
+        const result = await resetAllUserReputations();
+        if (result.success) {
+            notify({ type: 'success', title: 'Reputaciones Reseteadas', message: 'Rankings vueltos a origen.', icon: 'star_outline' });
+            loadData();
+        } else {
+            notify({ type: 'error', title: 'Fallo', message: 'No se pudo resetear el ranking.', icon: 'error' });
         }
         setIsUpdating(null);
     };
@@ -532,7 +571,7 @@ export default function AdminDashboard() {
                         <div className="bg-light-50 p-10 rounded-[40px] border border-light-200 shadow-inner">
                             <div className="flex items-center justify-between mb-8">
                                 <div>
-                                    <h4 className="text-lg font-black text-dark-800 uppercase tracking-tight mb-2">Comisión de Escrow (Seguro)</h4>
+                                    <h4 className="text-lg font-black text-dark-800 uppercase tracking-tight mb-2">Comisión de Escrow (Base)</h4>
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed max-w-sm">
                                         Porcentaje aplicado sobre el valor del ítem para cubrir costos de garantía y operación de plataforma.
                                     </p>
@@ -545,9 +584,9 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="space-y-10">
                                 <div>
-                                    <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest mb-3">Ajustar Porcentaje (0.01 - 1.00)</label>
+                                    <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest mb-3">Ajustar Porcentaje Base (0.01 - 1.00)</label>
                                     <div className="flex gap-4">
                                         <input
                                             type="number"
@@ -564,13 +603,74 @@ export default function AdminDashboard() {
                                             className="px-8 bg-dark-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center gap-2"
                                         >
                                             {isUpdating === 'settings' ? <span className="material-symbols-outlined animate-spin text-sm">sync</span> : <span className="material-symbols-outlined text-sm">save</span>}
-                                            Guardar Cambios
+                                            Guardar
                                         </button>
                                     </div>
-                                    <p className="mt-4 text-[9px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-sm">warning</span>
-                                        Advertencia: Este cambio afecta inmediatamente a todos los nuevos Checkouts.
-                                    </p>
+                                </div>
+
+                                <div className="pt-10 border-t border-light-200/50">
+                                    <div className="flex items-center justify-between mb-8">
+                                        <div>
+                                            <h4 className="text-lg font-black text-primary-vibrant uppercase tracking-tight mb-2">Extra por "Oferta Relámpago"</h4>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed max-w-sm">
+                                                Comisión adicional aplicada si el vendedor decide destacar su producto en la portada.
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-4xl font-black text-primary-vibrant tracking-tighter">
+                                                +{((settings?.featuredExtraPercentage || 0) * 100).toFixed(0)}%
+                                            </p>
+                                            <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mt-1">Valor Actual</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4 mb-6">
+                                        <div className="flex-1">
+                                            <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest mb-3">Porcentaje Extra (0.01 - 0.50)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="0.5"
+                                                value={settings?.featuredExtraPercentage || 0}
+                                                onChange={(e) => setSettings(prev => prev ? { ...prev, featuredExtraPercentage: parseFloat(e.target.value) } : null)}
+                                                className="w-full bg-white border border-light-200 rounded-2xl px-6 py-4 font-black text-lg outline-none focus:ring-4 focus:ring-primary-100 transition-all text-center"
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="block text-[10px] font-black text-dark-800 uppercase tracking-widest mb-3">Duración (Horas)</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="168"
+                                                value={settings?.featuredDurationHours || 48}
+                                                onChange={(e) => setSettings(prev => prev ? { ...prev, featuredDurationHours: parseInt(e.target.value) } : null)}
+                                                className="w-full bg-white border border-light-200 rounded-2xl px-6 py-4 font-black text-lg outline-none focus:ring-4 focus:ring-primary-100 transition-all text-center"
+                                            />
+                                        </div>
+                                        <div className="flex items-end">
+                                            <button
+                                                onClick={() => settings && handleUpdateSettings({
+                                                    featuredExtraPercentage: settings.featuredExtraPercentage,
+                                                    featuredDurationHours: settings.featuredDurationHours
+                                                })}
+                                                disabled={isUpdating === 'settings'}
+                                                className="h-[60px] px-8 bg-primary-vibrant text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center gap-2"
+                                            >
+                                                {isUpdating === 'settings' ? <span className="material-symbols-outlined animate-spin text-sm">sync</span> : <span className="material-symbols-outlined text-sm">lock_reset</span>}
+                                                Aplicar
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-primary-50 p-6 rounded-3xl border border-primary-100">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-black text-primary-800 uppercase tracking-widest">Total Destacados:</span>
+                                            <span className="text-2xl font-black text-primary-vibrant">
+                                                {(((settings?.escrowFeePercentage || 0) + (settings?.featuredExtraPercentage || 0)) * 100).toFixed(0)}%
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="pt-8 border-t border-light-200/50 grid grid-cols-2 gap-4">
@@ -583,6 +683,42 @@ export default function AdminDashboard() {
                                         <p className="text-[9px] text-gray-400 font-bold uppercase mb-1">Ejemplo: Ítem $150.000</p>
                                         <p className="text-xl font-black text-dark-800">${(150000 * (settings?.escrowFeePercentage || 0)).toLocaleString()}</p>
                                         <p className="text-[8px] text-primary-vibrant font-black uppercase tracking-widest">Fee de Plataforma</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* DEV TOOLS SECTION */}
+                            <div className="mt-16 pt-10 border-t border-light-200">
+                                <div className="flex items-center gap-3 mb-8">
+                                    <span className="material-symbols-outlined text-red-500 font-black">engineering</span>
+                                    <h4 className="text-lg font-black text-dark-800 uppercase tracking-tight">Herramientas de Desarrollo (DANGER ZONE)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="bg-red-50 p-8 rounded-[32px] border border-red-100">
+                                        <h5 className="text-[11px] font-black text-red-900 uppercase tracking-widest mb-3">Limpiar Libro Mayor</h5>
+                                        <p className="text-[9px] font-bold text-red-700/60 uppercase tracking-widest leading-relaxed mb-6">
+                                            Elimina permanentemente todos los registros de movimientos en las billeteras.
+                                        </p>
+                                        <button
+                                            onClick={handleClearWalletMovements}
+                                            disabled={isUpdating !== null}
+                                            className="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                                        >
+                                            {isUpdating === 'dev-tools' ? 'Procesando...' : 'Eliminar Movimientos'}
+                                        </button>
+                                    </div>
+                                    <div className="bg-amber-50 p-8 rounded-[32px] border border-amber-100">
+                                        <h5 className="text-[11px] font-black text-amber-900 uppercase tracking-widest mb-3">Resetear Rankings</h5>
+                                        <p className="text-[9px] font-bold text-amber-700/60 uppercase tracking-widest leading-relaxed mb-6">
+                                            Limpia las reseñas y reputaciones de todos los usuarios de la red.
+                                        </p>
+                                        <button
+                                            onClick={handleResetReputations}
+                                            disabled={isUpdating !== null}
+                                            className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                                        >
+                                            {isUpdating === 'dev-tools' ? 'Procesando...' : 'Resetear Vendedores'}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -619,8 +755,49 @@ export default function AdminDashboard() {
                                 <p className="text-7xl font-black tracking-tighter shadow-sm">${stats?.totalSystemValue?.toLocaleString() || 0}</p>
                             </div>
                             <div className="flex gap-4">
-                                <button className="bg-white/10 hover:bg-white/20 px-8 py-4 rounded-3xl backdrop-blur-md text-[10px] font-black uppercase tracking-widest transition-all">Generar Auditoría</button>
-                                <button className="bg-primary-vibrant hover:scale-105 px-8 py-4 rounded-3xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-primary-500/20">Sincronización de Seguridad</button>
+                                <button
+                                    onClick={async () => {
+                                        setIsUpdating('audit');
+                                        const { generateAuditReport } = await import('../lib/admin');
+                                        const res = await generateAuditReport();
+                                        if (res.success) {
+                                            notify({ type: 'success', title: 'Auditoría Generada', message: `Reporte descargado. ${res.report?.totalUsers} usuarios, ${res.report?.totalTransactions} transacciones, ${res.report?.totalItems} items analizados.`, icon: 'download_done' });
+                                        } else {
+                                            notify({ type: 'error', title: 'Error', message: 'No se pudo generar la auditoría.', icon: 'error' });
+                                        }
+                                        setIsUpdating(null);
+                                    }}
+                                    disabled={isUpdating !== null}
+                                    className="bg-white/10 hover:bg-white/20 px-8 py-4 rounded-3xl backdrop-blur-md text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isUpdating === 'audit' ? <span className="material-symbols-outlined animate-spin text-sm">sync</span> : <span className="material-symbols-outlined text-sm">summarize</span>}
+                                    Generar Auditoría
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        setIsUpdating('sync');
+                                        const { runSecuritySync } = await import('../lib/admin');
+                                        const res = await runSecuritySync();
+                                        if (res.success) {
+                                            const issueCount = res.issues?.length || 0;
+                                            const fixedCount = res.fixed || 0;
+                                            if (issueCount === 0) {
+                                                notify({ type: 'success', title: 'Sistema Seguro', message: `${res.totalScanned} registros escaneados. Sin anomalías detectadas.`, icon: 'verified_user' });
+                                            } else {
+                                                notify({ type: 'warning', title: `${issueCount} Anomalía(s) Detectada(s)`, message: `${fixedCount} auto-corregidas. Detalles:\n${res.issues?.slice(0, 5).join('\n')}${issueCount > 5 ? `\n...y ${issueCount - 5} más` : ''}`, icon: 'shield' });
+                                            }
+                                            loadData(); // Refresh data after sync
+                                        } else {
+                                            notify({ type: 'error', title: 'Error', message: 'Fallo en la sincronización de seguridad.', icon: 'error' });
+                                        }
+                                        setIsUpdating(null);
+                                    }}
+                                    disabled={isUpdating !== null}
+                                    className="bg-primary-vibrant hover:scale-105 px-8 py-4 rounded-3xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-primary-500/20 flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isUpdating === 'sync' ? <span className="material-symbols-outlined animate-spin text-sm">sync</span> : <span className="material-symbols-outlined text-sm">security</span>}
+                                    Sincronización de Seguridad
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1011,6 +1188,10 @@ export default function AdminDashboard() {
                             <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-y-auto">
                                 {/* Chat History */}
                                 <div className="lg:col-span-5 bg-light-50 p-12 border-r border-light-200 flex flex-col h-full">
+                                    <div className="mb-10 p-6 bg-red-600 rounded-3xl text-white shadow-xl shadow-red-600/20">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Motivo del Reclamo (Protocolo)</p>
+                                        <p className="text-sm font-black italic">"{selectedDispute.disputeReason || 'No especificado por el usuario'}"</p>
+                                    </div>
                                     <h3 className="text-xl font-black text-dark-800 uppercase tracking-tight mb-8">Auditoría de Chat</h3>
                                     <div className="space-y-4 flex-1 overflow-y-auto pr-2 pb-10">
                                         {disputeMessages.map((msg, idx) => (

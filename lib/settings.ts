@@ -3,11 +3,21 @@ import { db } from "./firebase";
 
 export interface PlatformSettings {
     escrowFeePercentage: number;
+    paymentProcessingFeePercentage: number;
+    featuredExtraPercentage: number;
+    featuredDurationHours: number;
+    escrowFixedFee?: number;
+    useFixedEscrowFee?: boolean;
     updatedAt?: any;
 }
 
 const DEFAULT_SETTINGS: PlatformSettings = {
-    escrowFeePercentage: 0.20 // Default 20%
+    escrowFeePercentage: 0.05, // 5%
+    paymentProcessingFeePercentage: 0.06, // 6% (Mercado Pago/Modo)
+    featuredExtraPercentage: 0.05, // 5% Extra for Featured
+    featuredDurationHours: 48,
+    escrowFixedFee: 2500,
+    useFixedEscrowFee: false
 };
 
 /**

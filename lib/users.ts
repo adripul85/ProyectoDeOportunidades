@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp, where } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp, where, onSnapshot } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import { deleteUser } from "firebase/auth";
 
@@ -7,6 +7,7 @@ import { deleteUser } from "firebase/auth";
 export interface UserProfile {
     uid: string;
     displayName: string;
+    dni: string;
     email: string;
     phone: string;
     location: {
@@ -49,10 +50,34 @@ export interface UserProfile {
     reputation?: {
         averageRating: number;
         totalReviews: number;
+        ratingDistribution?: { [key: number]: number };
         lastUpdated: any;
     };
     followersCount?: number;
     followingCount?: number;
+    responseTime?: string;
+
+    social?: {
+        whatsapp?: string;
+        instagram?: string;
+        tiktok?: string;
+        twitter?: string;
+    };
+    logistics?: {
+        shippingInfo?: string;
+        deliveryMethods?: string[];
+        businessHours?: string;
+        meetingPoints?: string[];
+    };
+    identity?: {
+        birthday?: string;
+        gender?: string;
+    };
+    notificationPreferences?: {
+        emailAlerts: boolean;
+        pushAlerts: boolean;
+        marketingAlerts: boolean;
+    };
 
     createdAt: any;
     updatedAt?: any;
@@ -84,6 +109,7 @@ export const createUserProfile = async (uid: string, data: Partial<UserProfile>)
             reputation: {
                 averageRating: 0,
                 totalReviews: 0,
+                ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
                 lastUpdated: serverTimestamp()
             },
             createdAt: serverTimestamp(),
@@ -210,21 +236,27 @@ export const addUserReview = async (targetUid: string, reviewData: Omit<Review, 
             createdAt: serverTimestamp()
         });
 
-        // 2. Update Average Rating (Aggregation)
-        // Note: For scalability, this should be a Cloud Function. Here we do client-side agg for MVP.
+        // 2. Update Average Rating and Distribution (Aggregation)
         const snapshot = await getDocs(reviewsRef);
         let totalStars = 0;
         let count = 0;
+        const distribution: { [key: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+
         snapshot.forEach(doc => {
             const data = doc.data();
+            const r = Math.round(data.rating);
             totalStars += data.rating;
             count++;
+            if (distribution[r] !== undefined) {
+                distribution[r]++;
+            }
         });
         const average = count > 0 ? totalStars / count : 0;
 
         await updateDoc(userRef, {
             "reputation.averageRating": average,
             "reputation.totalReviews": count,
+            "reputation.ratingDistribution": distribution,
             "reputation.lastUpdated": serverTimestamp()
         });
 
@@ -363,5 +395,124 @@ export const getTopSellers = async (limitCount: number = 5): Promise<UserProfile
     } catch (error) {
         console.error("Error fetching top sellers:", error);
         return [];
+    }
+};
+
+// --- WALLET MOVEMENTS SYSTEM ---
+
+export interface WalletMovement {
+    id?: string;
+    uid: string;
+    type: 'ESCROW_HOLD' | 'ESCROW_RELEASE' | 'FEE_PROTECTION' | 'SALE_REVENUE' | 'BUY_DEDUCTION' | 'WITHDRAWAL_REQUEST' | 'WITHDRAWAL_COMPLETED' | 'PENALTY' | 'PLATFORM_REVENUE';
+    amount: number;
+    referenceId: string; // Transaction ID or Withdrawal ID
+    itemTitle?: string;
+    description: string;
+    timestamp: any;
+}
+
+/**
+ * Log a movement in the user's wallet history
+ */
+export const logWalletMovement = async (movement: Omit<WalletMovement, 'id' | 'timestamp'>) => {
+    try {
+        const movementsRef = collection(db, "wallet_movements");
+        await addDoc(movementsRef, {
+            ...movement,
+            timestamp: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Error logging wallet movement:", error);
+        return { success: false, error };
+    }
+};
+
+/**
+ * Fetch wallet movements for a user (Snapshot)
+ */
+export const getUserWalletMovements = async (uid: string): Promise<WalletMovement[]> => {
+    try {
+        const movementsRef = collection(db, "wallet_movements");
+        const q = query(movementsRef, where("uid", "==", uid), orderBy("timestamp", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WalletMovement));
+    } catch (error) {
+        console.error("Error fetching wallet movements:", error);
+        return [];
+    }
+};
+
+/**
+ * Subscribe to wallet movements for a user
+ */
+export const subscribeToUserWalletMovements = (uid: string, callback: (movements: WalletMovement[]) => void) => {
+    const movementsRef = collection(db, "wallet_movements");
+    const q = query(movementsRef, where("uid", "==", uid), orderBy("timestamp", "desc"));
+    return onSnapshot(q, (snapshot) => {
+        const movements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WalletMovement));
+        callback(movements);
+    });
+};
+
+// --- BEHAVIOR TRACKING SYSTEM ---
+
+/**
+ * Track user searches to improve suggestions
+ */
+export const trackUserSearch = async (userId: string, searchTerm: string) => {
+    if (!searchTerm || searchTerm.length < 3) return;
+
+    try {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+            const userData = userSnap.data();
+            const recentSearches = userData.recentSearches || [];
+
+            // Limit to last 10 unique searches
+            const term = searchTerm.toLowerCase().trim();
+            const updatedSearches = [term, ...recentSearches.filter((s: string) => s !== term)].slice(0, 10);
+
+            await updateDoc(userRef, {
+                recentSearches: updatedSearches,
+                lastInteraction: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+        }
+    } catch (error) {
+        console.error("Error tracking search:", error);
+    }
+};
+
+/**
+ * Track product views to improve suggestions
+ */
+export const trackProductView = async (userId: string, productId: string, category: string) => {
+    try {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+            const userData = userSnap.data();
+
+            // Track categories (limit 10)
+            const viewedCategories = userData.viewedCategories || [];
+            const updatedCategories = [category, ...viewedCategories.filter((c: string) => c !== category)].slice(0, 10);
+
+            // Track products (limit 20)
+            const viewedProducts = userData.viewedProducts || [];
+            const updatedProducts = [productId, ...viewedProducts.filter((p: string) => p !== productId)].slice(0, 20);
+
+            await updateDoc(userRef, {
+                viewedCategories: updatedCategories,
+                viewedProducts: updatedProducts,
+                lastInteraction: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+        }
+    } catch (error) {
+        console.error("Error tracking product view:", error);
     }
 };

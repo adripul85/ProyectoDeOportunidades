@@ -152,6 +152,114 @@ const SupportChat = ({ transactionId }: { transactionId: string }) => {
   );
 };
 
+// Real-time mediation chat between buyer and seller
+const MediationChat = ({ transactionId, userId, buyerId, sellerId }: { transactionId: string; userId: string; buyerId: string; sellerId: string }) => {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const userRole = userId === buyerId ? 'comprador' : userId === sellerId ? 'vendedor' : 'observador';
+
+  useEffect(() => {
+    if (!transactionId) return;
+    const loadFirestore = async () => {
+      const { collection, query, orderBy, onSnapshot } = await import('firebase/firestore');
+      const chatRef = collection(db, 'transactions', transactionId, 'dispute_chat');
+      const q = query(chatRef, orderBy('createdAt', 'asc'));
+      const unsub = onSnapshot(q, (snap) => {
+        setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      return unsub;
+    };
+
+    let unsub: (() => void) | undefined;
+    loadFirestore().then(u => unsub = u);
+    return () => unsub?.();
+  }, [transactionId]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || sending) return;
+    setSending(true);
+    try {
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+      await addDoc(collection(db, 'transactions', transactionId, 'dispute_chat'), {
+        text: input.trim(),
+        senderId: userId,
+        role: userRole,
+        createdAt: serverTimestamp()
+      });
+      setInput('');
+    } catch (err) {
+      console.error('Error sending mediation message:', err);
+    }
+    setSending(false);
+  };
+
+  const formatTime = (ts: any) => {
+    if (!ts?.toDate) return '';
+    return ts.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 bg-light-50/30">
+        {messages.length === 0 && (
+          <div className="text-center py-12">
+            <span className="material-symbols-outlined text-3xl text-gray-200 mb-2">chat_bubble</span>
+            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Inicien la conversación para llegar a un acuerdo</p>
+          </div>
+        )}
+        {messages.map((m) => {
+          const isOwn = m.senderId === userId;
+          const isBuyer = m.role === 'comprador';
+          return (
+            <div key={m.id} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+              <div className={`px-4 py-3 rounded-2xl text-xs font-bold max-w-[85%] shadow-sm ${isOwn
+                ? 'bg-dark-800 text-white rounded-tr-sm'
+                : isBuyer
+                  ? 'bg-blue-50 text-blue-900 border border-blue-100 rounded-tl-sm'
+                  : 'bg-amber-50 text-amber-900 border border-amber-100 rounded-tl-sm'
+                }`}>
+                {m.text}
+              </div>
+              <div className="flex items-center gap-2 mt-1 px-1">
+                <span className={`text-[8px] font-black uppercase tracking-widest ${isBuyer ? 'text-blue-400' : 'text-amber-400'}`}>
+                  {isBuyer ? '🛒 Comprador' : '🏪 Vendedor'}
+                </span>
+                <span className="text-[8px] font-bold text-gray-300">{formatTime(m.createdAt)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="p-4 bg-white border-t border-light-100 flex gap-3">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Escribe tu mensaje..."
+          disabled={sending}
+          className="flex-1 bg-light-50 rounded-2xl px-4 py-3 text-xs font-bold text-dark-800 placeholder:text-gray-300 outline-none focus:bg-white focus:ring-2 focus:ring-amber-100 transition-all border border-transparent"
+        />
+        <button
+          type="submit"
+          disabled={!input.trim() || sending}
+          className="size-11 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-all active:scale-90 disabled:opacity-30 flex items-center justify-center shadow-sm"
+        >
+          <span className="material-symbols-outlined text-lg">send</span>
+        </button>
+      </form>
+    </>
+  );
+};
+
 const ProgressStepper = ({ status }: { status: string }) => {
   const steps = [
     { label: 'Acordado', icon: 'handshake', status: 'completed' },
@@ -187,6 +295,9 @@ const Dispute = () => {
   const [evidence, setEvidence] = useState<IEscrowEvidence[]>([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [counterparty, setCounterparty] = useState<any>(null);
+  const [isOpeningDispute, setIsOpeningDispute] = useState(false);
+  const [disputeReasonInput, setDisputeReasonInput] = useState('');
+  const [openingLoading, setOpeningLoading] = useState(false);
 
   useEffect(() => {
     if (!transactionId) return;
@@ -201,8 +312,56 @@ const Dispute = () => {
     getUserProfile(otherId).then(setCounterparty);
   }, [transaction, user]);
 
+  const handleStartDispute = async () => {
+    if (!disputeReasonInput.trim()) {
+      notify({ type: 'error', title: 'Motivo Requerido', message: 'Por favor explica brevemente el problema.', icon: 'warning' });
+      return;
+    }
+    if (evidence.length === 0) {
+      notify({ type: 'error', title: 'Evidencia Requerida', message: 'Debes subir al menos una foto del producto como prueba.', icon: 'photo_camera' });
+      return;
+    }
+
+    setOpeningLoading(true);
+    try {
+      const { updateTransactionStatus } = await import('../../lib/transactions');
+      const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+
+      // Update with reason and status
+      const txRef = doc(db, "transactions", transactionId!);
+      await updateDoc(txRef, {
+        status: 'DISPUTED',
+        disputeReason: disputeReasonInput,
+        disputeStartedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      setIsOpeningDispute(false);
+      notify({ type: 'success', title: 'Disputa Iniciada', message: 'El caso ha sido abierto exitosamente.', icon: 'gavel' });
+
+      // Notify the counterparty about the dispute
+      try {
+        const { sendNotification } = await import('../../lib/interactions');
+        const otherId = user?.uid === transaction?.buyerId ? transaction?.sellerId : transaction?.buyerId;
+        if (otherId) {
+          await sendNotification(otherId, {
+            title: '⚠️ Nueva Disputa Abierta',
+            message: `Se abrió una disputa en la transacción "${transaction?.itemTitle || 'Producto'}". Motivo: "${disputeReasonInput.slice(0, 80)}". Ingresá al chat de mediación para resolver.`,
+            type: 'warning',
+            link: `/dispute/${transactionId}`
+          });
+        }
+      } catch (e) { console.error('Error notifying counterparty:', e); }
+    } catch (error) {
+      console.error("Error starting dispute:", error);
+      notify({ type: 'error', title: 'Error', message: 'No se pudo iniciar la disputa.', icon: 'error' });
+    } finally {
+      setOpeningLoading(false);
+    }
+  };
+
   const handleUploadEvidence = async () => {
-    // Mock upload for now - in real app would open file picker
+    // ... (logic to trigger file input or mock upload)
     const mockUrl = `https://picsum.photos/400/400?evidence=${Date.now()}`;
     if (transactionId) {
       await submitEvidence(transactionId, mockUrl, 'image', 'Evidencia subida por usuario');
@@ -257,6 +416,26 @@ const Dispute = () => {
 
         {/* Resolution Content */}
         <div className="lg:col-span-4 space-y-10">
+          {/* MEDIATION CHAT PANEL */}
+          <div className="bg-white rounded-[40px] border border-light-200 shadow-premium overflow-hidden flex flex-col" style={{ height: '520px' }}>
+            <div className="p-6 border-b border-light-100 bg-light-50/50 flex items-center gap-3">
+              <div className="size-10 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center border border-amber-100">
+                <span className="material-symbols-outlined text-lg font-black">forum</span>
+              </div>
+              <div>
+                <p className="font-black text-xs text-dark-800 uppercase tracking-widest leading-none">Chat de Mediación</p>
+                <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-1">Ambas partes pueden negociar aquí</p>
+              </div>
+            </div>
+
+            <MediationChat
+              transactionId={transactionId!}
+              userId={user?.uid || ''}
+              buyerId={transaction.buyerId}
+              sellerId={transaction.sellerId}
+            />
+          </div>
+
           <div className="bg-dark-800 p-10 rounded-[40px] text-white shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 size-32 bg-red-600/20 blur-[60px] -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-1000"></div>
             <div className="flex items-center gap-4 mb-8">
@@ -303,31 +482,176 @@ const Dispute = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full relative z-10">
               {transaction.status === 'DISPUTED' ? (
                 <>
-                  <button className="p-6 bg-white text-dark-800 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-red-600 hover:text-white transition-all shadow-xl active:scale-95 group">
-                    Aceptar Liquidación Parcial
+                  <div className="col-span-full mb-8 p-6 bg-white/5 rounded-3xl border border-white/10 text-left">
+                    <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-2">Motivo del Reclamo:</p>
+                    <p className="text-[11px] font-medium text-gray-300 italic">"{transaction.disputeReason || 'No especificado'}"</p>
+                  </div>
+
+                  {user?.uid === transaction.sellerId && !transaction.isAmicableReturnAccepted && (
+                    <button
+                      onClick={async () => {
+                        const { acceptAmicableReturn } = await import('../../lib/transactions');
+                        await acceptAmicableReturn(transactionId!, user.uid);
+                        notify({ type: 'success', title: 'Devolución Aceptada', message: 'Has aceptado la devolución del producto.', icon: 'handshake' });
+                      }}
+                      className="col-span-full p-6 bg-white text-emerald-600 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-emerald-50 transition-all shadow-xl active:scale-95 group mb-4"
+                    >
+                      Aceptar Devolución Amigable
+                    </button>
+                  )}
+
+                  {/* Liquidación Parcial: 50/50 split */}
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('¿Aceptar liquidación parcial?\n\nSe dividirá el monto 50/50 entre comprador y vendedor. Esta acción es irreversible.')) return;
+                      try {
+                        const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+                        const halfAmount = Math.round((transaction?.amountProduct || transaction?.amount || 0) / 2);
+                        // Update transaction as resolved
+                        await updateDoc(doc(db, 'transactions', transactionId!), {
+                          status: 'COMPLETED',
+                          disputeResolution: 'PARTIAL_SETTLEMENT',
+                          disputeResolvedAt: serverTimestamp(),
+                          refundAmount: halfAmount,
+                          sellerAmount: halfAmount,
+                          updatedAt: serverTimestamp()
+                        });
+                        // Update buyer wallet
+                        const buyerRef = doc(db, 'users', transaction!.buyerId);
+                        const sellerRef = doc(db, 'users', transaction!.sellerId);
+                        const { increment } = await import('firebase/firestore');
+                        await updateDoc(buyerRef, { 'wallet.available': increment(halfAmount) });
+                        await updateDoc(sellerRef, { 'wallet.available': increment(halfAmount), 'wallet.inEscrow': increment(-transaction!.amountProduct || -transaction!.amount) });
+                        // Notify both
+                        const { sendNotification } = await import('../../lib/interactions');
+                        await sendNotification(transaction!.buyerId, { title: '⚖️ Liquidación Parcial', message: `Se acreditaron $${halfAmount.toLocaleString()} a tu billetera (50% del monto).`, type: 'info', link: '/wallet' });
+                        await sendNotification(transaction!.sellerId, { title: '⚖️ Liquidación Parcial', message: `Se acreditaron $${halfAmount.toLocaleString()} a tu billetera (50% del monto).`, type: 'info', link: '/wallet' });
+                        notify({ type: 'success', title: 'Liquidación Parcial Aplicada', message: `$${halfAmount.toLocaleString()} para cada parte.`, icon: 'balance' });
+                      } catch (err) {
+                        console.error(err);
+                        notify({ type: 'error', title: 'Error', message: 'No se pudo aplicar la liquidación.', icon: 'error' });
+                      }
+                    }}
+                    className="p-6 bg-white text-dark-800 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-amber-50 hover:text-amber-700 transition-all shadow-xl active:scale-95 group flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">balance</span>
+                    Aceptar Liquidación Parcial (50/50)
                   </button>
-                  <button className="p-6 bg-dark-700 border border-white/5 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-white hover:text-dark-800 transition-all active:scale-95">
+
+                  {/* Liquidación Total: buyer accepts, all funds to seller */}
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('¿Aceptar liquidación total?\n\nTODOS los fondos serán liberados al vendedor. Solo acepta si llegaste a un acuerdo.')) return;
+                      try {
+                        const { doc, updateDoc, serverTimestamp, increment } = await import('firebase/firestore');
+                        const fullAmount = transaction?.amountProduct || transaction?.amount || 0;
+                        await updateDoc(doc(db, 'transactions', transactionId!), {
+                          status: 'COMPLETED',
+                          disputeResolution: 'FULL_SETTLEMENT_SELLER',
+                          disputeResolvedAt: serverTimestamp(),
+                          sellerAmount: fullAmount,
+                          refundAmount: 0,
+                          updatedAt: serverTimestamp()
+                        });
+                        // Release funds to seller
+                        const sellerRef = doc(db, 'users', transaction!.sellerId);
+                        await updateDoc(sellerRef, { 'wallet.available': increment(fullAmount), 'wallet.inEscrow': increment(-fullAmount) });
+                        const { sendNotification } = await import('../../lib/interactions');
+                        await sendNotification(transaction!.sellerId, { title: '✅ Fondos Liberados', message: `$${fullAmount.toLocaleString()} acreditados a tu billetera. La disputa fue resuelta.`, type: 'success', link: '/wallet' });
+                        notify({ type: 'success', title: 'Liquidación Total Aplicada', message: `$${fullAmount.toLocaleString()} liberados al vendedor.`, icon: 'check_circle' });
+                      } catch (err) {
+                        console.error(err);
+                        notify({ type: 'error', title: 'Error', message: 'No se pudo aplicar la liquidación.', icon: 'error' });
+                      }
+                    }}
+                    className="p-6 bg-emerald-500 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-emerald-600 transition-all shadow-xl active:scale-95 group flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">payments</span>
+                    Aceptar Liquidación Total
+                  </button>
+
+                  {/* Escalar a Árbitro Humano */}
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('¿Escalar esta disputa a un administrador?\n\nUn árbitro humano revisará la evidencia y tomará una decisión final vinculante.')) return;
+                      try {
+                        const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+                        await updateDoc(doc(db, 'transactions', transactionId!), {
+                          disputeEscalated: true,
+                          disputeEscalatedAt: serverTimestamp(),
+                          updatedAt: serverTimestamp()
+                        });
+                        // Notify admin
+                        const { getSystemAdminId } = await import('../../lib/admin');
+                        const adminId = await getSystemAdminId();
+                        if (adminId) {
+                          const { sendNotification } = await import('../../lib/interactions');
+                          await sendNotification(adminId, {
+                            title: '🚨 Disputa Escalada',
+                            message: `La disputa del trato #${transactionId!.slice(0, 8)} fue escalada. Motivo: "${transaction?.disputeReason?.slice(0, 60) || 'N/A'}". Requiere tu intervención.`,
+                            type: 'error',
+                            link: `/dispute/${transactionId}`
+                          });
+                        }
+                        notify({ type: 'warning', title: 'Escalada Enviada', message: 'Un árbitro humano (admin) revisará el caso y tomará una decisión.', icon: 'supervisor_account' });
+                      } catch (err) {
+                        console.error(err);
+                        notify({ type: 'error', title: 'Error', message: 'No se pudo escalar la disputa.', icon: 'error' });
+                      }
+                    }}
+                    className="col-span-full p-6 bg-dark-700 border border-white/5 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-white hover:text-dark-800 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">supervisor_account</span>
                     Escalar a Árbitro Humano
                   </button>
                 </>
+              ) : isOpeningDispute ? (
+                <div className="col-span-full space-y-6 text-left animate-in fade-in slide-in-from-bottom-4">
+                  <div>
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] ml-2 block mb-3">Detalle del Inconveniente (Obligatorio)</label>
+                    <textarea
+                      value={disputeReasonInput}
+                      onChange={(e) => setDisputeReasonInput(e.target.value)}
+                      placeholder="Ej: El producto llegó con la pantalla rota aunque el empaque estaba bien..."
+                      className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 text-xs text-white placeholder:text-white/20 outline-none focus:border-red-600 transition-all h-32"
+                    />
+                  </div>
+
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => setIsOpeningDispute(false)}
+                      className="flex-1 p-5 bg-white/5 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleStartDispute}
+                      disabled={openingLoading}
+                      className="flex-[2] p-5 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-600/20 disabled:opacity-50"
+                    >
+                      {openingLoading ? 'Procesando...' : 'Confirmar Reclamo Formal'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] font-bold text-white/30 text-center uppercase tracking-widest leading-relaxed">
+                    Recuerda que debes haber subido evidencia en la bóveda superior para continuar.
+                  </p>
+                </div>
               ) : (
                 <button
-                  onClick={async () => {
-                    const { updateTransactionStatus } = await import('../../lib/transactions');
-                    await updateTransactionStatus(transactionId!, 'DISPUTED');
-                    notify({ type: 'warning', title: 'Disputa Iniciada', message: 'Se ha abierto un caso de mediación.', icon: 'gavel' });
-                  }}
+                  onClick={() => setIsOpeningDispute(true)}
                   className="col-span-full p-6 bg-red-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-red-700 transition-all shadow-xl active:scale-95"
                 >
                   Iniciar Disputa Formal
                 </button>
               )}
-              <button
-                onClick={() => setShowCancelModal(true)}
-                className="col-span-full mt-6 text-[9px] font-black text-red-400 uppercase tracking-[0.4em] hover:text-red-300 transition-colors"
-              >
-                Solicitar Anulación Absoluta
-              </button>
+              {!isOpeningDispute && (
+                <button
+                  onClick={() => setShowCancelModal(true)}
+                  className="col-span-full mt-6 text-[9px] font-black text-red-400 uppercase tracking-[0.4em] hover:text-red-300 transition-colors"
+                >
+                  Solicitar Anulación Absoluta
+                </button>
+              )}
             </div>
           </div>
         </div>

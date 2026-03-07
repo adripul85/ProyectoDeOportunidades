@@ -113,7 +113,7 @@ const Profile = () => {
   return (
     <div className="bg-light-50 min-h-screen pb-32">
       {/* --- TOP BANNER --- */}
-      <div className="h-48 md:h-80 w-full relative overflow-hidden">
+      <div className="h-32 md:h-48 w-full relative overflow-hidden">
         <img
           src={targetProfile.coverImage || "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=2670"}
           className="w-full h-full object-cover"
@@ -126,7 +126,7 @@ const Profile = () => {
         {/* --- HEADER PROFILE CARD --- */}
         <div className="flex flex-col md:flex-row items-end gap-8 mb-16">
           <div className="relative group">
-            <div className="size-48 md:size-64 rounded-full border-[6px] border-white overflow-hidden shadow-2xl bg-white relative z-10 transition-transform group-hover:scale-[1.02] duration-500">
+            <div className="size-32 md:size-40 rounded-full border-[4px] border-white overflow-hidden shadow-2xl bg-white relative z-10 transition-transform group-hover:scale-[1.02] duration-500">
               <img
                 src={targetProfile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(targetProfile.displayName)}&background=random`}
                 className="w-full h-full object-cover"
@@ -134,27 +134,27 @@ const Profile = () => {
               />
             </div>
             {targetProfile.profileComplete && (
-              <div className="absolute bottom-6 right-6 z-20 bg-primary-vibrant text-white size-12 rounded-full flex items-center justify-center border-4 border-white shadow-xl rotate-[-10deg] animate-in zoom-in duration-700 delay-300">
-                <span className="material-symbols-outlined text-2xl font-black">verified</span>
+              <div className="absolute bottom-2 right-2 z-20 bg-primary-vibrant text-white size-8 rounded-full flex items-center justify-center border-2 border-white shadow-xl rotate-[-10deg] animate-in zoom-in duration-700 delay-300">
+                <span className="material-symbols-outlined text-lg font-black">verified</span>
               </div>
             )}
           </div>
 
           <div className="flex-1 pb-4 text-center md:text-left">
-            <div className="flex flex-col md:flex-row items-center gap-4 mb-3">
-              <h1 className="text-4xl md:text-5xl font-black text-dark-800 tracking-tighter drop-shadow-sm">
+            <div className="flex flex-col md:flex-row items-center gap-3 mb-2">
+              <h1 className="text-2xl md:text-3xl font-black text-dark-800 tracking-tighter drop-shadow-sm">
                 {targetProfile.displayName}
               </h1>
-              <div className="flex items-center gap-2 bg-primary-vibrant size-6 rounded-full justify-center">
-                <span className="material-symbols-outlined text-white text-[14px] font-black">check</span>
+              <div className="flex items-center gap-2 bg-primary-vibrant size-5 rounded-full justify-center">
+                <span className="material-symbols-outlined text-white text-[10px] font-black">check</span>
               </div>
             </div>
-            <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
+            <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 text-[9px] font-bold uppercase tracking-widest text-gray-400">
               <span>Vendedor Verificado</span>
-              <div className="size-1.5 bg-light-200 rounded-full" />
-              <span>Miembro desde {joinDate.toLocaleString('es-ES', { month: 'long' })} {joinYear}</span>
-              <div className="size-1.5 bg-light-200 rounded-full" />
-              <span className="text-primary-vibrant">Confiado por +500 compradores globalmente</span>
+              <div className="size-1 bg-light-200 rounded-full" />
+              <span>Unido en {joinDate.toLocaleString('es-ES', { month: 'long' })} {joinYear}</span>
+              <div className="size-1 bg-light-200 rounded-full" />
+              <span className="text-primary-vibrant">Reputación Excelente</span>
             </div>
           </div>
 
@@ -163,35 +163,35 @@ const Profile = () => {
               <>
                 <button
                   onClick={handleToggleFollow}
-                  className={`h-14 px-8 rounded-2xl border-2 font-black text-[10px] uppercase tracking-[0.3em] transition-all shadow-premium flex items-center gap-3 active:scale-95 group ${isFollowing
+                  className={`h-11 px-6 rounded-xl border font-black text-[9px] uppercase tracking-widest transition-all shadow-sm flex items-center gap-2 active:scale-95 group ${isFollowing
                     ? 'bg-light-100 text-dark-800 border-light-200'
                     : 'bg-white text-dark-800 border-light-200 hover:bg-light-100'
                     }`}
                 >
-                  <span className={`material-symbols-outlined text-xl transition-transform ${isFollowing ? '' : 'group-hover:scale-110'}`}>
+                  <span className={`material-symbols-outlined text-lg transition-transform ${isFollowing ? '' : 'group-hover:scale-110'}`}>
                     {isFollowing ? 'check' : 'person_add'}
                   </span>
                   {isFollowing ? 'Siguiendo' : 'Seguir'}
                 </button>
-                <button className="h-14 px-8 rounded-2xl bg-primary-vibrant text-white font-black text-[10px] uppercase tracking-[0.3em] hover:shadow-lg shadow-primary-vibrant/20 transition-all flex items-center gap-3 active:scale-95">
-                  <span className="material-symbols-outlined text-xl">chat_bubble</span>
+                <button className="h-11 px-6 rounded-xl bg-primary-vibrant text-white font-black text-[9px] uppercase tracking-widest hover:shadow-lg shadow-primary-vibrant/20 transition-all flex items-center gap-2 active:scale-95">
+                  <span className="material-symbols-outlined text-lg">chat_bubble</span>
                   Mensaje
                 </button>
                 <button
                   onClick={() => navigate(`/shop/${targetProfile.uid}`)}
-                  className="h-14 px-8 rounded-2xl bg-white text-dark-800 border-2 border-light-200 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-light-50 transition-all flex items-center gap-3 active:scale-95 shadow-premium"
+                  className="h-11 px-6 rounded-xl bg-white text-dark-800 border font-black text-[9px] uppercase tracking-widest hover:bg-light-50 transition-all flex items-center gap-2 active:scale-95 shadow-sm"
                 >
-                  <span className="material-symbols-outlined text-xl text-primary-vibrant">store</span>
-                  Ver Tienda
+                  <span className="material-symbols-outlined text-lg text-primary-vibrant">store</span>
+                  Tienda
                 </button>
               </>
             )}
             {isOwnProfile && (
               <button
                 onClick={() => navigate(`/shop/${targetProfile.uid}`)}
-                className="h-14 px-8 rounded-2xl bg-white text-dark-800 border-2 border-primary-200 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-primary-50 transition-all flex items-center gap-3 active:scale-95 shadow-premium"
+                className="h-11 px-6 rounded-xl bg-white text-dark-800 border border-primary-100 font-black text-[9px] uppercase tracking-widest hover:bg-primary-50 transition-all flex items-center gap-2 active:scale-95 shadow-sm"
               >
-                <span className="material-symbols-outlined text-xl text-primary-vibrant">storefront</span>
+                <span className="material-symbols-outlined text-lg text-primary-vibrant">storefront</span>
                 Mi Tienda Pública
               </button>
             )}
@@ -201,11 +201,11 @@ const Profile = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           {/* --- SIDEBAR REPUTATION --- */}
           <div className="lg:col-span-4 space-y-8">
-            <div className="bg-white p-10 rounded-[40px] shadow-premium border border-light-200/50">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-light-200/50">
               <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-dark-800 mb-10 pl-1">Reputación del Vendedor</h3>
 
-              <div className="flex items-center gap-8 mb-12">
-                <span className="text-6xl font-black text-dark-800 tracking-tighter">
+              <div className="flex items-center gap-5 mb-8">
+                <span className="text-4xl font-black text-dark-800 tracking-tighter">
                   {targetProfile.reputation?.averageRating.toFixed(1) || '0.0'}
                 </span>
                 <div>
@@ -220,62 +220,63 @@ const Profile = () => {
                 </div>
               </div>
 
-              <div className="space-y-4 mb-12">
-                {[
-                  { level: 5, fill: 90 },
-                  { level: 4, fill: 7 },
-                  { level: 3, fill: 2 }
-                ].map(rating => (
-                  <div key={rating.level} className="flex items-center gap-4">
-                    <span className="text-[10px] font-black text-gray-400 w-3">{rating.level}</span>
-                    <div className="flex-1 h-2 bg-light-50 rounded-full overflow-hidden border border-light-100">
-                      <div className="h-full bg-primary-vibrant rounded-full" style={{ width: `${rating.fill}%` }} />
+              <div className="space-y-3 mb-8">
+                {[5, 4, 3, 2, 1].map((level) => {
+                  const count = targetProfile.reputation?.ratingDistribution?.[level] || 0;
+                  const total = targetProfile.reputation?.totalReviews || 0;
+                  const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+
+                  return (
+                    <div key={level} className="flex items-center gap-3">
+                      <span className="text-[9px] font-black text-gray-400 w-2">{level}</span>
+                      <div className="flex-1 h-1.5 bg-light-50 rounded-full overflow-hidden border border-light-100">
+                        <div className="h-full bg-primary-vibrant rounded-full" style={{ width: `${percentage}%` }} />
+                      </div>
+                      <span className="text-[9px] font-black text-gray-300 w-8 text-right">{percentage}%</span>
                     </div>
-                    <span className="text-[10px] font-black text-gray-300 w-8 text-right">{rating.fill}%</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="flex flex-wrap gap-3">
-                {[
-                  { label: 'Vendedor Confiable', icon: 'verified', color: 'bg-primary-50 text-primary-vibrant border-primary-100' },
-                  { label: 'Respuesta Rápida', icon: 'bolt', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-                  { label: 'Envío Seguro', icon: 'lock', color: 'bg-indigo-50 text-indigo-600 border-indigo-100' }
-                ].map(badge => (
-                  <div key={badge.label} className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-black text-[9px] uppercase tracking-tight ${badge.color}`}>
-                    <span className="material-symbols-outlined text-base font-black">{badge.icon}</span>
-                    {badge.label}
+                {targetProfile.reputation?.averageRating && targetProfile.reputation.averageRating >= 4 && (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl border font-black text-[9px] uppercase tracking-tight bg-primary-50 text-primary-vibrant border-primary-100">
+                    <span className="material-symbols-outlined text-base font-black">verified</span>
+                    Vendedor Confiable
                   </div>
-                ))}
+                )}
+                {targetProfile.responseTime && (targetProfile.responseTime.toLowerCase().includes('min') || targetProfile.responseTime.toLowerCase().includes('1 h')) && (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl border font-black text-[9px] uppercase tracking-tight bg-emerald-50 text-emerald-600 border-emerald-100">
+                    <span className="material-symbols-outlined text-base font-black">bolt</span>
+                    Respuesta Rápida
+                  </div>
+                )}
+                {metrics.totalOps > 10 && (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl border font-black text-[9px] uppercase tracking-tight bg-indigo-50 text-indigo-600 border-indigo-100">
+                    <span className="material-symbols-outlined text-base font-black">lock</span>
+                    Comerciante Experto
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="bg-white p-10 rounded-[40px] shadow-premium border border-light-200/50 space-y-8">
-              <div className="flex items-start gap-5">
-                <div className="size-12 bg-light-50 rounded-2xl flex items-center justify-center border border-light-100 shrink-0">
-                  <span className="material-symbols-outlined text-primary-vibrant">location_on</span>
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-light-200/50 space-y-6">
+              <div className="flex items-start gap-4">
+                <div className="size-10 bg-light-50 rounded-xl flex items-center justify-center border border-light-100 shrink-0">
+                  <span className="material-symbols-outlined text-primary-vibrant text-lg">location_on</span>
                 </div>
-                <div className="pt-1">
-                  <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em] mb-1">Ubicación</p>
-                  <p className="text-sm font-black text-dark-800 uppercase tracking-tight">{targetProfile.location?.city || 'Desconocido'}, {targetProfile.location?.state || 'AR'}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-5">
-                <div className="size-12 bg-light-50 rounded-2xl flex items-center justify-center border border-light-100 shrink-0">
-                  <span className="material-symbols-outlined text-primary-vibrant">schedule</span>
-                </div>
-                <div className="pt-1">
-                  <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em] mb-1">Tiempo de Respuesta</p>
-                  <p className="text-sm font-black text-dark-800 uppercase tracking-tight">Usualmente en 1 hora</p>
+                <div className="pt-0.5">
+                  <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mb-0.5">Ubicación</p>
+                  <p className="text-xs font-bold text-dark-800 uppercase tracking-tight">{targetProfile.location?.city || 'Desconocido'}, {targetProfile.location?.state || 'AR'}</p>
                 </div>
               </div>
-              <div className="flex items-start gap-5">
-                <div className="size-12 bg-light-50 rounded-2xl flex items-center justify-center border border-light-100 shrink-0">
-                  <span className="material-symbols-outlined text-primary-vibrant">language</span>
+              <div className="flex items-start gap-4">
+                <div className="size-10 bg-light-50 rounded-xl flex items-center justify-center border border-light-100 shrink-0">
+                  <span className="material-symbols-outlined text-primary-vibrant text-lg">schedule</span>
                 </div>
-                <div className="pt-1">
-                  <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em] mb-1">Idiomas</p>
-                  <p className="text-sm font-black text-dark-800 uppercase tracking-tight">Inglés, Español</p>
+                <div className="pt-0.5">
+                  <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mb-0.5">Respuesta</p>
+                  <p className="text-xs font-bold text-dark-800 uppercase tracking-tight">{targetProfile.responseTime || 'No especificado'}</p>
                 </div>
               </div>
             </div>
@@ -286,18 +287,17 @@ const Profile = () => {
             {/* Tabs Interface */}
             <div className="flex border-b border-light-200 gap-10">
               {[
-                { id: 'selling', label: `Productos en Venta (${products.length})` },
-                { id: 'reviews_seller', label: `Reseñas de Vendedor (${targetProfile.reputation?.totalReviews || 0})` },
-                { id: 'reviews_buyer', label: 'Reseñas de Comprador (0)' }
+                { id: 'selling', label: `En Venta (${products.length})` },
+                { id: 'reviews_seller', label: `Reseñas (${targetProfile.reputation?.totalReviews || 0})` }
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`pb-5 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all relative ${activeTab === tab.id ? 'text-primary-vibrant' : 'text-gray-400 hover:text-dark-800'}`}
+                  className={`pb-4 text-[9px] font-black uppercase tracking-widest transition-all relative ${activeTab === tab.id ? 'text-primary-vibrant' : 'text-gray-400 hover:text-dark-800'}`}
                 >
                   {tab.label}
                   {activeTab === tab.id && (
-                    <div className="absolute bottom-0 left-0 w-full h-1 bg-primary-vibrant rounded-t-full shadow-[0_-4px_10px_rgba(37,99,235,0.4)]" />
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary-vibrant rounded-t-full shadow-[0_-2px_6px_rgba(230,30,30,0.3)]" />
                   )}
                 </button>
               ))}

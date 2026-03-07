@@ -24,8 +24,9 @@ async function distributeEscrowFunds(transactionId: string, data: any) {
     const sellerRef = db.collection('users').doc(data.sellerId);
 
     // Calculated based on new model (Step Id 5789 logic)
-    const sellerProceeds = data.amountProduct || data.amount;
-    const platformRevenue = data.amountPlatformFee || data.amountPlatformFee || 0;
+    // amountProduct is the net for the seller, amountPlatformFee is for the platform
+    const sellerProceeds = data.amountProduct || data.amount || 0;
+    const platformRevenue = data.amountPlatformFee || 0;
 
     const batch = db.batch();
 
@@ -165,7 +166,7 @@ export const releaseFunds = functions.https.onCall(async (request) => {
     const isAdmin = false; // TODO: Implement real admin check via custom claims
 
     // Validar token si es intercambio en persona
-    if (data.deliveryMethod === 'MEETING' && data.qrCode !== qrToken) {
+    if (data.deliveryMethod === 'en_mano' && data.qrCode !== qrToken) {
         throw new functions.https.HttpsError('invalid-argument', 'Token de seguridad inválido.');
     }
 
@@ -292,12 +293,12 @@ export const submitEvidence = functions.https.onCall(async (request) => {
  * Runs every hour to check for SHIPPED transactions older than 48 hours.
  */
 export const autoReleaseEscrow = functions.pubsub.schedule('every 1 hours').onRun(async (context) => {
-    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const now = new Date();
 
-    // Query transactions that are SHIPPED and haven't been updated in 48h
+    // Query transactions that are DELIVERED_PENDING_REVIEW and deadline has passed
     const snapshot = await db.collection('transactions')
-        .where('status', '==', 'SHIPPED')
-        .where('updatedAt', '<=', fortyEightHoursAgo)
+        .where('status', '==', 'DELIVERED_PENDING_REVIEW')
+        .where('inspectionDeadline', '<=', now)
         .get();
 
     if (snapshot.empty) {
@@ -335,4 +336,45 @@ export const autoReleaseEscrow = functions.pubsub.schedule('every 1 hours').onRu
     }
 
     return results;
+});
+
+/**
+ * 10. MERCADO PAGO WEBHOOK (Payment Confirmation)
+ */
+export const mercadoPagoWebhook = functions.https.onRequest(async (req, res) => {
+    const { type, data } = req.body;
+
+    // We only care about payment events
+    if (type === 'payment') {
+        const paymentId = data.id;
+
+        try {
+            // Get payment detail from MP
+            const { Payment } = await import('mercadopago');
+            const mpPayment = new Payment(client);
+            const paymentDetail = await mpPayment.get({ id: paymentId });
+
+            if (paymentDetail.status === 'approved') {
+                const txId = paymentDetail.external_reference;
+                if (txId) {
+                    const txRef = db.collection('transactions').doc(txId);
+                    const txDoc = await txRef.get();
+
+                    if (txDoc.exists && txDoc.data()?.status === 'PENDING_PAYMENT') {
+                        await txRef.update({
+                            status: 'PAID_HELD',
+                            mpPaymentId: paymentId,
+                            lastSystemMessage: '✅ Pago confirmado via Mercado Pago. Fondos en garantía.',
+                            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log(`Transaction ${txId} marked as PAID_HELD.`);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error processing MP Webhook:', error);
+        }
+    }
+
+    res.status(200).send('OK');
 });

@@ -11,6 +11,8 @@ import { uploadFile } from '../lib/storage';
 import { useNotification } from '../context/NotificationContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ReviewModal from '../components/ReviewModal';
+import MyPurchases from '../components/dashboard/MyPurchases';
+import MySales from '../components/dashboard/MySales';
 export default function Dashboard() {
   const { user, userProfile } = useAuth();
   const navigate = useNavigate();
@@ -21,7 +23,7 @@ export default function Dashboard() {
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
   };
-  const [activeTab, setActiveTab] = useState<'publicaciones' | 'compras' | 'ventas' | 'perfil'>('publicaciones');
+  const [activeTab, setActiveTab] = useState<'publicaciones' | 'compras' | 'ventas' | 'disputas' | 'perfil'>('publicaciones');
   const [transactions, setTransactions] = useState<{ compras: any[], ventas: any[] }>({ compras: [], ventas: [] });
   const [userItems, setUserItems] = useState<(ItemData & { id: string })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,10 +170,12 @@ export default function Dashboard() {
 
   const list = activeTab === 'compras' ? filteredPurchases : filteredTransactions;
 
-  const filteredUserItems = userItems.filter(item =>
-    item.title.toLowerCase().includes(filterQuery.toLowerCase()) ||
-    item.category.toLowerCase().includes(filterQuery.toLowerCase())
-  );
+  const filteredUserItems = userItems.filter(item => {
+    const matchesQuery = item.title.toLowerCase().includes(filterQuery.toLowerCase()) ||
+      item.category.toLowerCase().includes(filterQuery.toLowerCase());
+    const isAvailable = !item.status || item.status === 'AVAILABLE';
+    return matchesQuery && isAvailable;
+  });
 
   const handleDeleteItem = async (id: string) => {
     setIsDeleting(true);
@@ -330,10 +334,10 @@ export default function Dashboard() {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 mb-12">
           <div>
             <h1 className="text-4xl font-black text-dark-800 tracking-tighter mb-1 transition-all">
-              {activeTab === 'compras' ? 'Mis Compras' : activeTab === 'ventas' ? 'Vendedor Mercado' : activeTab === 'publicaciones' ? 'Mis Publicaciones' : 'Configuración de Perfil'}
+              {activeTab === 'compras' ? 'Mis Compras' : activeTab === 'ventas' ? 'Vendedor Mercado' : activeTab === 'publicaciones' ? 'Mis Publicaciones' : activeTab === 'disputas' ? 'Panel de Disputas' : 'Configuración de Perfil'}
             </h1>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest leading-relaxed">
-              {activeTab === 'compras' ? 'Rastrea tus órdenes y administra pagos protegidos.' : activeTab === 'ventas' ? 'Monitorea tus ingresos y optimiza tu rendimiento.' : activeTab === 'publicaciones' ? 'Gestiona tus productos activos en el mercado.' : 'Mantén actualizada tu seguridad e insignias.'}
+              {activeTab === 'compras' ? 'Rastrea tus órdenes y administra pagos protegidos.' : activeTab === 'ventas' ? 'Monitorea tus ingresos y optimiza tu rendimiento.' : activeTab === 'publicaciones' ? 'Gestiona tus productos activos en el mercado.' : activeTab === 'disputas' ? 'Gestiona disputas activas y resuelve conflictos.' : 'Mantén actualizada tu seguridad e insignias.'}
             </p>
           </div>
 
@@ -342,6 +346,7 @@ export default function Dashboard() {
               { id: 'publicaciones', label: 'Publicaciones', icon: 'inventory_2' },
               { id: 'compras', label: 'Compras', icon: 'shopping_bag' },
               { id: 'ventas', label: 'Ventas', icon: 'payments' },
+              { id: 'disputas', label: 'Disputas', icon: 'gavel', badge: [...transactions.compras, ...transactions.ventas].filter(t => t.status === 'DISPUTED').length },
               { id: 'perfil', label: 'Perfil', icon: 'settings', action: () => navigate('/settings') },
             ].map((tab) => (
               <button
@@ -354,6 +359,7 @@ export default function Dashboard() {
               >
                 <span className="material-symbols-outlined text-lg">{tab.icon}</span>
                 {tab.label}
+                {tab.badge > 0 && <span className="size-5 bg-red-600 text-white rounded-full text-[8px] font-black flex items-center justify-center animate-pulse">{tab.badge}</span>}
               </button>
             ))}
           </div>
@@ -465,7 +471,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-4">
                 <MetricCard
                   title="Saldo Pendiente"
-                  value={`$${(transactions.ventas.filter(t => ['PAID_HELD', 'SHIPPED', 'DELIVERED_PENDING_REVIEW'].includes(t.status)).reduce((acc, curr) => acc + curr.total, 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                  value={`$${(transactions.ventas.filter(t => ['PAID_HELD', 'SHIPPED', 'DELIVERED_PENDING_REVIEW'].includes(t.status)).reduce((acc, curr) => acc + (curr.amountProduct || curr.amount || 0), 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
                   subtext="Fondos en periodo de garantía"
                   icon="account_balance_wallet"
                   color="bg-amber-50 text-amber-500"
@@ -479,7 +485,7 @@ export default function Dashboard() {
                 />
                 <MetricCard
                   title="Ventas Totales Históricas"
-                  value={`$${(transactions.ventas.filter(t => t.status === 'COMPLETED').reduce((acc, curr) => acc + curr.total, 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                  value={`$${(transactions.ventas.filter(t => t.status === 'COMPLETED').reduce((acc, curr) => acc + (curr.amountProduct || curr.amount || 0), 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
                   subtext={`En ${transactions.ventas.filter(t => t.status === 'COMPLETED').length} transacciones`}
                   icon="trending_up"
                   color="bg-emerald-50 text-emerald-500"
@@ -502,6 +508,13 @@ export default function Dashboard() {
                     onChange={(e) => setFilterQuery(e.target.value)}
                     className="bg-transparent outline-none w-20 placeholder:text-gray-400 font-black uppercase"
                   />
+                </button>
+                <button
+                  onClick={() => navigate('/publish')}
+                  className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-dark-800 text-white text-[10px] font-black uppercase tracking-widest hover:bg-dark-900 transition-all shadow-xl shadow-dark-800/10 active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-lg">add_circle</span>
+                  Nueva Publicación
                 </button>
                 <button className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-white border border-light-200 text-[10px] font-black uppercase tracking-widest text-dark-800 hover:bg-light-50 transition-all">
                   <span className="material-symbols-outlined text-lg">file_download</span>
@@ -533,7 +546,14 @@ export default function Dashboard() {
                             <div className="flex-1">
                               <p className="text-[9px] font-black text-red-600 uppercase tracking-widest mb-1">{item.category}</p>
                               <h3 className="text-xl font-black text-dark-800 tracking-tight group-hover:text-red-600 transition-colors line-clamp-1">{item.title}</h3>
-                              <p className="text-2xl font-black text-dark-800 pt-1">${item.price.toLocaleString()}</p>
+                              <div className="flex items-baseline gap-2 pt-1">
+                                <p className="text-2xl font-black text-dark-800">${item.price.toLocaleString()}</p>
+                                {item.oldPrice && item.oldPrice > item.price && (
+                                  <p className="text-sm font-bold text-gray-400 line-through opacity-70">
+                                    ${item.oldPrice.toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2 mt-2">
                                 <span className="size-2 bg-emerald-500 rounded-full"></span>
                                 <span className="text-[10px] font-bold text-emerald-600 uppercase">Activo</span>
@@ -574,257 +594,27 @@ export default function Dashboard() {
                   </div>
                 )
               ) : list.length > 0 ? (
-                list.map((deal: TransactionData & { id: string, type: string }) => (
-                  <div key={deal.id} className="bg-white rounded-[40px] border border-light-200 shadow-premium overflow-hidden transition-all hover:shadow-premium-lg group animate-in fade-in duration-500">
-                    <div className="flex flex-col md:flex-row p-10 gap-10">
-
-                      {/* Item Visual */}
-                      <div className="size-32 rounded-3xl bg-light-50 shrink-0 overflow-hidden border border-light-100/50 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-4xl text-gray-200">landscape</span>
-                      </div>
-
-                      {/* Item Info */}
-                      <div className="flex-1 space-y-1">
-                        <p className="text-[10px] font-black text-primary-vibrant uppercase tracking-widest">ORDEN #{deal.id.slice(0, 8).toUpperCase()}</p>
-                        <h3 className="text-2xl font-black text-dark-800 tracking-tight transition-colors group-hover:text-primary-vibrant">{deal.itemTitle}</h3>
-                        <p className="text-3xl font-black text-dark-800 pt-2">${deal.total?.toLocaleString()}</p>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pt-2">Comprado {formatDate(deal.createdAt)}</p>
-                      </div>
-
-                      {/* Escrow Status & Progress */}
-                      <div className="flex-[1.5] space-y-8">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Estado Escrow:</p>
-                            <p className="text-sm font-black text-primary-vibrant uppercase tracking-tight">
-                              {deal.status === 'SHIPPED' ? 'Ítem Enviado' : deal.status === 'COMPLETED' ? 'Fondos Liberados' : deal.status === 'PAID_HELD' ? 'Pago en Garantía' : 'Pendiente'}
-                            </p>
-                          </div>
-                          {deal.status === 'SHIPPED' && (
-                            <div className="bg-primary-50 px-4 py-2 rounded-xl text-primary-vibrant font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border border-primary-100/50">
-                              <span className="material-symbols-outlined text-xs">local_shipping</span>
-                              Rastrea: {deal.trackingId || '4529330201'}
-                            </div>
-                          )}
-                          {deal.status === 'PAID_HELD' && (
-                            <div className="bg-amber-50 px-4 py-2 rounded-xl text-amber-600 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border border-amber-100">
-                              <span className="material-symbols-outlined text-xs">schedule</span>
-                              Esperando Envío
-                            </div>
-                          )}
-                          {deal.status === 'DELIVERED_PENDING_REVIEW' && (
-                            <div className="bg-blue-50 px-4 py-2 rounded-xl text-blue-600 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border border-blue-100">
-                              <span className="material-symbols-outlined text-xs">visibility</span>
-                              Inspeccionando
-                            </div>
-                          )}
-                          {deal.status === 'COMPLETED' && (
-                            <div className="bg-emerald-50 px-4 py-2 rounded-xl text-emerald-500 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border border-emerald-100">
-                              <span className="material-symbols-outlined text-xs">verified</span>
-                              Transacción Finalizada
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Progress Bar Component */}
-                        <div className="flex items-start gap-1">
-                          <ProgressStep label="Pago Retenido" active={deal.status === 'PAID_HELD'} completed={['SHIPPED', 'DELIVERED_PENDING_REVIEW', 'COMPLETED'].includes(deal.status)} />
-                          <ProgressStep label="Enviado" active={deal.status === 'SHIPPED'} completed={['DELIVERED_PENDING_REVIEW', 'COMPLETED'].includes(deal.status)} />
-                          <ProgressStep label="Recibido" active={deal.status === 'DELIVERED_PENDING_REVIEW'} completed={['COMPLETED'].includes(deal.status)} />
-                          <ProgressStep label="Fondos Liberados" active={deal.status === 'COMPLETED'} completed={false} isLast />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer Actions Panel */}
-                    <div className="bg-light-50/50 px-10 py-6 border-t border-light-100 flex flex-col sm:flex-row items-center justify-between gap-6">
-                      <p className="text-[11px] font-bold text-dark-400 uppercase tracking-widest leading-relaxed max-w-[400px]">
-                        {deal.status === 'PAID_HELD' && "Fondos en custodia. El vendedor enviará el producto pronto."}
-                        {deal.status === 'SHIPPED' && "En tránsito. El paquete está en camino."}
-                        {deal.status === 'DELIVERED_PENDING_REVIEW' && "Por favor inspecciona el ítem. Tienes 48h para confirmar."}
-                        {deal.status === 'COMPLETED' && "Esta transacción ha finalizado. ¡Esperamos que te guste tu producto!"}
-                      </p>
-                      <div className="flex gap-4 w-full sm:w-auto">
-                        {/* SELLER ACTIONS */}
-                        {activeTab === 'ventas' && deal.status !== 'COMPLETED' && deal.status !== 'CANCELLED' && (
-                          <>
-                            {/* SHIPPING FLOW */}
-                            {deal.deliveryMethod === 'SHIPPING' && deal.status === 'PAID_HELD' && (
-                              shippingTx === deal.id ? (
-                                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300 bg-white p-2 rounded-2xl border border-light-200">
-                                  <select
-                                    value={courierInput}
-                                    onChange={(e) => setCourierInput(e.target.value)}
-                                    className="bg-light-50 rounded-xl px-2 py-3 text-[10px] font-bold outline-none"
-                                  >
-                                    <option>Correo Argentino</option>
-                                    <option>Andreani</option>
-                                    <option>OCA</option>
-                                  </select>
-                                  <input
-                                    type="text"
-                                    placeholder="Código Seguimiento"
-                                    value={trackingInput}
-                                    onChange={(e) => setTrackingInput(e.target.value)}
-                                    className="w-32 px-3 py-3 rounded-xl bg-light-50 outline-none text-[10px] font-black uppercase"
-                                  />
-                                  <button onClick={() => handleUpdateTracking(deal.id)} className="px-6 bg-primary-vibrant text-white rounded-xl flex items-center justify-center hover:opacity-90 gap-2">
-                                    <span className="material-symbols-outlined text-sm">send</span>
-                                    <span className="text-[10px] font-black uppercase">Confirmar</span>
-                                  </button>
-                                  <button onClick={() => setShippingTx(null)} className="size-10 text-gray-400 hover:text-dark-800 flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-sm">close</span>
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => setShippingTx(deal.id)}
-                                  className="px-8 py-4 bg-primary-vibrant text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:opacity-95 shadow-xl flex items-center gap-2"
-                                >
-                                  <span className="material-symbols-outlined text-sm">local_shipping</span>
-                                  Marcar como Enviado
-                                </button>
-                              )
-                            )}
-
-                            {/* MEETING FLOW (QR) */}
-                            {(deal.deliveryMethod === 'MEETING' || !deal.deliveryMethod) && deal.status === 'PAID_HELD' && (
-                              validatingTx === deal.id ? (
-                                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
-                                  <input
-                                    type="text"
-                                    placeholder="QR / Token"
-                                    value={qrInput}
-                                    onChange={(e) => setQrInput(e.target.value)}
-                                    className="w-24 px-4 py-4 rounded-2xl border-2 border-primary-vibrant text-[10px] font-black uppercase text-center outline-none"
-                                    autoFocus
-                                  />
-                                  <button
-                                    onClick={() => handleValidateDelivery(deal.id)}
-                                    className="px-6 py-4 bg-primary-vibrant text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:opacity-90 transition-all shadow-lg shadow-primary-500/30"
-                                  >
-                                    Validar
-                                  </button>
-                                  <button
-                                    onClick={() => { setValidatingTx(null); setQrInput(''); }}
-                                    className="size-12 flex items-center justify-center bg-white border border-light-200 rounded-2xl text-gray-400 hover:text-dark-800 transition-all"
-                                  >
-                                    <span className="material-symbols-outlined">close</span>
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => setValidatingTx(deal.id)}
-                                  className="px-8 py-4 bg-dark-800 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-dark-900 border border-dark-900 shadow-xl flex items-center gap-2"
-                                >
-                                  <span className="material-symbols-outlined text-sm">qr_code_scanner</span>
-                                  Validar Entrega
-                                </button>
-                              )
-                            )}
-                          </>
-                        )}
-
-                        {/* BUYER ACTIONS */}
-                        {activeTab === 'compras' && (
-                          <>
-                            {/* PENDING PAYMENT ACTIONS */}
-                            {deal.status === 'PENDING_PAYMENT' && (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => { setTxToCancel(deal.id); setCancelModalOpen(true); }}
-                                  className="px-6 py-4 bg-white border border-red-100 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-red-50 hover:border-red-200 flex items-center gap-2"
-                                >
-                                  <span className="material-symbols-outlined text-sm">cancel</span>
-                                  Cancelar
-                                </button>
-                                <button
-                                  onClick={() => navigate(`/checkout?tx=${deal.id}`)}
-                                  className="px-8 py-4 bg-primary-vibrant text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:opacity-90 shadow-xl flex items-center gap-2"
-                                >
-                                  <span className="material-symbols-outlined text-sm">account_balance_wallet</span>
-                                  Pagar Ahora
-                                </button>
-                              </div>
-                            )}
-
-                            {/* CONFIRM RECEIPT (Direct Release) */}
-                            {(deal.status === 'SHIPPED' || deal.status === 'PAID_HELD') && (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => { setTxToCancel(deal.id); setCancelModalOpen(true); }}
-                                  className="px-6 py-4 bg-white border border-red-100 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-red-50 hover:border-red-200 flex items-center gap-2"
-                                >
-                                  <span className="material-symbols-outlined text-sm">cancel</span>
-                                  Cancelar
-                                </button>
-                                <button
-                                  onClick={() => handleReleaseFunds(deal.id)}
-                                  className="px-8 py-4 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-emerald-600 shadow-xl flex items-center gap-2"
-                                >
-                                  <span className="material-symbols-outlined text-sm">thumb_up</span>
-                                  Ya recibí el producto
-                                </button>
-                              </div>
-                            )}
-
-                            {/* REVIEW OR DISPUTE */}
-                            {deal.status === 'DELIVERED_PENDING_REVIEW' && (
-                              <>
-                                <button
-                                  onClick={() => navigate(`/dispute/${deal.id}`)}
-                                  className="flex-1 sm:flex-none px-8 py-4 bg-white border border-light-200 text-[10px] font-black uppercase tracking-widest text-red-500 rounded-2xl transition-all hover:bg-red-50 hover:border-red-100"
-                                >
-                                  Reportar Problema
-                                </button>
-                                <button
-                                  onClick={() => handleReleaseFunds(deal.id)}
-                                  className="flex-1 sm:flex-none px-8 py-4 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-emerald-600 shadow-xl flex items-center gap-2"
-                                >
-                                  <span className="material-symbols-outlined text-sm">payments</span>
-                                  Liberar Dinero
-                                </button>
-                                <button
-                                  onClick={() => navigate(`/transaction/${deal.id}`)}
-                                  className="flex-1 sm:flex-none px-8 py-4 bg-primary-vibrant text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:opacity-95 shadow-xl shadow-primary-vibrant/20"
-                                >
-                                  Ver Detalles
-                                </button>
-                              </>
-                            )}
-                          </>
-                        )}
-
-                        {/* GENERAL TRACKING & REORDER */}
-                        {(deal.status === 'SHIPPED' || deal.status === 'COMPLETED') && !deal.status.includes('PENDING') && (
-                          deal.status === 'SHIPPED' && activeTab === 'compras' ? (
-                            <button
-                              onClick={() => navigate(`/transaction/${deal.id}`)}
-                              className="w-full sm:w-auto px-10 py-4 bg-white border border-light-200 text-[10px] font-black uppercase tracking-widest text-dark-800 rounded-2xl transition-all hover:bg-light-50"
-                            >
-                              Rastrear Envío
-                            </button>
-                          ) : deal.status === 'COMPLETED' ? (
-                            <Link to={`/product/${deal.itemId}`} className="w-full sm:w-auto px-10 py-4 bg-white border border-light-200 text-[10px] font-black uppercase tracking-widest text-dark-800 rounded-2xl transition-all hover:bg-light-50 flex items-center gap-2">
-                              <span className="material-symbols-outlined text-sm">replay</span> Comprar de Nuevo
-                            </Link>
-                          ) : null
-                        )}
-
-                        {/* RATE SELLER */}
-                        {activeTab === 'compras' && deal.status === 'COMPLETED' && !reviewedTransactions.has(deal.id) && (
-                          <button
-                            onClick={() => { setSelectedTransaction(deal); setReviewModalOpen(true); }}
-                            className="w-full sm:w-auto px-8 py-4 bg-amber-400 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-amber-500 shadow-xl flex items-center gap-2"
-                          >
-                            <span className="material-symbols-outlined text-sm">star</span>
-                            Calificar Vendedor
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))
+                activeTab === 'compras' ? (
+                  <MyPurchases
+                    purchases={list}
+                    formatDate={formatDate}
+                    onConfirmReceipt={handleConfirmReceipt}
+                  />
+                ) : (
+                  <MySales
+                    sales={list}
+                    formatDate={formatDate}
+                    onUpdateTracking={handleUpdateTracking}
+                    shippingTx={shippingTx}
+                    setShippingTx={setShippingTx}
+                    trackingInput={trackingInput}
+                    setTrackingInput={setTrackingInput}
+                    courierInput={courierInput}
+                    setCourierInput={setCourierInput}
+                    handleUpdateTracking={handleUpdateTracking}
+                    handleManualDelivery={handleValidateDelivery}
+                  />
+                )
               ) : (
                 <div className="text-center py-24 bg-white rounded-[40px] border border-light-200 shadow-premium">
                   <div className="bg-light-100 size-24 rounded-full flex items-center justify-center mx-auto mb-8">
@@ -834,8 +624,50 @@ export default function Dashboard() {
                   <p className="text-sm font-bold text-gray-400 mb-10 max-w-sm mx-auto uppercase">Explora nuestro mercado global para comenzar tu red de confianza.</p>
                   <Link to="/" className="inline-block bg-primary-vibrant text-white px-12 py-5 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl transition-transform active:scale-95">Explorar Productos</Link>
                 </div>
-              )
-              }
+              )}
+
+              {/* DISPUTAS TAB CONTENT */}
+              {activeTab === 'disputas' && (
+                <div className="space-y-6">
+                  {(() => {
+                    const allDisputed = [...transactions.compras, ...transactions.ventas].filter(t => t.status === 'DISPUTED');
+                    if (allDisputed.length === 0) return (
+                      <div className="text-center py-24 bg-white rounded-[40px] border border-light-200 shadow-premium">
+                        <div className="bg-emerald-50 size-24 rounded-full flex items-center justify-center mx-auto mb-8">
+                          <span className="material-symbols-outlined text-4xl text-emerald-400">verified</span>
+                        </div>
+                        <h3 className="text-3xl font-black text-dark-800 mb-4 uppercase tracking-tighter">Sin Disputas Activas</h3>
+                        <p className="text-sm font-bold text-gray-400 max-w-sm mx-auto uppercase">¡Todo en orden! No tienes disputas pendientes.</p>
+                      </div>
+                    );
+                    return allDisputed.map((deal: any) => (
+                      <div key={deal.id} className="bg-white rounded-[32px] border border-red-100 shadow-premium p-8 flex flex-col md:flex-row items-start md:items-center gap-6 hover:shadow-xl transition-all">
+                        <div className="size-20 rounded-2xl bg-light-50 overflow-hidden border border-light-100 shrink-0">
+                          <img src={deal.itemImage || 'https://picsum.photos/200'} alt="" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-3">
+                            <span className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border border-red-100 animate-pulse">Disputa Activa</span>
+                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">ORDEN #{deal.id.slice(0, 8).toUpperCase()}</span>
+                          </div>
+                          <h4 className="text-xl font-black text-dark-800 tracking-tight">{deal.itemTitle || 'Producto'}</h4>
+                          <p className="text-xs font-bold text-gray-400">Monto: <span className="text-dark-800">${(deal.amountProduct || deal.amount)?.toLocaleString()}</span> · {deal.type === 'compra' ? '🛒 Eres el Comprador' : '🏪 Eres el Vendedor'}</p>
+                          {deal.disputeReason && (
+                            <p className="text-xs font-bold text-red-400 italic">Motivo: "{deal.disputeReason.slice(0, 100)}"</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => navigate(`/dispute/${deal.id}`)}
+                          className="px-8 py-4 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all hover:bg-red-700 shadow-xl shadow-red-600/20 flex items-center gap-2 shrink-0"
+                        >
+                          <span className="material-symbols-outlined text-sm">forum</span>
+                          Ir a Mediación
+                        </button>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
 
               {/* HELP BANNER */}
               <div className="bg-white p-8 rounded-[40px] border border-light-200 shadow-premium flex flex-col md:flex-row items-center gap-8 justify-between">
@@ -852,52 +684,54 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </div>
+        </div >
 
         {/* PROFILE TAB CONTENT REMOVED - NOW IN /SETTINGS */}
-      </div>
+      </div >
 
       {/* DEV ZONE: RESET DATABASE (ADMIN ONLY) */}
-      {userProfile?.role === 'admin' ? (
-        <div className="max-w-[1440px] mx-auto px-6 py-8 flex justify-center">
-          <button
-            onClick={async () => {
-              if (confirm("⚠️ ¿RESET TOTAL? Esto borrará TODAS las transacciones y reseteará las billeteras a $0. Esta acción es irreversible.")) {
-                const { resetPlatformData } = await import('../lib/admin');
-                const result = await resetPlatformData();
-                if (result.success) {
-                  alert("Base de datos reseteada correctamente.");
-                  window.location.reload();
-                } else {
-                  alert("Error al resetear: " + result.error);
+      {
+        userProfile?.role === 'admin' ? (
+          <div className="max-w-[1440px] mx-auto px-6 py-8 flex justify-center">
+            <button
+              onClick={async () => {
+                if (confirm("⚠️ ¿RESET TOTAL? Esto borrará TODAS las transacciones y reseteará las billeteras a $0. Esta acción es irreversible.")) {
+                  const { resetPlatformData } = await import('../lib/admin');
+                  const result = await resetPlatformData();
+                  if (result.success) {
+                    alert("Base de datos reseteada correctamente.");
+                    window.location.reload();
+                  } else {
+                    alert("Error al resetear: " + result.error);
+                  }
                 }
-              }
-            }}
-            className="bg-red-50 border border-red-200 text-red-600 px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-red-100 transition-colors flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-lg">dangerous</span>
-            Developer Reset (Limpiar DB)
-          </button>
-        </div>
-      ) : (
-        <div className="max-w-[1440px] mx-auto px-6 py-8 flex justify-center">
-          <button
-            onClick={async () => {
-              if (!user) return;
-              if (confirm("¿Promover tu usuario a ADMIN? Esto te dará acceso a herramientas de desarrollador.")) {
-                const { updateUserRole } = await import('../lib/admin');
-                await updateUserRole(user.uid, 'admin');
-                alert("¡Ahora eres Admin!");
-                window.location.reload();
-              }
-            }}
-            className="bg-indigo-50 border border-indigo-200 text-indigo-600 px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-indigo-100 transition-colors flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-lg">admin_panel_settings</span>
-            Promover a Admin (Dev Tool)
-          </button>
-        </div>
-      )}
+              }}
+              className="bg-red-50 border border-red-200 text-red-600 px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-red-100 transition-colors flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-lg">dangerous</span>
+              Developer Reset (Limpiar DB)
+            </button>
+          </div>
+        ) : (
+          <div className="max-w-[1440px] mx-auto px-6 py-8 flex justify-center">
+            <button
+              onClick={async () => {
+                if (!user) return;
+                if (confirm("¿Promover tu usuario a ADMIN? Esto te dará acceso a herramientas de desarrollador.")) {
+                  const { updateUserRole } = await import('../lib/admin');
+                  await updateUserRole(user.uid, 'admin');
+                  alert("¡Ahora eres Admin!");
+                  window.location.reload();
+                }
+              }}
+              className="bg-indigo-50 border border-indigo-200 text-indigo-600 px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-indigo-100 transition-colors flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-lg">admin_panel_settings</span>
+              Promover a Admin (Dev Tool)
+            </button>
+          </div>
+        )
+      }
 
       {/* FOOTER MOCKUP BASED ON IMAGE */}
       <footer className="bg-white border-t border-light-100 py-12">

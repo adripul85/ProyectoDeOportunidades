@@ -25,6 +25,18 @@ export default {
                     900: '#881337',
                     vibrant: '#E61E1E',
                 },
+                slate: {
+                    50: '#f8fafc',
+                    100: '#f1f5f9',
+                    200: '#e2e8f0',
+                    300: '#cbd5e1',
+                    400: '#94a3b8',
+                    500: '#64748b',
+                    600: '#475569',
+                    700: '#334155',
+                    800: '#1e293b',
+                    900: '#0f172a',
+                },
                 dark: {
                     950: '#020617',
                     900: '#030712',
@@ -43,8 +55,8 @@ export default {
                 "menta": "#eff6ff",
             },
             fontFamily: {
-                sans: ['Inter', 'system-ui', 'sans-serif'],
-                display: ['Manrope', 'sans-serif'],
+                sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                display: ['Plus Jakarta Sans', 'sans-serif'],
                 body: ['Inter', 'sans-serif'],
             },
             boxShadow: {
@@ -55,6 +67,15 @@ export default {
             borderRadius: {
                 '3xl': '1.5rem',
                 '4xl': '2rem',
+            },
+            animation: {
+                'float': 'float 4s ease-in-out infinite',
+            },
+            keyframes: {
+                float: {
+                    '0%, 100%': { transform: 'translateY(0px)' },
+                    '50%': { transform: 'translateY(-10px)' },
+                }
             }
         },
     },

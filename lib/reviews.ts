@@ -102,15 +102,27 @@ export const updateSellerReputation = async (sellerId: string) => {
             return { success: true };
         }
 
-        // Calculate average
-        const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+        // Calculate average and distribution
+        let totalRating = 0;
+        const distribution: { [key: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+
+        reviews.forEach(review => {
+            const r = Math.round(review.rating);
+            totalRating += review.rating;
+            if (distribution[r] !== undefined) {
+                distribution[r]++;
+            }
+        });
+
         const averageRating = totalRating / reviews.length;
+        const ratingDistribution = distribution;
 
         // Update user profile
         await updateUserProfile(sellerId, {
             reputation: {
-                averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+                averageRating: Math.round(averageRating * 10) / 10,
                 totalReviews: reviews.length,
+                ratingDistribution,
                 lastUpdated: serverTimestamp()
             }
         } as any);

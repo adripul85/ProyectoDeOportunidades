@@ -15,6 +15,7 @@ interface Seller {
     verificationBadges?: {
         identityVerified: boolean;
     };
+    responseTime?: string;
 }
 
 interface Props {
@@ -138,8 +139,8 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
                     <span className="material-symbols-outlined text-primary-vibrant text-2xl font-black">bolt</span>
                 </div>
                 <div>
-                    <p className="text-[11px] font-black text-primary-950 uppercase tracking-tight">Nodo de Respuesta Rápida</p>
-                    <p className="text-[10px] font-bold text-primary-800/60 uppercase tracking-wide mt-1">Sincronización Promedio: &lt; 45 Minutos</p>
+                    <p className="text-[11px] font-black text-primary-950 uppercase tracking-tight">Nodo de Respuesta</p>
+                    <p className="text-[10px] font-bold text-primary-800/60 uppercase tracking-wide mt-1">Sincronización: {seller.responseTime || 'No especificada'}</p>
                 </div>
             </div>
         </div>

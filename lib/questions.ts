@@ -22,7 +22,9 @@ export const askQuestion = async (
     questionText: string,
     userId: string,
     userName: string,
-    userAvatar: string
+    userAvatar: string,
+    sellerId: string, // Added to notify the seller
+    itemTitle: string // Added for better notification message
 ) => {
     try {
         const docRef = await addDoc(collection(db, "questions"), {
@@ -33,6 +35,15 @@ export const askQuestion = async (
             askedByAvatar: userAvatar,
             status: 'pending' as QuestionStatus,
             createdAt: serverTimestamp(),
+        });
+
+        // Notify the seller
+        const { sendNotification } = await import("./interactions");
+        await sendNotification(sellerId, {
+            title: 'Nueva Pregunta',
+            message: `${userName} ha preguntado en "${itemTitle}": "${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}"`,
+            type: 'info',
+            link: `/product/${itemId}`
         });
 
         return { success: true, id: docRef.id };
@@ -66,7 +77,10 @@ export const getQuestions = async (itemId: string): Promise<(QuestionData & { id
 export const answerQuestion = async (
     questionId: string,
     answerText: string,
-    sellerId: string
+    sellerId: string,
+    buyerId: string, // Added to notify the buyer
+    itemId: string, // Added for navigation link
+    itemTitle: string // Added for better notification message
 ) => {
     try {
         const docRef = doc(db, "questions", questionId);
@@ -75,6 +89,15 @@ export const answerQuestion = async (
             answeredBy: sellerId,
             answeredAt: serverTimestamp(),
             status: 'answered' as QuestionStatus,
+        });
+
+        // Notify the buyer
+        const { sendNotification } = await import("./interactions");
+        await sendNotification(buyerId, {
+            title: 'Pregunta Respondida',
+            message: `El vendedor ha respondido tu duda en "${itemTitle}".`,
+            type: 'success',
+            link: `/product/${itemId}`
         });
 
         return { success: true };
