@@ -172,7 +172,7 @@ const ProductDetail = () => {
   };
 
   return (
-    <main className="max-w-[1280px] mx-auto px-6 py-6 bg-light-50 min-h-screen">
+    <main className="max-w-[1280px] mx-auto px-3 py-3 lg:px-6 lg:py-6 bg-light-50 min-h-screen">
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
@@ -186,7 +186,7 @@ const ProductDetail = () => {
       />
 
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-6">
+      <nav className="flex items-center gap-2 text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 lg:mb-6">
         <Link to="/" className="hover:text-primary-vibrant transition-colors">Inicio</Link>
         <span className="material-symbols-outlined text-xs">chevron_right</span>
         <Link to="/search" className="hover:text-primary-vibrant transition-colors">{product.category}</Link>
@@ -194,9 +194,9 @@ const ProductDetail = () => {
         <span className="text-dark-800">{product.title}</span>
       </nav>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* MEDIA & INFO (Left) */}
-        <div className="lg:col-span-8 space-y-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-8">
+        {/* IMAGE GALLERY - order-1: always first */}
+        <div className="lg:col-span-8 order-1">
           <ProductMedia
             images={product.images}
             activeImg={activeImg}
@@ -209,53 +209,11 @@ const ProductDetail = () => {
             onShare={() => setIsShareModalOpen(true)}
             imageRef={imageRef}
           />
-
-          <div className="p-8 bg-white border border-light-200 rounded-3xl shadow-premium">
-            <h3 className="text-sm font-black uppercase tracking-widest text-dark-800 mb-8 flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary-vibrant">subject</span>
-              Descripción
-            </h3>
-            <div className="prose prose-slate max-w-none">
-              <p className="text-lg font-bold text-dark-700 leading-relaxed">
-                {product.description}
-              </p>
-            </div>
-
-            <div className="mt-12 grid grid-cols-2 gap-8 border-t border-light-100 pt-10">
-              <div className="flex items-center gap-4">
-                <div className="size-12 rounded-2xl bg-light-100 flex items-center justify-center text-dark-800">
-                  <span className="material-symbols-outlined">stars</span>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-0.5">Condición</p>
-                  <p className="font-black text-dark-800 capitalize">{product.condition === 'like_new' ? 'Usado - Excelente' : 'Usado - Bueno'}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="size-12 rounded-2xl bg-light-100 flex items-center justify-center text-dark-800">
-                  <span className="material-symbols-outlined">location_on</span>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-0.5">Ubicación</p>
-                  <p className="font-black text-dark-800">{product.location || 'Buenos Aires, AR'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-          <SellerStoreBanner
-            sellerId={product.seller.id}
-            sellerName={product.seller.displayName || product.seller.name}
-            sellerAvatar={product.seller.avatar || product.seller.image}
-          />
-
-          <QuestionsSection itemId={product.id} sellerId={product.seller.id} itemTitle={product.title} />
         </div>
 
-        {/* PURCHASING HUB (Right) */}
-        <div className="lg:col-span-4 h-full">
-          <div className="sticky top-24 space-y-6">
+        {/* PURCHASING HUB - order-2 on mobile (right below image), stays in right column on desktop */}
+        <div className="lg:col-span-4 lg:row-span-2 order-2 h-full">
+          <div className="lg:sticky lg:top-24 space-y-3 lg:space-y-6">
             <ProductActions
               onSave={() => handleAction('save')}
               onAlert={() => handleAction('alert')}
@@ -265,25 +223,25 @@ const ProductDetail = () => {
               hasAlert={hasAlert}
             />
 
-            <div className="bg-white p-8 rounded-3xl border border-light-200 shadow-premium">
-              <div className="mb-6">
+            <div className="bg-white p-4 lg:p-8 rounded-2xl lg:rounded-3xl border border-light-200 shadow-premium">
+              <div className="mb-3 lg:mb-6">
                 <div className="flex justify-between items-start mb-2">
-                  <h1 className="text-2xl font-black text-dark-800 leading-tight bg-gradient-to-br from-dark-800 to-dark-600 bg-clip-text text-transparent">{product.title}</h1>
+                  <h1 className="text-lg lg:text-2xl font-black text-dark-800 leading-tight bg-gradient-to-br from-dark-800 to-dark-600 bg-clip-text text-transparent">{product.title}</h1>
                   <button className="text-gray-400 hover:text-red-500 transition-colors">
                     <span className="material-symbols-outlined" onClick={() => handleAction('save')}>{isSaved ? 'favorite' : 'favorite_border'}</span>
                   </button>
                 </div>
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-3 lg:mb-6">
                   <div className="flex items-baseline gap-3">
-                    <p className="text-4xl font-black text-dark-800 tracking-tight">${product.price.toLocaleString()}</p>
+                    <p className="text-2xl lg:text-4xl font-black text-dark-800 tracking-tight">${product.price.toLocaleString()}</p>
                     {product.oldPrice && product.oldPrice > product.price && (
-                      <p className="text-xl font-bold text-gray-400 line-through opacity-60">
+                      <p className="text-sm lg:text-xl font-bold text-gray-400 line-through opacity-60">
                         ${product.oldPrice.toLocaleString()}
                       </p>
                     )}
                   </div>
                   {product.views && product.views > 10 && (
-                    <div className="flex items-center gap-2 bg-light-100/50 px-4 py-2 rounded-full border border-light-200 shadow-sm animate-in fade-in slide-in-from-right-2">
+                    <div className="flex items-center gap-1.5 bg-light-100/50 px-2.5 py-1.5 lg:px-4 lg:py-2 rounded-full border border-light-200 shadow-sm animate-in fade-in slide-in-from-right-2">
                       <span className="material-symbols-outlined text-sm text-gray-400">visibility</span>
                       <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                         {product.views} visitas
@@ -293,35 +251,35 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 mb-6">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2 lg:gap-3 mb-3 lg:mb-6">
+                <div className="grid grid-cols-2 gap-2 lg:gap-3">
                   <button
                     onClick={handleBuyNow}
-                    className="bg-primary-vibrant text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-primary-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-500/30 active:scale-95 group"
+                    className="bg-primary-vibrant text-white py-3 lg:py-5 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-[10px] uppercase tracking-[0.15em] lg:tracking-[0.2em] hover:bg-primary-600 transition-all flex items-center justify-center gap-1.5 lg:gap-2 shadow-lg shadow-primary-500/30 active:scale-95 group"
                   >
-                    <span className="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">bolt</span>
+                    <span className="material-symbols-outlined text-base lg:text-lg group-hover:scale-110 transition-transform">bolt</span>
                     Comprar Ya
                   </button>
                   <button
                     onClick={handleContactSeller}
-                    className="bg-white text-dark-800 border-2 border-light-200 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-light-50 transition-all flex items-center justify-center gap-2 active:scale-95 group"
+                    className="bg-white text-dark-800 border-2 border-light-200 py-3 lg:py-5 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-[10px] uppercase tracking-[0.15em] lg:tracking-[0.2em] hover:bg-light-50 transition-all flex items-center justify-center gap-1.5 lg:gap-2 active:scale-95 group"
                   >
-                    <span className="material-symbols-outlined text-gray-400 group-hover:text-primary-vibrant transition-colors text-lg">chat</span>
+                    <span className="material-symbols-outlined text-gray-400 group-hover:text-primary-vibrant transition-colors text-base lg:text-lg">chat</span>
                     Mensaje
                   </button>
                 </div>
                 <button
                   onClick={handleAddToCart}
-                  className="w-full bg-light-100/50 hover:bg-light-100 text-dark-800 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 active:scale-95 group"
+                  className="w-full bg-light-100/50 hover:bg-light-100 text-dark-800 py-3 lg:py-5 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-[10px] uppercase tracking-[0.15em] lg:tracking-[0.2em] transition-all flex items-center justify-center gap-1.5 lg:gap-2 active:scale-95 group"
                 >
-                  <span className="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">add_shopping_cart</span>
+                  <span className="material-symbols-outlined text-base lg:text-lg group-hover:rotate-12 transition-transform">add_shopping_cart</span>
                   Agregar al Carrito
                 </button>
               </div>
 
-              <div className="border-t border-light-100 pt-8 mb-8">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-6">Detalles</h4>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-6">
+              <div className="border-t border-light-100 pt-4 lg:pt-8 mb-4 lg:mb-8">
+                <h4 className="text-[9px] lg:text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 lg:mb-6">Detalles</h4>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-3 lg:gap-x-4 lg:gap-y-6">
                   <div>
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Condición</p>
                     <p className="text-sm font-bold text-dark-800 capitalize">
@@ -345,9 +303,9 @@ const ProductDetail = () => {
                 </div>
 
                 {product.deliveryMethods && product.deliveryMethods.length > 0 && (
-                  <div className="mt-8 pt-8 border-t border-light-100">
+                  <div className="mt-4 pt-4 lg:mt-8 lg:pt-8 border-t border-light-100">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Opciones de Entrega</p>
-                    <div className="space-y-3">
+                    <div className="space-y-2 lg:space-y-3">
                       {product.deliveryMethods.map((m: string) => {
                         const methodMap: Record<string, { label: string, icon: string }> = {
                           'correo_argentino': { label: 'Correo Argentino', icon: 'local_shipping' },
@@ -357,7 +315,7 @@ const ProductDetail = () => {
                         };
                         const method = methodMap[m] || { label: m, icon: 'package' };
                         return (
-                          <div key={m} className="flex items-center gap-3 p-3 bg-light-50 rounded-xl border border-light-200/50">
+                          <div key={m} className="flex items-center gap-2 lg:gap-3 p-2 lg:p-3 bg-light-50 rounded-lg lg:rounded-xl border border-light-200/50">
                             <span className="material-symbols-outlined text-primary-vibrant text-lg">{method.icon}</span>
                             <span className="text-[11px] font-black text-dark-800 uppercase tracking-tight">{method.label}</span>
                           </div>
@@ -370,7 +328,7 @@ const ProductDetail = () => {
 
               <SellerSection seller={product.seller} />
 
-              <div className="mt-6 bg-primary-50 rounded-2xl p-5 border border-primary-100 flex gap-4">
+              <div className="mt-4 lg:mt-6 bg-primary-50 rounded-xl lg:rounded-2xl p-3 lg:p-5 border border-primary-100 flex gap-3 lg:gap-4">
                 <span className="material-symbols-outlined text-primary-vibrant">verified_user</span>
                 <div>
                   <h5 className="text-[10px] font-black uppercase tracking-widest text-primary-600 mb-1">Consejos de Seguridad</h5>
@@ -384,7 +342,52 @@ const ProductDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* DESCRIPTION & MORE - order-3 on mobile (below purchase card), part of left column on desktop */}
+        <div className="lg:col-span-8 space-y-6 lg:space-y-10 order-3">
+          <div className="p-4 lg:p-8 bg-white border border-light-200 rounded-2xl lg:rounded-3xl shadow-premium">
+            <h3 className="text-xs lg:text-sm font-black uppercase tracking-widest text-dark-800 mb-4 lg:mb-8 flex items-center gap-2 lg:gap-3">
+              <span className="material-symbols-outlined text-primary-vibrant">subject</span>
+              Descripción
+            </h3>
+            <div className="prose prose-slate max-w-none">
+              <p className="text-sm lg:text-lg font-bold text-dark-700 leading-relaxed">
+                {product.description}
+              </p>
+            </div>
+
+            <div className="mt-6 lg:mt-12 grid grid-cols-2 gap-4 lg:gap-8 border-t border-light-100 pt-6 lg:pt-10">
+              <div className="flex items-center gap-3 lg:gap-4">
+                <div className="size-9 lg:size-12 rounded-xl lg:rounded-2xl bg-light-100 flex items-center justify-center text-dark-800">
+                  <span className="material-symbols-outlined text-lg lg:text-2xl">stars</span>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-0.5">Condición</p>
+                  <p className="text-xs lg:text-base font-black text-dark-800 capitalize">{product.condition === 'like_new' ? 'Usado - Excelente' : 'Usado - Bueno'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 lg:gap-4">
+                <div className="size-9 lg:size-12 rounded-xl lg:rounded-2xl bg-light-100 flex items-center justify-center text-dark-800">
+                  <span className="material-symbols-outlined text-lg lg:text-2xl">location_on</span>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-0.5">Ubicación</p>
+                  <p className="text-xs lg:text-base font-black text-dark-800">{product.location || 'Buenos Aires, AR'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <SellerStoreBanner
+            sellerId={product.seller.id}
+            sellerName={product.seller.displayName || product.seller.name}
+            sellerAvatar={product.seller.avatar || product.seller.image}
+          />
+
+          <QuestionsSection itemId={product.id} sellerId={product.seller.id} itemTitle={product.title} />
+        </div>
       </div>
+
     </main>
   );
 };

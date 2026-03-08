@@ -25,6 +25,7 @@ import EscrowInfo from './pages/EscrowInfo';
 import VerifyDelivery from './pages/VerifyDelivery';
 import TermsAndCosts from './pages/legal/TermsAndCosts';
 import PaymentMethods from './pages/legal/PaymentMethods';
+import ProhibitedItems from './pages/legal/ProhibitedItems';
 import ResolutionCenter from './pages/ResolutionCenter';
 import RequireProfile from './components/RequireProfile';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -55,6 +56,7 @@ const Footer = () => (
       <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 text-[10px] font-black uppercase tracking-[0.3em] text-gray-300 mb-12">
         <Link className="hover:text-dark-800 transition-colors" to="/escrow-info">Seguridad Escrow</Link>
         <Link className="hover:text-dark-800 transition-colors" to="/legal/costs">Términos y Costos</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/legal/prohibited">Artículos Prohibidos</Link>
         <Link className="hover:text-dark-800 transition-colors" to="/escrow-info">Cómo Funciona</Link>
         <Link className="hover:text-dark-800 transition-colors" to="/resolution-center">Centro de Ayuda</Link>
       </div>
@@ -119,6 +121,7 @@ function App() {
                     <Route path="/admin" element={<AdminDashboard />} />
                     <Route path="/escrow-info" element={<EscrowInfo />} />
                     <Route path="/legal/costs" element={<TermsAndCosts />} />
+                    <Route path="/legal/prohibited" element={<ProhibitedItems />} />
                     <Route path="/verify-delivery" element={<VerifyDelivery />} />
                     <Route path="/resolution-center" element={<RequireProfile><ResolutionCenter /></RequireProfile>} />
                   </Routes>

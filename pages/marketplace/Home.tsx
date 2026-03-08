@@ -453,14 +453,13 @@ const Home = () => {
           <h2 className="text-xl font-bold text-dark-800 mb-6 font-primary">Filtros</h2>
 
           <div className="space-y-8">
-            {/* Categoría & Subcategoría (Refinado Desktop) */}
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 ml-1">Estructura</label>
-                <div className="space-y-1">
-                  {CATEGORIES.map(cat => (
+            {/* Categoría & Subcategoría (Accordion Desktop) */}
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 ml-1">Estructura</label>
+              <div className="space-y-0.5">
+                {CATEGORIES.map(cat => (
+                  <div key={cat.id}>
                     <button
-                      key={cat.id}
                       onClick={() => {
                         setActiveCategory(cat.name === activeCategory ? null : cat.name);
                         setActiveSubcategory('');
@@ -469,28 +468,26 @@ const Home = () => {
                     >
                       <span className={`material-symbols-outlined text-lg ${activeCategory === cat.name ? 'text-primary-vibrant' : 'text-gray-300 group-hover:text-primary-vibrant/60'}`}>{cat.icon}</span>
                       <span className="flex-1 text-left line-clamp-1">{cat.name}</span>
-                      {activeCategory === cat.name && <span className="material-symbols-outlined text-xs animate-in fade-in slide-in-from-left-2">chevron_right</span>}
+                      <span className={`material-symbols-outlined text-sm transition-transform duration-300 ${activeCategory === cat.name ? 'rotate-180 text-primary-vibrant' : 'text-gray-300'}`}>expand_more</span>
                     </button>
-                  ))}
-                </div>
-              </div>
 
-              {activeCategory && CATEGORIES.find(c => c.name === activeCategory)?.sub && (
-                <div className="space-y-3 p-4 bg-light-50 rounded-3xl animate-in slide-in-from-top-2 duration-300 border border-light-100">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-primary-vibrant opacity-70">Sub-Niveles</label>
-                  <div className="space-y-1">
-                    {CATEGORIES.find(c => c.name === activeCategory)?.sub.map(sub => (
-                      <button
-                        key={sub}
-                        onClick={() => setActiveSubcategory(sub === activeSubcategory ? '' : sub)}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${activeSubcategory === sub ? 'text-primary-vibrant' : 'text-gray-400 hover:text-dark-800 hover:translate-x-1'}`}
-                      >
-                        {sub}
-                      </button>
-                    ))}
+                    {/* Subcategories Dropdown */}
+                    {activeCategory === cat.name && cat.sub && (
+                      <div className="ml-6 pl-4 border-l-2 border-primary-100 space-y-0.5 py-1 animate-in slide-in-from-top-1 duration-200">
+                        {cat.sub.map(sub => (
+                          <button
+                            key={sub}
+                            onClick={() => setActiveSubcategory(sub === activeSubcategory ? '' : sub)}
+                            className={`w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold transition-all ${activeSubcategory === sub ? 'text-primary-vibrant bg-primary-50/50' : 'text-gray-400 hover:text-dark-800 hover:bg-light-50'}`}
+                          >
+                            {sub}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
 
             {/* Estado */}
