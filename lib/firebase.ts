@@ -15,6 +15,11 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+// Check if API Key exists to avoid cryptic Firebase errors
+if (!firebaseConfig.apiKey) {
+    console.error("❌ ERROR DE CONFIGURACIÓN: No se encontró VITE_FIREBASE_API_KEY. Revisa tu archivo .env o las variables de entorno en Vercel.");
+}
+
 const app = initializeApp(firebaseConfig);
 
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
