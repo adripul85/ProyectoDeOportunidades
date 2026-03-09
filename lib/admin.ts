@@ -175,6 +175,10 @@ export const getPlatformStats = async () => {
         let totalInEscrow = 0;
         let totalPending = 0;
         let totalUsers = snapshot.size;
+        let newUsersToday = 0;
+
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
 
         snapshot.forEach(doc => {
             const data = doc.data() as UserProfile;
@@ -183,6 +187,26 @@ export const getPlatformStats = async () => {
                 totalInEscrow += data.wallet.inEscrow || 0;
                 totalPending += data.wallet.pending || 0;
             }
+            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+                if (data.createdAt.toDate() >= startOfDay) {
+                    newUsersToday++;
+                }
+            }
+        });
+
+        // Calculate Daily Sales
+        const txRef = collection(db, "transactions");
+        const startOfDayTimestamp = import("firebase/firestore").then(m => m.Timestamp.fromDate(startOfDay));
+        const txSnap = await getDocs(query(txRef, orderBy("createdAt", "desc")));
+
+        let dailySales = 0;
+        txSnap.forEach(t => {
+            const txData = t.data();
+            if (txData.createdAt && typeof txData.createdAt.toDate === 'function') {
+                if (txData.createdAt.toDate() >= startOfDay && (txData.status !== 'CANCELLED' && txData.status !== 'REFUNDED')) {
+                    dailySales += txData.amount || 0;
+                }
+            }
         });
 
         return {
@@ -190,7 +214,9 @@ export const getPlatformStats = async () => {
             totalInEscrow,
             totalPending,
             totalSystemValue: totalAvailable + totalInEscrow + totalPending,
-            totalUsers
+            totalUsers,
+            dailySales,
+            newUsersToday
         };
     } catch (error) {
         console.error("Error fetching platform stats:", error);
@@ -502,7 +528,7 @@ export const generateAuditReport = async () => {
 
         const report = {
             generatedAt: new Date().toISOString(),
-            platform: 'De Oportunidades',
+            platform: 'Vendelo Ya!',
             summary: {
                 totalUsers: users.length,
                 activeUsers: users.filter((u: any) => !u.deleted).length,
@@ -646,5 +672,54 @@ export const runSecuritySync = async () => {
     } catch (error) {
         console.error("Error in security sync:", error);
         return { success: false, error };
+    }
+};
+
+/**
+ * Suspend or Unsuspend a user
+ */
+export const suspendUser = async (uid: string, suspend: boolean) => {
+    try {
+        const userRef = doc(db, "users", uid);
+        await updateDoc(userRef, {
+            isSuspended: suspend,
+            updatedAt: serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Error suspending user:", error);
+        return { success: false, error };
+    }
+};
+
+/**
+ * Fetch recent transactions for Operations Table
+ */
+export const getRecentTransactions = async () => {
+    try {
+        const { query, orderBy, limit, collection, getDocs } = await import("firebase/firestore");
+        const txRef = collection(db, "transactions");
+        const q = query(txRef, orderBy("createdAt", "desc"), limit(100)); // Last 100 transactions
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.error("Error fetching recent transactions:", error);
+        return [];
+    }
+};
+
+/**
+ * Fetch monthly sales for reporting (Export CSV)
+ */
+export const fetchMonthlySales = async (month: string) => {
+    try {
+        const { query, orderBy, where, collection, getDocs } = await import("firebase/firestore");
+        const txRef = collection(db, "transactions");
+        const q = query(txRef, where("status", "==", "COMPLETED"), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.error("Error fetching monthly sales:", error);
+        return [];
     }
 };

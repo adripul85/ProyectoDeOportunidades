@@ -404,7 +404,6 @@ export default function Settings() {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {[
                                             { id: 'pickup', label: 'Retiro en domicilio', icon: 'home' },
-                                            { id: 'shipping', label: 'Envío por correo', icon: 'local_shipping' },
                                             { id: 'meeting', label: 'Punto de encuentro', icon: 'handshake' },
                                             { id: 'agreement', label: 'Acordar con vendedor', icon: 'chat' },
                                         ].map(method => (
@@ -446,17 +445,6 @@ export default function Settings() {
                                 exit={{ opacity: 0, x: -20 }}
                                 className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-8"
                             >
-                                <div className="p-6 bg-slate-900 rounded-2xl flex gap-4 text-white">
-                                    <span className="material-symbols-outlined text-primary-vibrant">science</span>
-                                    <div>
-                                        <p className="text-sm font-bold">Simulación de Validación Coelsa</p>
-                                        <p className="text-xs font-medium text-slate-400 mt-1">
-                                            Para los objetivos de este demo, el sistema utiliza un algoritmo científico de validación de CBU (Checksum).
-                                            Puedes configurar datos de prueba específicos en el archivo de protocolos de la red.
-                                        </p>
-                                    </div>
-                                </div>
-
                                 <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
                                     <span className="material-symbols-outlined text-amber-600">info</span>
                                     <div>
@@ -470,12 +458,6 @@ export default function Settings() {
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center px-1">
                                                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">CBU / CVU o Alias</label>
-                                                {formData.bankDetails.bankName && (
-                                                    <span className="text-[9px] font-black text-emerald-500 uppercase flex items-center gap-1 animate-in fade-in slide-in-from-right-2">
-                                                        <span className="material-symbols-outlined text-xs">verified</span>
-                                                        Cuenta Validada
-                                                    </span>
-                                                )}
                                             </div>
                                             <div className="flex gap-2">
                                                 <input
@@ -492,66 +474,42 @@ export default function Settings() {
                                                     className="flex-1 bg-white border-2 border-slate-200 focus:border-slate-900 rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all font-mono text-sm"
                                                     placeholder="22 dígitos o alias.ejemplo"
                                                 />
-                                                <button
-                                                    type="button"
-                                                    onClick={async () => {
-                                                        if (!formData.bankDetails.cbu && !formData.bankDetails.alias) return;
-                                                        setIsSaving(true);
-                                                        notify({ type: 'info', title: 'Validando...', message: 'Consultando Coelsa / Red Link...', icon: 'account_balance' });
-
-                                                        // Simulate API delay
-                                                        await new Promise(r => setTimeout(r, 1500));
-
-                                                        const { identifyBank, identifyHolder } = await import('../lib/banking');
-                                                        const cleanInput = (formData.bankDetails.cbu || formData.bankDetails.alias).trim();
-                                                        const mockBank = identifyBank(cleanInput);
-                                                        const mockHolder = identifyHolder(cleanInput, userProfile.displayName || '');
-
-                                                        setFormData(prev => ({
-                                                            ...prev,
-                                                            bankDetails: {
-                                                                ...prev.bankDetails,
-                                                                bankName: mockBank,
-                                                                holderName: mockHolder
-                                                            }
-                                                        }));
-
-                                                        setIsSaving(false);
-                                                        notify({
-                                                            type: 'success',
-                                                            title: 'Cuenta Encontrada',
-                                                            message: `Vinculada a ${mockBank} - ${mockHolder}`,
-                                                            icon: 'check_circle'
-                                                        });
-                                                    }}
-                                                    disabled={isSaving || (!formData.bankDetails.cbu && !formData.bankDetails.alias)}
-                                                    className="px-6 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all disabled:opacity-30 disabled:grayscale shrink-0"
-                                                >
-                                                    Validar
-                                                </button>
                                             </div>
                                         </div>
 
-                                        {formData.bankDetails.bankName && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2"
-                                            >
-                                                <div className="space-y-1">
-                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Banco / Entidad</label>
-                                                    <div className="w-full bg-white/50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-500 text-xs">
-                                                        {formData.bankDetails.bankName}
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Titular Confirmado</label>
-                                                    <div className="w-full bg-white/50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-500 text-xs">
-                                                        {formData.bankDetails.holderName}
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        )}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Banco / Entidad</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.bankDetails.bankName || ''}
+                                                    onChange={(e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, bankName: e.target.value } })}
+                                                    className="w-full bg-white border-2 border-slate-200 focus:border-slate-900 rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all text-sm"
+                                                    placeholder="Ej: Banco Galicia, MercadoPago"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Titular de la Cuenta</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.bankDetails.holderName || ''}
+                                                    onChange={(e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, holderName: e.target.value } })}
+                                                    className="w-full bg-white border-2 border-slate-200 focus:border-slate-900 rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all text-sm uppercase"
+                                                    placeholder="NOMBRE COMPLETO"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">DNI del Titular (Para cotejar pagos)</label>
+                                            <input
+                                                type="text"
+                                                value={formData.bankDetails.dni || ''}
+                                                onChange={(e) => setFormData({ ...formData, bankDetails: { ...formData.bankDetails, dni: e.target.value } })}
+                                                className="w-full bg-white border-2 border-slate-200 focus:border-slate-900 rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all font-mono text-sm"
+                                                placeholder="Documento del titular de la cuenta"
+                                            />
+                                        </div>
                                     </div>
 
                                     <div className="space-y-2 px-1">

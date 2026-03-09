@@ -115,7 +115,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, location, isVerified
                         <div className="flex items-center gap-1">
                             <span className="material-symbols-outlined text-[10px] text-amber-400">star</span>
                             <span className="font-bold">
-                                {product.sellerRating || 'N/V'}
+                                {product.sellerRating || 'Nuevo'}
                             </span>
                         </div>
                     </div>

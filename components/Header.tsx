@@ -140,7 +140,7 @@ const Header = () => {
                         bolt
                     </span>
                     <span className="text-xl font-extrabold tracking-tight text-slate-900 font-display hidden sm:block">
-                        De<span className="text-primary-600">Oportunidades</span>
+                        Vendelo<span className="text-primary-600">Ya!</span>
                     </span>
                 </Link>
 

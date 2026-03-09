@@ -111,7 +111,7 @@ export default function PaymentSuccess() {
                     </button>
                 </div>
 
-                <p className="mt-12 text-[8px] font-black text-gray-300 uppercase tracking-[0.5em]">De Oportunidades 🎯 SecLayer V4.5</p>
+                <p className="mt-12 text-[8px] font-black text-gray-300 uppercase tracking-[0.5em]">Vendelo Ya! 🎯 SecLayer V4.5</p>
             </div>
         </div>
     );

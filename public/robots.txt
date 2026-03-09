@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /profile/
+Sitemap: https://vendelo-ya.vercel.app/sitemap.xml

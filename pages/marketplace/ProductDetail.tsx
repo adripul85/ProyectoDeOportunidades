@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../../lib/auth';
 import { startChat } from '../../lib/chat';
 
@@ -171,8 +172,47 @@ const ProductDetail = () => {
     });
   };
 
+  // JSON-LD schema for rich search results
+  const getJsonLd = () => {
+    return {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": product.title,
+      "image": product.images || [],
+      "description": product.description,
+      "brand": {
+        "@type": "Brand",
+        "name": product.brand || "Unspecified"
+      },
+      "offers": {
+        "@type": "Offer",
+        "url": window.location.href,
+        "priceCurrency": "ARS",
+        "price": product.price,
+        "itemCondition": product.condition === 'new' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition',
+        "availability": "https://schema.org/InStock",
+        "seller": {
+          "@type": "Organization",
+          "name": product.seller.displayName || product.seller.name || "Vendelo Ya User"
+        }
+      }
+    };
+  };
+
   return (
     <main className="max-w-[1280px] mx-auto px-3 py-3 lg:px-6 lg:py-6 bg-light-50 min-h-screen">
+      <Helmet>
+        <title>{`${product.title} | Vendelo Ya!`}</title>
+        <meta name="description" content={product.description.substring(0, 150) + '...'} />
+        <meta property="og:title" content={`${product.title} - $${product.price.toLocaleString()}`} />
+        <meta property="og:description" content={product.description.substring(0, 100) + '...'} />
+        {product.images?.[0] && <meta property="og:image" content={product.images[0]} />}
+        <meta name="twitter:card" content="summary_large_image" />
+        <script type="application/ld+json">
+          {JSON.stringify(getJsonLd())}
+        </script>
+      </Helmet>
+
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}

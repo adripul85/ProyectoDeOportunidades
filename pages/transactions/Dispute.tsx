@@ -33,7 +33,7 @@ const SupportChat = ({ transactionId }: { transactionId: string }) => {
 
   const downloadChatHistory = () => {
     // Generate text file (same as before)
-    const header = `--- REGISTRO DE MEDIACIÓN OFICIAL - DE OPORTUNIDADES 🎯 ---\n`;
+    const header = `--- REGISTRO DE MEDIACIÓN OFICIAL - VENDELO YA! 🎯 ---\n`;
     const dealInfo = `Transacción: #${transactionId}\nFecha: ${new Date().toLocaleString()}\n`;
     const separator = `--------------------------------------------------\n\n`;
     const chatContent = messages.map(m => `[${m.role === 'user' ? 'USUARIO' : 'MEDIADOR IA'}]: ${m.text}\n`).join('\n');
@@ -76,7 +76,7 @@ const SupportChat = ({ transactionId }: { transactionId: string }) => {
       const chat = ai.chats.create({
         model: 'gemini-2.0-flash-exp',
         config: {
-          systemInstruction: `Eres un Mediador Profesional para la plataforma "De Oportunidades 🎯".
+          systemInstruction: `Eres un Mediador Profesional para la plataforma "Vendelo Ya! 🎯".
           Tu objetivo es resolver disputas de manera imparcial, técnica y eficiente.
           Tono: Profesional, neutral y decisivo. Evita el uso excesivo de emojis.
           Contexto: Trato #${transactionId}.

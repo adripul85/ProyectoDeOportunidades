@@ -1,6 +1,6 @@
 
 import React, { useState, createContext, useContext, useCallback, useEffect, useRef } from 'react';
-import { HashRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import Home from './pages/marketplace/Home';
 import Dashboard from './pages/Dashboard';
 import Dispute from './pages/transactions/Dispute';
@@ -33,6 +33,11 @@ import ReportedItems from './pages/admin/ReportedItems';
 import { AuthProvider, useAuth } from './lib/auth';
 import { NotificationProvider } from './context/NotificationContext';
 import { CartProvider } from './context/CartContext';
+import TermsAndConditions from './pages/legal/TermsAndConditions';
+import LegalNotice from './pages/legal/LegalNotice';
+import PrivacyPolicy from './pages/legal/PrivacyPolicy';
+import CookiesPolicy from './pages/legal/CookiesPolicy';
+import ScamPrevention from './pages/legal/ScamPrevention';
 
 import Header from './components/Header';
 import Deals from './pages/Deals';
@@ -51,17 +56,19 @@ const Footer = () => (
     <div className="max-w-[1440px] mx-auto px-6 flex flex-col items-center">
       <div className="flex items-center gap-2 mb-10 opacity-40 grayscale group-hover:grayscale-0 transition-all">
         <span className="material-symbols-outlined text-3xl font-black text-red-600">target</span>
-        <h2 className="text-xl font-black tracking-tighter text-red-600">De Oportunidades 🎯</h2>
+        <h2 className="text-xl font-black tracking-tighter text-red-600">Vendelo Ya! 🎯</h2>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 text-[10px] font-black uppercase tracking-[0.3em] text-gray-300 mb-12">
-        <Link className="hover:text-dark-800 transition-colors" to="/escrow-info">Seguridad Escrow</Link>
-        <Link className="hover:text-dark-800 transition-colors" to="/legal/costs">Términos y Costos</Link>
-        <Link className="hover:text-dark-800 transition-colors" to="/legal/prohibited">Artículos Prohibidos</Link>
         <Link className="hover:text-dark-800 transition-colors" to="/escrow-info">Cómo Funciona</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/legal/terms">Términos y Condiciones</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/legal/notice">Aviso Legal</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/legal/privacy">Política de Privacidad</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/legal/cookies">Política de Cookies</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/legal/scam-prevention">Evitar Estafas</Link>
         <Link className="hover:text-dark-800 transition-colors" to="/resolution-center">Centro de Ayuda</Link>
       </div>
       <p className="text-[9px] font-bold text-gray-300 uppercase tracking-[0.4em] text-center">
-        © 2026 De Oportunidades Inc. Transacciones seguras mediante protocolos encriptados.
+        © 2026 Vendelo Ya! Inc. Transacciones seguras mediante protocolos encriptados.
       </p>
     </div>
   </footer>
@@ -81,7 +88,7 @@ function App() {
     <NotificationProvider>
       <AuthProvider>
         <CartProvider>
-          <HashRouter>
+          <BrowserRouter>
             <ScrollToTop />
             <div className="flex flex-col min-h-screen relative font-body text-dark-charcoal">
               <Header />
@@ -122,6 +129,11 @@ function App() {
                     <Route path="/escrow-info" element={<EscrowInfo />} />
                     <Route path="/legal/costs" element={<TermsAndCosts />} />
                     <Route path="/legal/prohibited" element={<ProhibitedItems />} />
+                    <Route path="/legal/terms" element={<TermsAndConditions />} />
+                    <Route path="/legal/notice" element={<LegalNotice />} />
+                    <Route path="/legal/privacy" element={<PrivacyPolicy />} />
+                    <Route path="/legal/cookies" element={<CookiesPolicy />} />
+                    <Route path="/legal/scam-prevention" element={<ScamPrevention />} />
                     <Route path="/verify-delivery" element={<VerifyDelivery />} />
                     <Route path="/resolution-center" element={<RequireProfile><ResolutionCenter /></RequireProfile>} />
                   </Routes>
@@ -129,7 +141,7 @@ function App() {
               </main>
               <Footer />
             </div>
-          </HashRouter>
+          </BrowserRouter>
         </CartProvider>
       </AuthProvider>
     </NotificationProvider>

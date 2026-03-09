@@ -47,7 +47,7 @@ export default function HomeHero() {
                             {/* Aquí iría la imagen o ilustración principal del banner */}
                             <img
                                 src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop"
-                                alt="Ilustración DeOportunidades"
+                                alt="Ilustración Vendelo Ya!"
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                             />
 

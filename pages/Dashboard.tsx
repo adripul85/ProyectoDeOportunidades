@@ -747,7 +747,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">© 2026 De Oportunidades Inc. Todos los derechos reservados.</p>
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">© 2026 Vendelo Ya! Inc. Todos los derechos reservados.</p>
         </div>
       </footer>
 

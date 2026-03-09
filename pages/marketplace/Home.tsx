@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import { getItems, ItemData, ItemCondition, getFeaturedItems, getSmartSuggestions } from '../../lib/items';
 import { CATEGORIES } from '../../lib/constants';
 import { LOCATION_DATA } from '../../lib/locations';
 import HomeHero from '../../components/HomeHero';
+import Landing from '../Landing';
 
 const SmartSuggestionsSection = () => {
   const [suggested, setSuggested] = useState<(ItemData & { id: string })[]>([]);
@@ -159,40 +161,42 @@ const MobileFilterDrawer = ({
               <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2">
                   <span className="material-symbols-outlined text-sm">category</span>
-                  Categoría
+                  Categorías
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {CATEGORIES.map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={() => {
-                        setActiveCategory(cat.name === activeCategory ? null : cat.name);
+                <div className="space-y-3">
+                  <div className="relative">
+                    <select
+                      value={activeCategory || ''}
+                      onChange={(e) => {
+                        setActiveCategory(e.target.value || null);
                         setActiveSubcategory('');
                       }}
-                      className={`flex flex-col items-center justify-center gap-2 p-4 rounded-3xl border-2 transition-all ${activeCategory === cat.name ? 'border-primary-vibrant bg-primary-50/30 ring-4 ring-primary-50/50' : 'border-light-100 bg-white hover:border-gray-200'}`}
+                      className="w-full bg-light-50 border border-light-100 rounded-2xl py-4 px-5 text-xs font-black appearance-none outline-none focus:ring-4 focus:ring-primary-50/50 focus:border-primary-400"
                     >
-                      <span className={`material-symbols-outlined text-2xl ${activeCategory === cat.name ? 'text-primary-vibrant' : 'text-gray-300'}`}>{cat.icon}</span>
-                      <span className={`text-[9px] font-black uppercase tracking-tight text-center ${activeCategory === cat.name ? 'text-dark-800' : 'text-gray-400'}`}>{cat.name}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {activeCategory && CATEGORIES.find(c => c.name === activeCategory)?.sub && (
-                  <div className="space-y-3 pt-4 border-t border-light-100 animate-in slide-in-from-top-2">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-primary-vibrant/60">Subcategoría Específica</label>
-                    <div className="flex flex-wrap gap-2">
-                      {CATEGORIES.find(c => c.name === activeCategory)?.sub.map(sub => (
-                        <button
-                          key={sub}
-                          onClick={() => setActiveSubcategory(sub === activeSubcategory ? '' : sub)}
-                          className={`px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${activeSubcategory === sub ? 'bg-primary-vibrant text-white border-primary-vibrant shadow-md' : 'bg-white text-gray-400 border-light-100'}`}
-                        >
-                          {sub}
-                        </button>
+                      <option value="">Todas las categorías</option>
+                      {CATEGORIES.map(cat => (
+                        <option key={cat.id} value={cat.name}>{cat.name}</option>
                       ))}
-                    </div>
+                    </select>
+                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
                   </div>
-                )}
+
+                  {activeCategory && CATEGORIES.find(c => c.name === activeCategory)?.sub && (
+                    <div className="relative animate-in slide-in-from-top-2 duration-300">
+                      <select
+                        value={activeSubcategory}
+                        onChange={(e) => setActiveSubcategory(e.target.value)}
+                        className="w-full bg-light-50/50 border border-light-100 rounded-2xl py-4 px-5 text-xs font-black appearance-none outline-none focus:ring-4 focus:ring-primary-50/50 focus:border-primary-400"
+                      >
+                        <option value="">Todas las subcategorías</option>
+                        {CATEGORIES.find(c => c.name === activeCategory)?.sub.map(sub => (
+                          <option key={sub} value={sub}>{sub}</option>
+                        ))}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Precio */}
@@ -382,6 +386,7 @@ const FlashDealsSection = () => {
 };
 
 const Home = () => {
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [recentProducts, setRecentProducts] = useState<(ItemData & { id: string })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -396,7 +401,7 @@ const Home = () => {
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'De Oportunidades | El Mercado de Confianza';
+    document.title = 'Vendelo Ya! | El Mercado de Confianza';
     return () => { document.title = prevTitle; };
   }, []);
 
@@ -437,8 +442,24 @@ const Home = () => {
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 200, damping: 20 } }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <LoadingSpinner size="lg" message="Cargando Mercado..." />
+      </div>
+    );
+  }
+
+  if (!user && !authLoading) {
+    return <Landing />;
+  }
+
   return (
-    <div className="flex bg-light-50 min-h-screen relative selection:bg-primary-100 selection:text-primary-900">
+    <div className="bg-white font-sans text-dark-charcoal max-w-[1440px] mx-auto min-h-screen relative selection:bg-primary-100 selection:text-primary-900 flex">
+      <Helmet>
+        <title>Vendelo Ya! | Tratos Directos y Seguros</title>
+        <meta name="description" content="La plataforma más rápida para vender y comprar artículos usados con pagos protegidos." />
+      </Helmet>
 
       {/* --- PREMIUM MESH BACKGROUND (CSS puro, sin JS) --- */}
       <div className="fixed inset-0 pointer-events-none z-0 opacity-30">
@@ -448,45 +469,48 @@ const Home = () => {
       </div>
 
       {/* --- SIDEBAR --- */}
-      <aside className="hidden lg:block w-64 bg-white sticky top-20 h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar z-20 shadow-sm border-r border-light-200">
+      <aside className="hidden lg:block w-64 shrink-0 bg-white sticky top-20 h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar z-20 shadow-sm border-r border-light-200">
         <div className="p-6">
           <h2 className="text-xl font-bold text-dark-800 mb-6 font-primary">Filtros</h2>
 
           <div className="space-y-8">
-            {/* Categoría & Subcategoría (Accordion Desktop) */}
+            {/* Categoría & Subcategoría (Select Dropdown) */}
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 ml-1">Estructura</label>
-              <div className="space-y-0.5">
-                {CATEGORIES.map(cat => (
-                  <div key={cat.id}>
-                    <button
-                      onClick={() => {
-                        setActiveCategory(cat.name === activeCategory ? null : cat.name);
-                        setActiveSubcategory('');
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-xs transition-all group ${activeCategory === cat.name ? 'bg-primary-50 text-primary-vibrant' : 'text-gray-500 hover:bg-light-50 hover:text-dark-800'}`}
-                    >
-                      <span className={`material-symbols-outlined text-lg ${activeCategory === cat.name ? 'text-primary-vibrant' : 'text-gray-300 group-hover:text-primary-vibrant/60'}`}>{cat.icon}</span>
-                      <span className="flex-1 text-left line-clamp-1">{cat.name}</span>
-                      <span className={`material-symbols-outlined text-sm transition-transform duration-300 ${activeCategory === cat.name ? 'rotate-180 text-primary-vibrant' : 'text-gray-300'}`}>expand_more</span>
-                    </button>
+              <label className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 ml-1">Categorías</label>
+              <div className="space-y-3">
+                <div className="relative">
+                  <select
+                    value={activeCategory || ''}
+                    onChange={(e) => {
+                      setActiveCategory(e.target.value || null);
+                      setActiveSubcategory('');
+                    }}
+                    className="w-full bg-white border border-light-200 rounded-xl py-3 px-4 text-sm font-medium focus:ring-4 focus:ring-primary-50 focus:border-primary-400 outline-none transition-all appearance-none pr-10 text-dark-700"
+                  >
+                    <option value="">Todas las categorías</option>
+                    {CATEGORIES.map(cat => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
+                  <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+                </div>
 
-                    {/* Subcategories Dropdown */}
-                    {activeCategory === cat.name && cat.sub && (
-                      <div className="ml-6 pl-4 border-l-2 border-primary-100 space-y-0.5 py-1 animate-in slide-in-from-top-1 duration-200">
-                        {cat.sub.map(sub => (
-                          <button
-                            key={sub}
-                            onClick={() => setActiveSubcategory(sub === activeSubcategory ? '' : sub)}
-                            className={`w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold transition-all ${activeSubcategory === sub ? 'text-primary-vibrant bg-primary-50/50' : 'text-gray-400 hover:text-dark-800 hover:bg-light-50'}`}
-                          >
-                            {sub}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                {/* Subcategories Dropdown */}
+                {activeCategory && CATEGORIES.find(c => c.name === activeCategory)?.sub && (
+                  <div className="relative animate-in slide-in-from-top-2 duration-300">
+                    <select
+                      value={activeSubcategory}
+                      onChange={(e) => setActiveSubcategory(e.target.value)}
+                      className="w-full bg-light-50/50 border border-light-200 rounded-xl py-3 px-4 text-sm font-medium focus:ring-4 focus:ring-primary-50 focus:border-primary-400 outline-none transition-all appearance-none pr-10 text-dark-700"
+                    >
+                      <option value="">Todas las subcategorías</option>
+                      {CATEGORIES.find(c => c.name === activeCategory)?.sub.map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))}
+                    </select>
+                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
@@ -587,7 +611,7 @@ const Home = () => {
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 p-6 sm:p-12 relative z-10 pt-28 sm:pt-12">
+      <main className="flex-1 p-6 sm:p-12 relative z-10 pt-28 sm:pt-12 w-full ml-auto lg:w-[calc(100%-256px)]">
         <div className="max-w-7xl mx-auto">
 
           {!activeCategory && <HomeHero />}

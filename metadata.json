@@ -1,6 +1,5 @@
-
 {
-  "name": "De Oportunidades",
+  "name": "Vendelo Ya!",
   "description": "Una plataforma de escrow amigable y segura donde la confianza es el motor de cada trato. Compra y vende sin miedo con protección total.",
   "requestFramePermissions": [
     "camera",

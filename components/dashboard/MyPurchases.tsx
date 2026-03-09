@@ -89,7 +89,7 @@ export default function MyPurchases({ purchases, formatDate, onConfirmReceipt }:
                         <div className="bg-light-50/50 px-8 py-4 flex items-center justify-between border-t border-light-100">
                             <div className="flex items-center gap-3 text-gray-400">
                                 <span className="material-symbols-outlined text-base">shield_with_heart</span>
-                                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Tu dinero está protegido por protocolos DeOportunidades</span>
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Tu dinero está protegido por protocolos Vendelo Ya!</span>
                             </div>
                             <Link to={`/messages`} className="text-[9px] font-black text-dark-800 uppercase flex items-center gap-2 hover:text-primary-vibrant transition-colors">
                                 <span className="material-symbols-outlined text-base">chat_bubble</span>

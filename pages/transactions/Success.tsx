@@ -124,12 +124,12 @@ const Success = () => {
                 </div>
                 <div className="flex justify-between items-center px-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-300">Nombre de la Entidad</span>
-                  <span className="text-sm font-black text-dark-800">De Oportunidades 🎯 S.A.</span>
+                  <span className="text-sm font-black text-dark-800">Vendelo Ya! 🎯 S.A.</span>
                 </div>
               </div>
               <div className="mt-8 p-6 bg-red-50 rounded-2xl flex gap-4 text-red-950 text-[10px] font-bold border border-red-100/50 uppercase tracking-widest">
                 <span className="material-symbols-outlined text-lg">info</span>
-                <p>Envía el comprobante a <strong className="text-red-600">pagos@deoportunidades.com</strong> con tu ID de Transacción.</p>
+                <p>Envía el comprobante a <strong className="text-red-600">pagos@vendeloya.com</strong> con tu ID de Transacción.</p>
               </div>
             </div>
           )}

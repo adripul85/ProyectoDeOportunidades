@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getFeaturedItems } from '../lib/items';
+import { getPlatformSettings } from '../lib/settings';
 import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CountdownTimer from '../components/product/CountdownTimer';
@@ -7,20 +8,28 @@ import CountdownTimer from '../components/product/CountdownTimer';
 const Deals = () => {
     const [deals, setDeals] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [globalTimer, setGlobalTimer] = useState<Date>(() => {
-        // Default: Offer ends at the end of next 48hs
-        const date = new Date();
-        date.setHours(date.getHours() + 48);
-        return date;
-    });
+    const [globalTimer, setGlobalTimer] = useState<Date | null>(null);
 
     useEffect(() => {
-        const fetchDeals = async () => {
-            const featuredItems = await getFeaturedItems();
+        const fetchData = async () => {
+            const [featuredItems, settings] = await Promise.all([
+                getFeaturedItems(),
+                getPlatformSettings()
+            ]);
+
             setDeals(featuredItems);
+
+            // Calculamos la próxima rotación de manera global y determinística usando el Unix Epoch
+            const hours = settings?.featuredDurationHours || 48;
+            const currentMs = Date.now();
+            const rotationMs = hours * 60 * 60 * 1000;
+            const nextRotationMs = Math.ceil(currentMs / rotationMs) * rotationMs;
+
+            setGlobalTimer(new Date(nextRotationMs));
+
             setLoading(false);
         };
-        fetchDeals();
+        fetchData();
     }, []);
 
     if (loading) return <LoadingSpinner />;
@@ -47,7 +56,7 @@ const Deals = () => {
 
                     <div className="bg-light-50 p-8 rounded-[40px] border border-light-200 flex flex-col md:flex-row items-center gap-8 shadow-premium animate-in zoom-in-95 duration-1000">
                         <p className="text-[10px] font-black text-dark-800 uppercase tracking-[0.3em]">PRÓXIMA ROTACIÓN EN:</p>
-                        <CountdownTimer targetDate={globalTimer} className="scale-150" />
+                        {globalTimer && <CountdownTimer targetDate={globalTimer} className="scale-150" />}
                     </div>
                 </div>
             </div>

@@ -46,6 +46,7 @@ export interface UserProfile {
         bankName: string;
         holderName: string;
         accountType: string;
+        dni?: string;
     };
     reputation?: {
         averageRating: number;

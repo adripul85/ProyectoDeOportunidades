@@ -1,0 +1,68 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isLessThan5MB() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // --- Avatares ---
+    // Cualquier usuario logueado o visitante puede ver el avatar
+    // Solo el dueño puede crear/editar/eliminar su propio avatar (y debe ser una imagen menor a 5MB)
+    match /avatars/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isOwner(userId) && isImage() && isLessThan5MB();
+    }
+    
+    match /avatars/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isOwner(userId) && isImage() && isLessThan5MB();
+    }
+
+    // --- Artículos (Items) ---
+    // Cualquier usuario puede ver las imágenes de los artículos.
+    // Solo el dueño puede escribir en su carpeta.
+    // La app sube así: `items/${user.uid}/${Date.now()}_${file.name}`
+    match /items/{userId}/{imageId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isOwner(userId) && isImage() && isLessThan5MB();
+    }
+    
+    // --- Chats ---
+    // Las imágenes se suben a `chats/${selectedChat.id}`
+    match /chats/{chatId}/{imageId=**} {
+      allow read, write: if isAuthenticated() && isImage() && isLessThan5MB();
+    }
+
+    // --- Escrow / Disputas ---
+    // Las imágenes se suben a `escrow/${id}`
+    match /escrow/{transactionId}/{imageId=**} {
+      allow read, write: if isAuthenticated() && isImage() && isLessThan5MB();
+    }
+
+    // --- Verificación (DNI, transferencias manuales) ---
+    // Las resoluciones piden verificación, a veces se suben en root a la ID nomás, pero si tuvieramos "verification/"
+    match /verification/{imageId=**} {
+      allow read, write: if isAuthenticated() && isImage() && isLessThan5MB();
+    }
+
+    // Default: denegar todo acceso a cualquier otra cosa no especificada arriba.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
