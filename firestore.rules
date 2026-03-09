@@ -2,9 +2,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Función auxiliar para verificar si el usuario es Admin (usando campo en el documento)
+    // Función auxiliar para verificar si el usuario es Admin (usando campo en el documento o custom claim)
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return (request.auth.token.keys().hasAll(['admin']) && request.auth.token.admin == true) || (userDoc != null && userDoc.data.keys().hasAll(['role']) && userDoc.data.role == 'admin');
     }
 
     // REGLAS PARA TRANSACCIONES
@@ -44,10 +45,10 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null && request.auth.uid == userId;
       
-      // Bloquear edición manual de balance y reputación
+      // Bloquear edición manual de balance, wallet y reputación
       allow update: if request.auth != null && request.auth.uid == userId && (
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['balance', 'reputation', 'isAdmin', 'points'])
+          .hasAny(['balance', 'wallet', 'reputation', 'isAdmin', 'role', 'points'])
       ) || isAdmin();
     }
 
