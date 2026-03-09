@@ -14,15 +14,18 @@ export interface ItemData {
     deliveryMethods?: string[]; // ['correo_argentino', 'en_mano', 'acordar', 'domicilio']
     views?: number;
     sellerId: string; // ID del usuario que vende
+    sellerName?: string; // Nombre para mostrar del vendedor
     brand?: string;
     color?: string;
+    status?: 'AVAILABLE' | 'PENDING_PAYMENT' | 'PAID_IN_CUSTODY' | 'SHIPPED' | 'DELIVERED' | 'SOLD' | 'CANCELLED';
     location?: string; // Ubicación del vendedor (ej: "Mendoza, AR")
-    status?: 'AVAILABLE' | 'SOLD';
     isFeatured?: boolean;
+    quantity?: number; // 1 for unique, >1 for stock
     oldPrice?: number;
     featuredUntil?: any;
     featuredFeeApplied?: number;
     createdAt?: any;
+    updatedAt?: any;
 }
 
 export type ItemCondition = 'new' | 'like_new' | 'good' | 'used' | 'repair' | 'digital' | 'service';
@@ -37,9 +40,11 @@ export const publishItem = async (data: ItemData) => {
         // Referencia a la colección "items" en la base de datos
         const docRef = await addDoc(collection(db, "items"), {
             ...data,
-            status: 'AVAILABLE', // Por defecto está disponible
-            createdAt: serverTimestamp(), // Guardamos la hora exacta del servidor
-            searchKeywords: generateKeywords(data.title) // Truco para búsquedas simples
+            status: data.status || 'AVAILABLE',
+            quantity: data.quantity ?? 1,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            searchKeywords: generateKeywords(data.title)
         });
 
         return { success: true, id: docRef.id };

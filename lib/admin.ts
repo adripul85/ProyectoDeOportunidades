@@ -47,6 +47,38 @@ export const updateUserVerification = async (
 };
 
 /**
+ * Review user KYC evidence (Approve or Reject)
+ */
+export const reviewUserEvidence = async (
+    uid: string,
+    status: 'approved' | 'rejected',
+    rejectionReason: string = ''
+) => {
+    try {
+        const userRef = doc(db, "users", uid);
+        const updateData: any = {
+            "verificationEvidence.status": status,
+            "verificationEvidence.rejectionReason": rejectionReason,
+            "updatedAt": serverTimestamp()
+        };
+
+        // If approved, automatically grant the identity badge
+        if (status === 'approved') {
+            updateData["verificationBadges.identityVerified"] = true;
+        } else {
+            // If rejected, optionally remove the badge if it was there
+            updateData["verificationBadges.identityVerified"] = false;
+        }
+
+        await updateDoc(userRef, updateData);
+        return { success: true };
+    } catch (error) {
+        console.error("Error reviewing user evidence:", error);
+        return { success: false, error };
+    }
+};
+
+/**
  * Update a user's role
  */
 export const updateUserRole = async (uid: string, role: 'admin' | 'moderator' | 'user') => {

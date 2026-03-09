@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { TransactionStatus as EscrowStatus } from '../../lib/transactions';
+import { TransactionStatus as PagoProtegidoStatus } from '../../lib/transactions';
 
 interface Props {
-    status: EscrowStatus;
+    status: PagoProtegidoStatus;
     deadline: Date | null;
 }
 
@@ -11,7 +11,7 @@ interface Props {
 const EscrowStatusDisplay: React.FC<Props> = ({ status, deadline }) => {
     const [timeLeft, setTimeLeft] = useState('');
 
-    const steps: { status: EscrowStatus; label: string; icon: string; desc: string }[] = [
+    const steps: { status: PagoProtegidoStatus; label: string; icon: string; desc: string }[] = [
         { status: 'PENDING_PAYMENT', label: 'Trato Acordado', icon: 'handshake', desc: 'Esperando el pago' },
         { status: 'PAID_HELD', label: 'Fondos Asegurados', icon: 'shield_lock', desc: 'Dinero en garantía' },
         { status: 'SHIPPED', label: 'En Camino', icon: 'local_shipping', desc: 'Producto despachado' },

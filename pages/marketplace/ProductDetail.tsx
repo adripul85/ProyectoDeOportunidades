@@ -4,6 +4,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../../lib/auth';
 import { startChat } from '../../lib/chat';
+import { Wallet, initMercadoPago } from '@mercadopago/sdk-react';
+
+// Inicializar MP (Usar clave pública desde .env)
+initMercadoPago(import.meta.env.VITE_MP_PUBLIC_KEY || 'TEST-c13f9948-4cb2-4753-9993-4fc3c0352778');
 
 // Hooks
 import { useProduct } from '../../hooks/useProduct';
@@ -49,6 +53,8 @@ const ProductDetail = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [hasAlert, setHasAlert] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [preferenceId, setPreferenceId] = useState<string | null>(null);
+  const [isMatingPayment, setIsMatingPayment] = useState(false);
 
   // Check initial state & Track View
   useEffect(() => {
@@ -139,26 +145,42 @@ const ProductDetail = () => {
     }
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!user) {
       notify({ type: 'error', title: 'Acceso Denegado', message: 'Inicia sesión para comprar.', icon: 'lock' });
       return;
     }
-    navigate(`/checkout`, {
-      state: {
-        productId: product.id,
-        productTitle: product.title,
-        productPrice: product.price,
-        sellerName: product.seller.displayName || product.seller.name,
-        sellerAvatar: product.seller.avatar,
-        sellerId: product.seller.id,
-        deliveryMethods: product.deliveryMethods || ['en_mano'],
-        productImage: product.images[0],
-        isFeatured: product.isFeatured,
-        featuredUntil: product.featuredUntil,
-        featuredFeeApplied: product.featuredFeeApplied
+
+    if (preferenceId) return; // Ya generado
+
+    setIsMatingPayment(true);
+    try {
+      const response = await fetch('/api/mp-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: product.title,
+          price: product.price,
+          quantity: 1,
+          productId: product.id,
+          sellerId: product.seller.id,
+          buyerId: user.uid
+        })
+      });
+
+      const data = await response.json();
+      if (data.id) {
+        setPreferenceId(data.id);
+        notify({ type: 'success', title: 'Pago Protegido', message: 'Iniciando conexión segura con Mercado Pago...', icon: 'security' });
+      } else {
+        throw new Error(data.error || 'Error al generar preferencia');
       }
-    });
+    } catch (err) {
+      console.error("MP Error:", err);
+      notify({ type: 'error', title: 'Error de Conexión', message: 'No se pudo conectar con Mercado Pago. Reintenta.', icon: 'cloud_off' });
+    } finally {
+      setIsMatingPayment(false);
+    }
   };
 
   const handleAddToCart = () => {
@@ -292,14 +314,25 @@ const ProductDetail = () => {
               </div>
 
               <div className="flex flex-col gap-2 lg:gap-3 mb-3 lg:mb-6">
-                <div className="grid grid-cols-2 gap-2 lg:gap-3">
+                {preferenceId ? (
+                  <div className="animate-in zoom-in-95 duration-300">
+                    <Wallet
+                      initialization={{ preferenceId }}
+                    />
+                  </div>
+                ) : (
                   <button
                     onClick={handleBuyNow}
-                    className="bg-primary-vibrant text-white py-3 lg:py-5 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-[10px] uppercase tracking-[0.15em] lg:tracking-[0.2em] hover:bg-primary-600 transition-all flex items-center justify-center gap-1.5 lg:gap-2 shadow-lg shadow-primary-500/30 active:scale-95 group"
+                    disabled={isMatingPayment || product.status !== 'AVAILABLE'}
+                    className="bg-primary-vibrant text-white py-3 lg:py-5 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-[10px] uppercase tracking-[0.15em] lg:tracking-[0.2em] hover:bg-primary-600 transition-all flex items-center justify-center gap-1.5 lg:gap-2 shadow-lg shadow-primary-500/30 active:scale-95 group disabled:opacity-50"
                   >
-                    <span className="material-symbols-outlined text-base lg:text-lg group-hover:scale-110 transition-transform">bolt</span>
-                    Comprar Ya
+                    <span className="material-symbols-outlined text-base lg:text-lg group-hover:scale-110 transition-transform">
+                      {isMatingPayment ? 'sync' : 'bolt'}
+                    </span>
+                    {isMatingPayment ? 'Procesando...' : product.status !== 'AVAILABLE' ? 'No disponible' : 'Comprar Ya'}
                   </button>
+                )}
+                <div className="grid grid-cols-2 gap-2 lg:gap-3">
                   <button
                     onClick={handleContactSeller}
                     className="bg-white text-dark-800 border-2 border-light-200 py-3 lg:py-5 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-[10px] uppercase tracking-[0.15em] lg:tracking-[0.2em] hover:bg-light-50 transition-all flex items-center justify-center gap-1.5 lg:gap-2 active:scale-95 group"

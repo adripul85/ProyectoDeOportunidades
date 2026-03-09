@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useNotification } from '../context/NotificationContext';
-import { getAllUsers, updateUserVerification, updateUserRole, updateUserWallet, deleteUserByAdmin, getPlatformStats, suspendUser, getRecentTransactions } from '../lib/admin';
+import { getAllUsers, updateUserVerification, updateUserRole, updateUserWallet, deleteUserByAdmin, getPlatformStats, suspendUser, getRecentTransactions, reviewUserEvidence } from '../lib/admin';
 import { getReports, resolveReport, ReportData } from '../lib/interactions';
 import { getPlatformSettings, updatePlatformSettings, PlatformSettings } from '../lib/settings';
 import { UserProfile } from '../lib/users';
@@ -31,6 +31,8 @@ export default function AdminDashboard() {
     const [withdrawals, setWithdrawals] = useState<any[]>([]);
     const [recentSales, setRecentSales] = useState<any[]>([]);
     const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [showRejectionInput, setShowRejectionInput] = useState(false);
 
     useEffect(() => {
         if (!user || (userProfile?.role !== 'admin' && userProfile?.role !== 'moderator')) {
@@ -1259,19 +1261,111 @@ export default function AdminDashboard() {
                                     ))}
                                 </div>
 
-                                <div className="flex flex-col sm:flex-row gap-4 pt-10 border-t border-light-100">
+                                {selectedUser.verificationEvidence?.submittedAt && (
+                                    <div className="mt-8 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado de Verificación</p>
+                                                <p className={`text-sm font-black mt-1 ${selectedUser.verificationEvidence.status === 'approved' ? 'text-emerald-600' :
+                                                    selectedUser.verificationEvidence.status === 'rejected' ? 'text-rose-600' :
+                                                        selectedUser.verificationEvidence.status === 'pending' ? 'text-amber-600' : 'text-slate-400'
+                                                    }`}>
+                                                    {selectedUser.verificationEvidence.status === 'approved' ? 'DOCUMENTACIÓN APROBADA' :
+                                                        selectedUser.verificationEvidence.status === 'rejected' ? 'DOCUMENTACIÓN RECHAZADA' :
+                                                            selectedUser.verificationEvidence.status === 'pending' ? 'PENDIENTE DE REVISIÓN' : 'SIN ENVÍOS'
+                                                    }
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Enviado el</p>
+                                                <p className="text-[10px] font-bold text-slate-600 mt-1">
+                                                    {selectedUser.verificationEvidence.submittedAt?.toDate ? selectedUser.verificationEvidence.submittedAt.toDate().toLocaleString() : 'N/A'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {showRejectionInput ? (
+                                            <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                                <textarea
+                                                    value={rejectionReason}
+                                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                                    placeholder="Motivo del rechazo (ej: Foto borrosa, DNI vencido...)"
+                                                    className="w-full bg-white border border-rose-100 rounded-2xl p-4 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-rose-500/20"
+                                                    rows={3}
+                                                />
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => setShowRejectionInput(false)}
+                                                        className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                                                    >
+                                                        Cancelar
+                                                    </button>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (!rejectionReason) return notify({ type: 'warning', title: 'Atención', message: 'Debes ingresar un motivo.', icon: 'warning' });
+                                                            setIsUpdating('kyc');
+                                                            const res = await reviewUserEvidence(selectedUser.uid, 'rejected', rejectionReason);
+                                                            if (res.success) {
+                                                                notify({ type: 'success', title: 'Actualizado', message: 'Documentación rechazada.', icon: 'close' });
+                                                                setSelectedUser({ ...selectedUser, verificationEvidence: { ...selectedUser.verificationEvidence!, status: 'rejected', rejectionReason } });
+                                                                setShowRejectionInput(false);
+                                                                setRejectionReason('');
+                                                                loadData();
+                                                            }
+                                                            setIsUpdating(null);
+                                                        }}
+                                                        className="flex-1 py-3 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20"
+                                                    >
+                                                        Confirmar Rechazo
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex gap-4">
+                                                <button
+                                                    onClick={() => setShowRejectionInput(true)}
+                                                    className="flex-1 py-4 bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-sm"
+                                                >
+                                                    Rechazar Evidencia
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        setIsUpdating('kyc');
+                                                        const res = await reviewUserEvidence(selectedUser.uid, 'approved');
+                                                        if (res.success) {
+                                                            notify({ type: 'success', title: 'Éxito', message: 'Usuario verificado correctamente.', icon: 'verified' });
+                                                            setSelectedUser({
+                                                                ...selectedUser,
+                                                                verificationEvidence: { ...selectedUser.verificationEvidence!, status: 'approved' },
+                                                                verificationBadges: { ...selectedUser.verificationBadges, identityVerified: true }
+                                                            });
+                                                            loadData();
+                                                        }
+                                                        setIsUpdating(null);
+                                                    }}
+                                                    className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:scale-[1.02] transition-all"
+                                                >
+                                                    Aprobar Identidad
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="flex flex-col sm:flex-row gap-4 pt-10 border-t border-light-100 mt-8">
                                     {[
-                                        { key: 'identityVerified' as const, label: 'Autenticación de ID Estándar' },
-                                        { key: 'addressVerified' as const, label: 'Dirección Postal Autorizada' }
+                                        { key: 'identityVerified' as const, label: 'Badge Identidad' },
+                                        { key: 'addressVerified' as const, label: 'Badge Dirección' },
+                                        { key: 'phoneVerified' as const, label: 'Badge Teléfono' }
                                     ].map(badge => (
                                         <button
                                             key={badge.key}
                                             onClick={() => handleToggleBadge(selectedUser.uid, badge.key, selectedUser.verificationBadges?.[badge.key] || false)}
-                                            className={`flex-1 px-8 py-5 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 ${selectedUser.verificationBadges?.[badge.key]
+                                            className={`flex-1 px-8 py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2 ${selectedUser.verificationBadges?.[badge.key]
                                                 ? 'bg-primary-vibrant text-white shadow-primary-500/20 hover:opacity-90'
                                                 : 'bg-light-50 text-gray-400 border border-light-200 hover:border-gray-300'}`}
                                         >
-                                            <span className="material-symbols-outlined text-lg">
+                                            <span className="material-symbols-outlined text-base">
                                                 {selectedUser.verificationBadges?.[badge.key] ? 'check_circle' : 'pending_actions'}
                                             </span>
                                             {badge.label}

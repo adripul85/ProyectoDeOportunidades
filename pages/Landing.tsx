@@ -33,7 +33,7 @@ const Landing = () => {
                     </motion.h1>
 
                     <motion.p initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4, duration: 0.8 }} className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-12 font-medium">
-                        Comprá y vendé sin vueltas. Nuestro sistema de Escrow protege tu dinero hasta que tengas el producto en tus manos. Así de simple.
+                        Comprá y vendé sin vueltas. Nuestro sistema de Pago Protegido protege tu dinero hasta que tengas el producto en tus manos. Así de simple.
                     </motion.p>
 
                     <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.6, duration: 0.8 }} className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -113,7 +113,7 @@ const Landing = () => {
                         </h2>
                         <ul className="space-y-6">
                             {[
-                                { text: "Fondos en garantía (Escrow)", icon: "lock" },
+                                { text: "Fondos en garantía (Pago Protegido)", icon: "lock" },
                                 { text: "Sistema de reputación de 5 estrellas", icon: "star" },
                                 { text: "Centro de resolución de disputas", icon: "gavel" },
                                 { text: "Soporte de moderadores 24/7", icon: "support_agent" }

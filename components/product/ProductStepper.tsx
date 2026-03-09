@@ -8,7 +8,7 @@ interface Props {
 const ProductStepper: React.FC<Props> = ({ currentStepIdx = 0 }) => {
     const steps = [
         { label: 'Acordado', icon: 'handshake', desc: 'Protocolo mutuo aceptado' },
-        { label: 'Fondeado', icon: 'account_balance_wallet', desc: 'Capital asegurado en Escrow' },
+        { label: 'Fondeado', icon: 'account_balance_wallet', desc: 'Capital asegurado en Pago Protegido' },
         { label: 'Enviado', icon: 'local_shipping', desc: 'Activo en tránsito' },
         { label: 'Entregado', icon: 'package_2', desc: 'Auditoría de calidad final' },
         { label: 'Completado', icon: 'task_alt', desc: 'Protocolo finalizado' },

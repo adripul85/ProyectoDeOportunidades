@@ -1,14 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const EscrowInfo = () => {
+const PagoProtegidoInfo = () => {
     return (
         <div className="max-w-4xl mx-auto px-6 py-16">
             <div className="text-center mb-16">
                 <div className="inline-flex items-center justify-center size-20 bg-primary-50 rounded-[32px] mb-8 shadow-sm">
                     <span className="material-symbols-outlined text-4xl text-primary-vibrant font-black">shield_lock</span>
                 </div>
-                <h1 className="text-4xl lg:text-5xl font-black text-dark-800 mb-6 uppercase tracking-tighter">Sistema de Garantía Escrow</h1>
+                <h1 className="text-4xl lg:text-5xl font-black text-dark-800 mb-6 uppercase tracking-tighter">Sistema de Garantía Pago Protegido</h1>
                 <p className="text-lg font-bold text-gray-400 max-w-2xl mx-auto">Tu dinero nunca va directamente al vendedor. Descubre cómo protegemos cada transacción hasta que tengas el producto en tus manos.</p>
             </div>
 
@@ -69,4 +69,4 @@ const EscrowInfo = () => {
     );
 };
 
-export default EscrowInfo;
+export default PagoProtegidoInfo;

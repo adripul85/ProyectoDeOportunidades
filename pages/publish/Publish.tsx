@@ -33,7 +33,8 @@ export default function Publish() {
         color: '',
         shippingAvailable: true,
         deliveryMethods: ['en_mano'] as string[],
-        isFeatured: false
+        isFeatured: false,
+        quantity: 1
     });
 
     const [settings, setSettings] = useState<PlatformSettings | null>(null);
@@ -60,7 +61,8 @@ export default function Publish() {
                         color: item.color || '',
                         shippingAvailable: item.shippingAvailable !== undefined ? item.shippingAvailable : true,
                         deliveryMethods: item.deliveryMethods || ['en_mano'],
-                        isFeatured: item.isFeatured || false
+                        isFeatured: item.isFeatured || false,
+                        quantity: item.quantity || 1
                     });
                     setExistingImages(item.images || []);
                     setPreviews(item.images || []);
@@ -223,9 +225,11 @@ export default function Publish() {
                     deliveryMethods: form.deliveryMethods,
                     images: finalImages.length > 0 ? finalImages : ["https://picsum.photos/400/400?random=1"],
                     sellerId: user.uid,
+                    sellerName: userProfile?.name || user.displayName || 'Vendedor',
                     location: sellerLocation,
                     views: 0,
                     isFeatured: form.isFeatured,
+                    quantity: form.quantity || 1,
                     featuredUntil: featuredUntil,
                     featuredFeeApplied: form.isFeatured ? (settings?.featuredExtraPercentage || 0.05) : 0
                 });
@@ -504,6 +508,39 @@ export default function Publish() {
                                     />
                                 </div>
                                 <p className="text-[10px] font-bold text-primary-800/60 uppercase tracking-widest mt-4 relative z-10">Efectivo directo a tu CBU. 100% Garantizado.</p>
+                            </div>
+
+                            {/* CANTIDAD / STOCK */}
+                            <div className="bg-white border border-light-200 p-6 rounded-[32px] flex items-center justify-between group">
+                                <div className="flex items-center gap-4">
+                                    <div className="size-12 bg-light-50 rounded-2xl flex items-center justify-center border border-light-100 text-gray-400 group-hover:bg-primary-50 group-hover:text-primary-vibrant transition-colors">
+                                        <span className="material-symbols-outlined font-black">inventory_2</span>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-dark-800">Cantidad Disponible</h4>
+                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">¿Cuántas unidades tienes para vender?</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={(e) => { e.preventDefault(); setForm(prev => ({ ...prev, quantity: Math.max(1, (prev.quantity || 1) - 1) })); }}
+                                        className="size-10 bg-light-50 border border-light-100 rounded-xl flex items-center justify-center text-dark-800 hover:bg-light-100 active:scale-95 transition-all font-black"
+                                    >
+                                        -
+                                    </button>
+                                    <input
+                                        type="number"
+                                        value={form.quantity}
+                                        onChange={(e) => setForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                                        className="w-12 text-center font-black text-dark-800 outline-none"
+                                    />
+                                    <button
+                                        onClick={(e) => { e.preventDefault(); setForm(prev => ({ ...prev, quantity: (prev.quantity || 1) + 1 })); }}
+                                        className="size-10 bg-light-50 border border-light-100 rounded-xl flex items-center justify-center text-dark-800 hover:bg-light-100 active:scale-95 transition-all font-black"
+                                    >
+                                        +
+                                    </button>
+                                </div>
                             </div>
 
                             {/* MÉTODOS DE ENTREGA */}

@@ -4,6 +4,7 @@ import { getItemsBySeller, ItemData } from '../../lib/items';
 import { getUserProfile, UserProfile } from '../../lib/users';
 import ProductCard from '../../components/ProductCard';
 import SkeletonCard from '../../components/SkeletonCard';
+import ReputationCard from '../../components/seller/ReputationCard';
 import { useNotification } from '../../context/NotificationContext';
 import { checkIsFollowing, toggleFollow } from '../../lib/interactions';
 import { useAuth } from '../../lib/auth';
@@ -100,69 +101,47 @@ const Shop = () => {
                 </div>
 
                 <div className="max-w-7xl mx-auto px-6 relative z-10">
-                    <div className="flex flex-col md:flex-row items-center md:items-end gap-10">
-                        {/* Avatar */}
-                        <div className="relative group">
-                            <div className="absolute inset-0 bg-primary-vibrant rounded-[40px] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                            <img
-                                src={seller.avatar || `https://ui-avatars.com/api/?name=${seller.displayName}&background=random`}
-                                alt={seller.displayName}
-                                className="size-40 md:size-48 rounded-[40px] object-cover border-4 border-white relative z-10 shadow-2xl"
-                            />
-                            <div className="absolute -bottom-4 -right-4 size-14 bg-white rounded-2xl flex items-center justify-center shadow-xl z-20 border border-light-100">
-                                <span className="material-symbols-outlined text-primary-vibrant font-black text-3xl">verified</span>
-                            </div>
+                    <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
+                        {/* Left: New Reputation Card */}
+                        <div className="w-full lg:w-auto flex justify-center lg:justify-start">
+                            <ReputationCard seller={seller} />
                         </div>
 
-                        {/* Info */}
-                        <div className="flex-1 text-center md:text-left space-y-4">
-                            <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
-                                <h1 className="text-3xl md:text-5xl font-black text-white tracking-tighter">
-                                    {seller.displayName}
-                                </h1>
-                                <div className="flex items-center justify-center md:justify-start gap-2">
-                                    <button
-                                        onClick={handleFollow}
-                                        className={`px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${isFollowing
-                                            ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
-                                            : 'bg-primary-vibrant text-white shadow-xl shadow-primary-vibrant/20 hover:scale-105 active:scale-95'
-                                            }`}
-                                    >
-                                        {isFollowing ? 'Siguiendo' : 'Seguir Vendedor'}
-                                    </button>
-                                    <button className="size-11 bg-white/10 text-white rounded-full flex items-center justify-center border border-white/20 hover:bg-white/20 transition-all">
-                                        <span className="material-symbols-outlined text-sm">share</span>
-                                    </button>
-                                </div>
+                        {/* Right: Actions & Stats */}
+                        <div className="flex-1 flex flex-col items-center lg:items-end gap-8">
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={handleFollow}
+                                    className={`px-10 py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.2em] transition-all shadow-2xl ${isFollowing
+                                        ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                                        : 'bg-primary-vibrant text-white shadow-primary-vibrant/20 hover:scale-105 active:scale-95'
+                                        }`}
+                                >
+                                    {isFollowing ? 'Siguiendo Socio' : 'Seguir a este Socio'}
+                                </button>
+                                <button className="size-14 bg-white/10 text-white rounded-[24px] flex items-center justify-center border border-white/20 hover:bg-white/20 transition-all shadow-xl">
+                                    <span className="material-symbols-outlined text-xl">share</span>
+                                </button>
                             </div>
 
-                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-6">
-                                {/* Rating */}
-                                <div className="flex items-center gap-2">
-                                    <div className="flex text-yellow-400">
-                                        {[1, 2, 3, 4, 5].map((s) => (
-                                            <span key={s} className="material-symbols-outlined text-lg fill-current">
-                                                {rating >= s ? 'star' : rating >= s - 0.5 ? 'star_half' : 'star_outline'}
-                                            </span>
-                                        ))}
+                            <div className="flex flex-wrap items-center justify-center lg:justify-end gap-6 bg-white/5 backdrop-blur-md p-6 rounded-[32px] border border-white/10">
+                                <div className="flex flex-col items-center px-6">
+                                    <span className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2">Ubicación</span>
+                                    <div className="flex items-center gap-2 text-white">
+                                        <span className="material-symbols-outlined text-sm text-primary-vibrant">location_on</span>
+                                        <span className="text-xs font-black uppercase tracking-tight">
+                                            {seller.location?.city}, {seller.location?.state}
+                                        </span>
                                     </div>
-                                    <span className="text-white font-black text-sm">{rating.toFixed(1)}</span>
-                                    <span className="text-white/40 font-bold text-[10px] uppercase tracking-widest">({seller.reputation?.totalReviews || 0} reviews)</span>
                                 </div>
-
-                                <div className="h-4 w-px bg-white/10 hidden md:block" />
-
-                                <div className="flex items-center gap-2 text-white/60">
-                                    <span className="material-symbols-outlined text-sm">location_on</span>
-                                    <span className="text-[10px] font-black uppercase tracking-widest">
-                                        {seller.location?.city}, {seller.location?.state}
-                                    </span>
+                                <div className="w-px h-8 bg-white/10 hidden md:block" />
+                                <div className="flex flex-col items-center px-6">
+                                    <span className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2">Biografía</span>
+                                    <p className="text-xs font-bold text-gray-400 max-w-xs text-center lg:text-right line-clamp-1 italic">
+                                        "{seller.bio || 'Socio estelar de Vendelo Ya.'}"
+                                    </p>
                                 </div>
                             </div>
-
-                            <p className="text-gray-400 font-bold text-sm max-w-xl line-clamp-2 italic">
-                                "{seller.bio || 'Este vendedor prefiere mantener el misterio, pero sus activos hablan por sí solos.'}"
-                            </p>
                         </div>
                     </div>
                 </div>
@@ -178,7 +157,7 @@ const Shop = () => {
                                 {products.length} ACTIVOS
                             </span>
                         </h2>
-                        <p className="text-sm font-bold text-gray-400 mt-2 uppercase tracking-widest">Todos los ítems verificados con protección Escrow</p>
+                        <p className="text-sm font-bold text-gray-400 mt-2 uppercase tracking-widest">Todos los ítems verificados con protección Pago Protegido</p>
                     </div>
 
                     <div className="hidden md:flex items-center gap-4">
@@ -211,7 +190,7 @@ const Shop = () => {
                 <div className="mt-32 grid grid-cols-1 md:grid-cols-3 gap-8">
                     {[
                         { title: 'Identidad Verificada', icon: 'shield_person', text: 'Documentación validada por el NODE-DEOP.' },
-                        { title: 'Escrow Force', icon: 'lock', text: 'Transacciones 100% protegidas mediante contratos inteligentes.' },
+                        { title: 'Pago Protegido Force', icon: 'lock', text: 'Transacciones 100% protegidas mediante contratos inteligentes.' },
                         { title: 'Soporte Directo', icon: 'support_agent', text: 'Asistencia prioritaria en mediaciones de este comercio.' }
                     ].map((feature, i) => (
                         <div key={i} className="bg-white p-8 rounded-[32px] border border-light-200 shadow-sm flex flex-col items-center text-center group hover:shadow-premium transition-all">

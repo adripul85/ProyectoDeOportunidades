@@ -19,19 +19,25 @@ export interface UserProfile {
     coverImage?: string;
     profileComplete: boolean;
     certifications?: string[];
+    role?: 'admin' | 'moderator' | 'user';
+    trustLevel?: 'Bajo' | 'Medio' | 'Alto' | 'Premium';
+    sellerStatus?: 'Socio Activo' | 'Socio en Prueba' | 'Socio Elite';
+    successfulSales?: number;
+    initials?: string;
     verificationBadges?: {
         identityVerified: boolean;
         addressVerified: boolean;
         phoneVerified: boolean;
     };
-    role?: 'admin' | 'moderator' | 'user';
     verificationEvidence?: {
         dniFront: string;
+        dniFrontBack?: string; // Compatibility
         dniBack: string;
         selfie: string;
         addressProof?: string;
         submittedAt: any;
         status: 'pending' | 'approved' | 'rejected' | 'none';
+        rejectionReason?: string;
     };
     wallet?: {
         available: number;
@@ -105,7 +111,8 @@ export const createUserProfile = async (uid: string, data: Partial<UserProfile>)
                 dniFront: '',
                 dniBack: '',
                 selfie: '',
-                submittedAt: null
+                submittedAt: null,
+                rejectionReason: ''
             },
             reputation: {
                 averageRating: 0,
@@ -113,6 +120,9 @@ export const createUserProfile = async (uid: string, data: Partial<UserProfile>)
                 ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
                 lastUpdated: serverTimestamp()
             },
+            trustLevel: 'Bajo',
+            sellerStatus: 'Socio en Prueba',
+            successfulSales: 0,
             createdAt: serverTimestamp(),
         });
         return { success: true };
@@ -139,16 +149,40 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 };
 
 // Update user profile
-export const updateUserProfile = async (uid: string, data: Partial<UserProfile>) => {
+export const updateUserProfile = async (uid: string, data: any) => {
     try {
         const userRef = doc(db, "users", uid);
         await updateDoc(userRef, {
             ...data,
             updatedAt: serverTimestamp(),
         });
+
+        // Trigger reputation recalculation if identity or bank details changed
+        if (data.dni || data.bankDetails) {
+            await recalculateReputation(uid);
+        }
+
         return { success: true };
     } catch (error) {
         console.error("Error updating user profile:", error);
+        return { success: false, error };
+    }
+};
+
+/**
+ * Submit user KYC evidence for review
+ */
+export const submitVerification = async (uid: string) => {
+    try {
+        const userRef = doc(db, "users", uid);
+        await updateDoc(userRef, {
+            "verificationEvidence.status": "pending",
+            "verificationEvidence.submittedAt": serverTimestamp(),
+            "updatedAt": serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Error submitting verification:", error);
         return { success: false, error };
     }
 };
@@ -260,6 +294,9 @@ export const addUserReview = async (targetUid: string, reviewData: Omit<Review, 
             "reputation.ratingDistribution": distribution,
             "reputation.lastUpdated": serverTimestamp()
         });
+
+        // Trigger reputation recalculation
+        await recalculateReputation(targetUid);
 
         return { success: true };
     } catch (error) {
@@ -515,5 +552,55 @@ export const trackProductView = async (userId: string, productId: string, catego
         }
     } catch (error) {
         console.error("Error tracking product view:", error);
+    }
+};
+/**
+ * Recalculate user trust level and status based on activity and verification
+ */
+export const recalculateReputation = async (uid: string) => {
+    try {
+        const userRef = doc(db, "users", uid);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) return;
+
+        const data = userSnap.data() as UserProfile;
+        let newLevel: UserProfile['trustLevel'] = data.trustLevel || 'Bajo';
+        let newStatus: UserProfile['sellerStatus'] = data.sellerStatus || 'Socio en Prueba';
+
+        const hasDni = !!data.dni;
+        const hasBank = !!(data.bankDetails?.cbu || data.bankDetails?.alias);
+        const sales = data.successfulSales || 0;
+        const rating = data.reputation?.averageRating || 0;
+
+        // Logic for "Medio"
+        if (hasDni && hasBank && sales >= 1) {
+            if (newLevel === 'Bajo') {
+                newLevel = 'Medio';
+                newStatus = 'Socio Activo';
+            }
+        }
+
+        // Logic for "Alto"
+        if (hasDni && hasBank && sales >= 10 && rating >= 4.5) {
+            newLevel = 'Alto';
+            newStatus = 'Socio Elite';
+        }
+
+        // Logic for "Premium" (Manual or even higher requirements)
+        if (hasDni && hasBank && sales >= 50 && rating >= 4.8) {
+            newLevel = 'Premium';
+        }
+
+        if (newLevel !== data.trustLevel || newStatus !== data.sellerStatus) {
+            await updateDoc(userRef, {
+                trustLevel: newLevel,
+                sellerStatus: newStatus,
+                updatedAt: serverTimestamp()
+            });
+            console.log(`Reputation upgraded for ${uid}: ${newLevel} - ${newStatus}`);
+        }
+    } catch (error) {
+        console.error("Error recalculating reputation:", error);
     }
 };

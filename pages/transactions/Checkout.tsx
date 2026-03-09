@@ -107,7 +107,7 @@ export default function Checkout() {
   const escrowFeePercentage = platformSettings?.escrowFeePercentage ?? 0.05;
   const gatewayFeePercentage = platformSettings?.paymentProcessingFeePercentage ?? 0.06;
 
-  const protectionFee = platformSettings?.useFixedEscrowFee
+  const protectionFee = platformSettings?.useFixedPagoProtegidoFee
     ? (platformSettings.escrowFixedFee ?? 2500)
     : Math.round(productPrice * escrowFeePercentage);
 
@@ -280,7 +280,7 @@ export default function Checkout() {
                       </div>
                       <div>
                         <span className="text-[9px] font-black uppercase tracking-widest text-primary-700 leading-none mb-1 flex items-center gap-1.5">
-                          Protección Escrow
+                          Protección Pago Protegido
                           <span className="relative group/tip2 cursor-help">
                             <span className="material-symbols-outlined text-[14px] text-primary-400 hover:text-primary-700 transition-colors">help</span>
                             <span className="invisible group-hover/tip2:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-dark-800 text-white text-[9px] font-bold normal-case tracking-normal leading-relaxed p-3 rounded-xl shadow-xl z-50 pointer-events-none">

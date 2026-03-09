@@ -224,13 +224,24 @@ export const releaseFunds = async (id: string, qrToken?: string) => {
             if (data.status === 'COMPLETED') return { success: true }; // Idempotency check
 
             // Update Status
-            await import("firebase/firestore").then(({ updateDoc }) =>
+            await import("firebase/firestore").then(({ updateDoc, increment }) =>
                 updateDoc(docRef, {
                     status: 'COMPLETED',
                     escrowReleased: true,
                     updatedAt: serverTimestamp()
                 })
             );
+
+            // Increment successful sales for seller
+            await import("firebase/firestore").then(({ updateDoc, increment }) =>
+                updateDoc(sellerRef, {
+                    successfulSales: increment(1)
+                })
+            );
+
+            // Trigger reputation recalculation
+            const { recalculateReputation } = await import("./users");
+            await recalculateReputation(data.sellerId);
 
             // 3. DISTRIBUTE FUNDS
             const { getSystemAdminId } = await import('./admin');
@@ -280,7 +291,7 @@ export const releaseFunds = async (id: string, qrToken?: string) => {
                     amount: platformRevenue,
                     referenceId: id,
                     itemTitle: data.itemTitle,
-                    description: `Comisión Escrow: ${data.itemTitle}`
+                    description: `Comisión Pago Protegido: ${data.itemTitle}`
                 });
 
                 // E. LOG WALLET MOVEMENTS (Seller)

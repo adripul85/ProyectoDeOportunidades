@@ -16,6 +16,7 @@
     "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
     "firebase": "^12.8.0",
+    "firebase-admin": "^13.7.0",
     "framer-motion": "^12.30.0",
     "json-2-csv": "^5.5.10",
     "qrcode.react": "^4.2.0",

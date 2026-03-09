@@ -15,7 +15,10 @@ interface Seller {
     verificationBadges?: {
         identityVerified: boolean;
     };
+    trustLevel?: 'Bajo' | 'Medio' | 'Alto' | 'Premium';
+    sellerStatus?: 'Socio Activo' | 'Socio en Prueba' | 'Socio Elite';
     responseTime?: string;
+    successfulSales?: number;
 }
 
 interface Props {
@@ -68,9 +71,9 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
     return (
         <div className="bg-white p-10 rounded-[40px] shadow-premium border border-light-200/50 relative overflow-hidden">
             {/* Header Badge */}
-            {isVerified && (
+            {(isVerified || (seller.trustLevel === 'Alto' || seller.trustLevel === 'Premium')) && (
                 <div className="absolute top-0 right-0 py-2 px-6 bg-primary-vibrant text-white text-[9px] font-black uppercase tracking-[0.3em] rounded-bl-3xl border-l border-b border-primary-vibrant/10 shadow-lg animate-in slide-in-from-top duration-700">
-                    Vendedor Verificado ✅
+                    Socio Verificado ✅
                 </div>
             )}
 
@@ -108,9 +111,11 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
                         {seller.displayName}
                     </Link>
                     <div className="flex items-center gap-3 mt-2 pl-1">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Socio Activo</span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{seller.sellerStatus || 'Socio en Prueba'}</span>
                         <div className="size-1 bg-light-200 rounded-full" />
-                        <span className="text-[10px] font-black text-primary-vibrant uppercase tracking-widest">Confianza Nivel {(seller.reputation?.averageRating || 0) > 4 ? 'Alto' : 'Medio'}</span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${seller.trustLevel === 'Bajo' ? 'text-red-500' : seller.trustLevel === 'Medio' ? 'text-amber-500' : 'text-primary-vibrant'}`}>
+                            Confianza Nivel {seller.trustLevel || 'Bajo'}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -122,7 +127,7 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
                             <span key={i} className={`material-symbols-outlined text-base drop-shadow-sm ${i <= Math.round(seller.reputation?.averageRating || 0) ? 'text-amber-400 fill-1' : 'text-gray-200'}`}>star</span>
                         ))}
                     </div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">{seller.reputation?.totalReviews || 0} Protocolos Registrados</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">{seller.successfulSales || 0} Protocolos Registrados</span>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                     <Link to={`/shop/${seller.uid}`} className="flex-1 sm:flex-none text-center bg-primary-vibrant text-white px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary-vibrant/20 hover:scale-105 active:scale-95 transition-all">

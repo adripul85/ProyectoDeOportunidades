@@ -365,6 +365,53 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* KYC STATUS BANNER */}
+        {userProfile?.verificationEvidence?.status && userProfile.verificationEvidence.status !== 'approved' && (
+          <div className={`mb-12 p-6 rounded-[32px] border flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-4 duration-500 ${userProfile.verificationEvidence.status === 'pending'
+            ? 'bg-amber-50 border-amber-100 text-amber-800'
+            : userProfile.verificationEvidence.status === 'rejected'
+              ? 'bg-rose-50 border-rose-100 text-rose-800'
+              : 'bg-primary-50 border-primary-100 text-primary-800'
+            }`}>
+            <div className="flex items-center gap-5">
+              <div className={`size-14 rounded-2xl flex items-center justify-center shrink-0 ${userProfile.verificationEvidence.status === 'pending'
+                ? 'bg-amber-500 text-white'
+                : userProfile.verificationEvidence.status === 'rejected'
+                  ? 'bg-rose-500 text-white'
+                  : 'bg-primary-vibrant text-white'
+                }`}>
+                <span className="material-symbols-outlined text-2xl font-black">
+                  {userProfile.verificationEvidence.status === 'pending' ? 'history' : userProfile.verificationEvidence.status === 'rejected' ? 'error' : 'verified_user'}
+                </span>
+              </div>
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-tight">
+                  {userProfile.verificationEvidence.status === 'pending' ? 'Verificación en Proceso' : userProfile.verificationEvidence.status === 'rejected' ? 'Verificación Rechazada' : 'Verifica tu Identidad'}
+                </h4>
+                <p className="text-[11px] font-bold opacity-70 uppercase tracking-widest mt-1">
+                  {userProfile.verificationEvidence.status === 'pending'
+                    ? 'Estamos revisando tus documentos. Esto suele tardar menos de 24hs.'
+                    : userProfile.verificationEvidence.status === 'rejected'
+                      ? `Motivo: ${userProfile.verificationEvidence.rejectionReason || 'Documentación no legible'}. Por favor, vuelve a intentarlo.`
+                      : 'Aumenta tu reputación y desbloquea beneficios verificando tu identidad.'
+                  }
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/settings"
+              className={`px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${userProfile.verificationEvidence.status === 'pending'
+                ? 'bg-amber-500 text-white hover:bg-amber-600'
+                : userProfile.verificationEvidence.status === 'rejected'
+                  ? 'bg-rose-500 text-white hover:bg-rose-600'
+                  : 'bg-primary-vibrant text-white hover:opacity-90'
+                }`}
+            >
+              {userProfile.verificationEvidence.status === 'rejected' ? 'REINTENTAR AHORA' : 'GESTIONAR'}
+            </Link>
+          </div>
+        )}
+
         {/* MAIN DASHBOARD CONTENT */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
@@ -413,7 +460,7 @@ export default function Dashboard() {
                 <div className="bg-primary-50 p-8 rounded-[40px] border border-primary-100 space-y-4">
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-primary-vibrant font-black">verified_user</span>
-                    <h4 className="text-[11px] font-black text-primary-800 uppercase tracking-widest">Protección Escrow</h4>
+                    <h4 className="text-[11px] font-black text-primary-800 uppercase tracking-widest">Protección Pago Protegido</h4>
                   </div>
                   <p className="text-[10px] font-bold text-primary-700/60 uppercase tracking-widest leading-relaxed">
                     Tu pago se mantiene seguro en depósito de garantía. Los fondos solo se liberan al vendedor una vez que confirmas que recibiste el artículo en la condición descrita.
@@ -733,23 +780,6 @@ export default function Dashboard() {
         )
       }
 
-      {/* FOOTER MOCKUP BASED ON IMAGE */}
-      <footer className="bg-white border-t border-light-100 py-12">
-        <div className="max-w-[1440px] mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="flex items-center gap-4">
-            <span className="material-symbols-outlined text-red-600">target</span>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Escrow de Mercado Seguro v2.5</p>
-          </div>
-
-          <div className="flex items-center gap-8">
-            {['Política de Privacidad', 'Términos de Servicio', 'Protección al Comprador'].map(link => (
-              <a key={link} href="#" className="text-[10px] font-black text-dark-800 uppercase tracking-widest hover:text-primary-vibrant transition-colors">{link}</a>
-            ))}
-          </div>
-
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">© 2026 Vendelo Ya! Inc. Todos los derechos reservados.</p>
-        </div>
-      </footer>
 
       {/* MODAL COMPONENTS */}
       {

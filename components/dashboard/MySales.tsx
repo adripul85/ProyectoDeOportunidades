@@ -31,8 +31,8 @@ export default function MySales({
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex items-center justify-between pl-2">
-                <h2 className="text-2xl font-black text-dark-800 tracking-tighter uppercase">Vendedor Mercado</h2>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Protocolos de Cobro Activos</p>
+                <h2 className="text-2xl font-black text-dark-800 tracking-tighter uppercase">Mis Ventas</h2>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Seguimiento de Cobros</p>
             </div>
 
             <div className="grid gap-6">
@@ -65,7 +65,7 @@ export default function MySales({
                                     <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Progreso de Liquidación</h4>
                                     <span className={`text-[9px] font-black px-2 py-1 rounded-md border ${order.status === 'COMPLETED' ? 'text-emerald-500 bg-emerald-50 border-emerald-100' : 'text-primary-vibrant bg-primary-50 border-primary-100'
                                         }`}>
-                                        {order.status === 'COMPLETED' ? 'DINERO ENVIADO' : 'EN GARANTÍA'}
+                                        {order.status === 'COMPLETED' ? 'DINERO LIBERADO' : 'EN CUSTODIA'}
                                     </span>
                                 </div>
 
@@ -73,8 +73,8 @@ export default function MySales({
                                     {/* Step 1: Venta */}
                                     <div className="flex flex-col items-center z-10">
                                         <div className={`size-8 rounded-full flex items-center justify-center shadow-lg transition-all ${['PAID_HELD', 'SHIPPED', 'DELIVERED_PENDING_REVIEW', 'COMPLETED'].includes(order.status)
-                                                ? 'bg-emerald-500 text-white shadow-emerald-200 scale-110'
-                                                : 'bg-white border-2 border-light-200 text-light-300'
+                                            ? 'bg-emerald-500 text-white shadow-emerald-200 scale-110'
+                                            : 'bg-white border-2 border-light-200 text-light-300'
                                             }`}>
                                             <span className="material-symbols-outlined text-xs font-black">payments</span>
                                         </div>
@@ -88,8 +88,8 @@ export default function MySales({
                                     {/* Step 2: Entrega */}
                                     <div className="flex flex-col items-center z-10">
                                         <div className={`size-8 rounded-full flex items-center justify-center transition-all ${['SHIPPED', 'DELIVERED_PENDING_REVIEW', 'COMPLETED'].includes(order.status)
-                                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 scale-110'
-                                                : 'bg-white border-2 border-light-200 text-light-300'
+                                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 scale-110'
+                                            : 'bg-white border-2 border-light-200 text-light-300'
                                             }`}>
                                             <span className="material-symbols-outlined text-xs font-black">local_shipping</span>
                                         </div>
@@ -103,12 +103,12 @@ export default function MySales({
                                     {/* Step 3: Pago Final */}
                                     <div className="flex flex-col items-center z-10">
                                         <div className={`size-8 rounded-full flex items-center justify-center transition-all ${order.status === 'COMPLETED'
-                                                ? 'bg-primary-vibrant text-white shadow-lg shadow-primary-200 scale-125 ring-4 ring-primary-50'
-                                                : 'bg-white border-2 border-light-200 text-light-300'
+                                            ? 'bg-primary-vibrant text-white shadow-lg shadow-primary-200 scale-125 ring-4 ring-primary-50'
+                                            : 'bg-white border-2 border-light-200 text-light-300'
                                             }`}>
                                             <span className="material-symbols-outlined text-xs font-black">account_balance</span>
                                         </div>
-                                        <span className="text-[8px] mt-2 font-black text-gray-400 uppercase tracking-widest">En tu CBU</span>
+                                        <span className="text-[8px] mt-2 font-black text-gray-400 uppercase tracking-widest">Dinero Liberado</span>
                                     </div>
                                 </div>
 
@@ -145,7 +145,7 @@ export default function MySales({
                                                 className="w-full bg-primary-vibrant text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary-200"
                                             >
                                                 <span className="material-symbols-outlined text-base">local_shipping</span>
-                                                Informat envío
+                                                Informar envío
                                             </button>
                                         )}
                                         <button

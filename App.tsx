@@ -43,6 +43,8 @@ import Header from './components/Header';
 import Deals from './pages/Deals';
 import Cart from './pages/Cart';
 import Shop from './pages/marketplace/Shop';
+import About from './pages/About';
+import SecurityInfo from './pages/SecurityInfo';
 
 // --- App Infrastructure ---
 const ScrollToTop = () => {
@@ -55,11 +57,13 @@ const Footer = () => (
   <footer className="mt-40 py-24 bg-white border-t border-light-200">
     <div className="max-w-[1440px] mx-auto px-6 flex flex-col items-center">
       <div className="flex items-center gap-2 mb-10 opacity-40 grayscale group-hover:grayscale-0 transition-all">
-        <span className="material-symbols-outlined text-3xl font-black text-red-600">target</span>
-        <h2 className="text-xl font-black tracking-tighter text-red-600">Vendelo Ya! 🎯</h2>
+        <span className="material-symbols-outlined text-3xl font-black text-primary-600">bolt</span>
+        <h2 className="text-xl font-black tracking-tighter text-slate-900">Vendelo <span className="text-primary-600">Ya!</span></h2>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 text-[10px] font-black uppercase tracking-[0.3em] text-gray-300 mb-12">
-        <Link className="hover:text-dark-800 transition-colors" to="/escrow-info">Cómo Funciona</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/about">Sobre Nosotros</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/security">Seguridad</Link>
+        <Link className="hover:text-dark-800 transition-colors" to="/escrow-info">Cómo Funciona (Pago Protegido)</Link>
         <Link className="hover:text-dark-800 transition-colors" to="/legal/terms">Términos y Condiciones</Link>
         <Link className="hover:text-dark-800 transition-colors" to="/legal/notice">Aviso Legal</Link>
         <Link className="hover:text-dark-800 transition-colors" to="/legal/privacy">Política de Privacidad</Link>
@@ -68,7 +72,7 @@ const Footer = () => (
         <Link className="hover:text-dark-800 transition-colors" to="/resolution-center">Centro de Ayuda</Link>
       </div>
       <p className="text-[9px] font-bold text-gray-300 uppercase tracking-[0.4em] text-center">
-        © 2026 Vendelo Ya! Inc. Transacciones seguras mediante protocolos encriptados.
+        © 2026 Vendelo Ya! Transacciones seguras mediante protocolos encriptados.
       </p>
     </div>
   </footer>
@@ -135,6 +139,8 @@ function App() {
                     <Route path="/legal/cookies" element={<CookiesPolicy />} />
                     <Route path="/legal/scam-prevention" element={<ScamPrevention />} />
                     <Route path="/verify-delivery" element={<VerifyDelivery />} />
+                    <Route path="/about" element={<About />} />
+                    <Route path="/security" element={<SecurityInfo />} />
                     <Route path="/resolution-center" element={<RequireProfile><ResolutionCenter /></RequireProfile>} />
                   </Routes>
                 </PageTransition>
