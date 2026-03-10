@@ -85,6 +85,14 @@ export interface UserProfile {
         pushAlerts: boolean;
         marketingAlerts: boolean;
     };
+    shopTheme?: {
+        primaryColor?: string;
+        secondaryColor?: string;
+        backgroundType: 'color' | 'image' | 'gradient';
+        backgroundColor?: string;
+        backgroundImage?: string;
+        accentColor?: string;
+    };
 
     createdAt: any;
     updatedAt?: any;

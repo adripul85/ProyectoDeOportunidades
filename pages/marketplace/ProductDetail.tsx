@@ -69,7 +69,8 @@ const ProductDetail = () => {
 
   const handleAction = async (action: string) => {
     if (!user) {
-      notify({ type: 'error', title: 'Acceso Denegado', message: 'Inicia sesión para usar esta función.', icon: 'lock' });
+      notify({ type: 'info', title: 'Identidad Requerida', message: 'Inicia tu registro para continuar con esta acción.', icon: 'account_circle' });
+      navigate('/register');
       return;
     }
 
@@ -125,7 +126,8 @@ const ProductDetail = () => {
 
   const handleContactSeller = async () => {
     if (!user) {
-      notify({ type: 'error', title: 'Acceso Denegado', message: 'Inicia sesión para contactar al vendedor.', icon: 'lock' });
+      notify({ type: 'info', title: 'Identidad Requerida', message: 'Registrate para contactar al vendedor.', icon: 'account_circle' });
+      navigate('/register');
       return;
     }
     if (user.uid === product.seller.id) {
@@ -145,42 +147,31 @@ const ProductDetail = () => {
     }
   };
 
-  const handleBuyNow = async () => {
+  const handleBuyNow = () => {
     if (!user) {
-      notify({ type: 'error', title: 'Acceso Denegado', message: 'Inicia sesión para comprar.', icon: 'lock' });
+      notify({ type: 'info', title: 'Identidad Requerida', message: 'Completa tu registro para realizar la compra.', icon: 'account_circle' });
+      navigate('/register');
       return;
     }
 
-    if (preferenceId) return; // Ya generado
-
-    setIsMatingPayment(true);
-    try {
-      const response = await fetch('/api/mp-preference', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: product.title,
-          price: product.price,
-          quantity: 1,
-          productId: product.id,
-          sellerId: product.seller.id,
-          buyerId: user.uid
-        })
-      });
-
-      const data = await response.json();
-      if (data.id) {
-        setPreferenceId(data.id);
-        notify({ type: 'success', title: 'Pago Protegido', message: 'Iniciando conexión segura con Mercado Pago...', icon: 'security' });
-      } else {
-        throw new Error(data.error || 'Error al generar preferencia');
-      }
-    } catch (err) {
-      console.error("MP Error:", err);
-      notify({ type: 'error', title: 'Error de Conexión', message: 'No se pudo conectar con Mercado Pago. Reintenta.', icon: 'cloud_off' });
-    } finally {
-      setIsMatingPayment(false);
+    if (product.status !== 'AVAILABLE') {
+      notify({ type: 'warning', title: 'No disponible', message: 'Este producto ya no está a la venta.', icon: 'info' });
+      return;
     }
+
+    // Redirigir al Checkout con la información del producto
+    navigate('/checkout', {
+      state: {
+        productId: product.id,
+        productTitle: product.title,
+        productPrice: product.price,
+        productImage: product.images?.[0],
+        sellerId: product.seller.id,
+        sellerName: product.seller.displayName || product.seller.name,
+        deliveryMethods: product.deliveryMethods,
+        condition: product.condition
+      }
+    });
   };
 
   const handleAddToCart = () => {

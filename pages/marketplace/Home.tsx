@@ -450,9 +450,11 @@ const Home = () => {
     );
   }
 
+  /* 
   if (!user && !authLoading) {
     return <Landing />;
   }
+  */
 
   return (
     <div className="bg-white font-sans text-dark-charcoal max-w-[1440px] mx-auto min-h-screen relative selection:bg-primary-100 selection:text-primary-900 flex">

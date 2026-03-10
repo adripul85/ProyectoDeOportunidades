@@ -90,14 +90,43 @@ const Shop = () => {
 
     const rating = seller.reputation?.averageRating || 0;
 
+    const theme = seller.shopTheme || {
+        backgroundType: 'gradient',
+        primaryColor: '#e11d48', // primary-600
+        secondaryColor: '#4f46e5', // indigo-600
+        accentColor: '#e11d48',
+    };
+
+    const headerStyle = theme.backgroundType === 'color' 
+        ? { backgroundColor: theme.backgroundColor || '#0f172a' }
+        : theme.backgroundType === 'image'
+        ? { backgroundImage: `url(${theme.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+        : {};
+
     return (
         <div className="bg-light-50 min-h-screen">
             {/* SHOP HEADER */}
-            <div className="relative overflow-hidden bg-dark-900 pt-32 pb-20">
+            <div 
+                className={`relative overflow-hidden pt-32 pb-20 transition-colors duration-1000 ${!theme.backgroundColor && theme.backgroundType !== 'image' ? 'bg-dark-950' : ''}`}
+                style={headerStyle}
+            >
                 {/* Background Effects */}
                 <div className="absolute inset-0">
-                    <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary-600 rounded-full blur-[150px] opacity-20" />
-                    <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-red-600 rounded-full blur-[120px] opacity-10" />
+                    {theme.backgroundType === 'gradient' && (
+                        <>
+                            <div 
+                                className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full blur-[150px] opacity-20" 
+                                style={{ backgroundColor: theme.primaryColor || '#e11d48' }}
+                            />
+                            <div 
+                                className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full blur-[120px] opacity-10" 
+                                style={{ backgroundColor: theme.secondaryColor || '#4f46e5' }}
+                            />
+                        </>
+                    )}
+                    {theme.backgroundType === 'image' && (
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+                    )}
                 </div>
 
                 <div className="max-w-7xl mx-auto px-6 relative z-10">
@@ -112,9 +141,10 @@ const Shop = () => {
                             <div className="flex items-center gap-4">
                                 <button
                                     onClick={handleFollow}
+                                    style={!isFollowing ? { backgroundColor: theme.accentColor || '#e11d48' } : {}}
                                     className={`px-10 py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.2em] transition-all shadow-2xl ${isFollowing
                                         ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
-                                        : 'bg-primary-vibrant text-white shadow-primary-vibrant/20 hover:scale-105 active:scale-95'
+                                        : 'text-white hover:scale-105 active:scale-95'
                                         }`}
                                 >
                                     {isFollowing ? 'Siguiendo Socio' : 'Seguir a este Socio'}
@@ -128,7 +158,7 @@ const Shop = () => {
                                 <div className="flex flex-col items-center px-6">
                                     <span className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-2">Ubicación</span>
                                     <div className="flex items-center gap-2 text-white">
-                                        <span className="material-symbols-outlined text-sm text-primary-vibrant">location_on</span>
+                                        <span className="material-symbols-outlined text-sm" style={{ color: theme.accentColor || '#e11d48' }}>location_on</span>
                                         <span className="text-xs font-black uppercase tracking-tight">
                                             {seller.location?.city}, {seller.location?.state}
                                         </span>
@@ -153,7 +183,10 @@ const Shop = () => {
                     <div>
                         <h2 className="text-2xl font-black text-dark-800 tracking-tight flex items-center gap-4">
                             Catálogo Premium
-                            <span className="bg-primary-50 text-primary-vibrant text-[9px] px-3 py-1 rounded-full border border-primary-100 uppercase font-black tracking-widest">
+                            <span 
+                                className="text-white text-[9px] px-3 py-1 rounded-full uppercase font-black tracking-widest"
+                                style={{ backgroundColor: theme.accentColor || '#e11d48' }}
+                            >
                                 {products.length} ACTIVOS
                             </span>
                         </h2>

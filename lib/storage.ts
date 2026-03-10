@@ -6,8 +6,14 @@ import { storage } from "./firebase";
  * @param file The file to upload
  * @param path The path in storage (e.g., 'items/unique-id.jpg')
  */
-export const uploadFile = async (file: File, path: string): Promise<string> => {
+export const uploadFile = async (file: File | Blob, path: string): Promise<string> => {
     const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, file);
+    
+    // Explicitly set content type from the file/blob
+    const metadata = {
+        contentType: (file as any).type || 'image/jpeg'
+    };
+    
+    await uploadBytes(storageRef, file, metadata);
     return getDownloadURL(storageRef);
 };

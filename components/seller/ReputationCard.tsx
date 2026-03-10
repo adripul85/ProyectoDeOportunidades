@@ -102,11 +102,11 @@ export default function ReputationCard({ seller, onViewShop }: Props) {
                 </div>
                 <div>
                     <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                        Nodo de Respuesta
+                        Atención al Cliente
                         <span className="size-1.5 bg-emerald-500 rounded-full animate-pulse" />
                     </h4>
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter italic mt-0.5">
-                        {responseTime}
+                        Suele responder en menos de 24h
                     </p>
                 </div>
             </div>

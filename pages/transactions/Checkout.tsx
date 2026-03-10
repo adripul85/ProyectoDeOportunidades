@@ -107,13 +107,19 @@ export default function Checkout() {
   const escrowFeePercentage = platformSettings?.escrowFeePercentage ?? 0.05;
   const gatewayFeePercentage = platformSettings?.paymentProcessingFeePercentage ?? 0.06;
 
-  const protectionFee = platformSettings?.useFixedPagoProtegidoFee
-    ? (platformSettings.escrowFixedFee ?? 2500)
-    : Math.round(productPrice * escrowFeePercentage);
+  // El Pago Protegido solo aplica a medios digitales (MP / MODO)
+  const isDigitalPayment = selectedMethod === 'MERCADO_PAGO' || selectedMethod === 'MODO';
 
-  const gatewayFee = (selectedMethod === 'MERCADO_PAGO' || selectedMethod === 'MODO')
+  const protectionFee = isDigitalPayment
+    ? (platformSettings?.useFixedPagoProtegidoFee
+      ? (platformSettings.escrowFixedFee ?? 2500)
+      : Math.round(productPrice * escrowFeePercentage))
+    : 0;
+
+  const gatewayFee = isDigitalPayment
     ? Math.round(productPrice * gatewayFeePercentage)
     : 0;
+
   const total = productPrice + protectionFee + gatewayFee;
 
   const handlePayment = async () => {
@@ -243,20 +249,25 @@ export default function Checkout() {
               <div className="p-8 space-y-8">
                 {/* Cost Breakdown */}
                 <div className="space-y-4">
-                  {isCartMode && (
-                    <div className="space-y-3 mb-6">
-                      <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Detalle de Carrito</h3>
-                      {cart.map((item) => (
-                        <div key={item.id} className="flex items-center gap-3 py-1.5 border-b border-light-100 last:border-0 opacity-80">
-                          <img src={item.image} alt={item.title} className="size-8 rounded-lg object-cover" />
-                          <div className="flex-grow">
-                            <p className="text-[10px] font-bold text-dark-800 line-clamp-1">{item.title}</p>
-                          </div>
-                          <span className="text-[10px] font-black text-dark-800">$ {item.price.toLocaleString()}</span>
+                  {!isCartMode && (
+                    <div className="flex items-center gap-4 py-4 border-b border-light-100/50">
+                      <div className="flex-grow">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-black text-dark-800 uppercase tracking-tight">Estado del Activo</span>
+                          <span className="size-1 bg-gray-300 rounded-full"></span>
+                          <span className="text-[10px] font-bold text-gray-400 capitalize">{state.condition === 'new' ? 'Nuevo' : state.condition === 'like_new' ? 'Excelente' : 'Usado'}</span>
                         </div>
-                      ))}
+                        <p className="text-[11px] font-bold text-gray-500 leading-tight">Verificado bajo protocolo de inspección estándar.</p>
+                      </div>
                     </div>
                   )}
+
+                  <div className="flex justify-between items-center px-2 py-2">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                      Valor del Producto
+                    </span>
+                    <span className="text-xs font-black text-dark-800">$ {productPrice.toLocaleString()}</span>
+                  </div>
 
                   <div className="flex justify-between items-center px-2 py-2">
                     <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
@@ -272,28 +283,34 @@ export default function Checkout() {
                     <span className="text-xs font-black text-dark-800">$ {gatewayFee.toLocaleString()}</span>
                   </div>
 
-                  <div className="flex justify-between items-center text-primary-vibrant bg-primary-50 p-5 rounded-[20px] border border-primary-100 shadow-sm relative group">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-primary-200/20 rounded-full -mr-6 -mt-6 group-hover:scale-110 transition-transform"></div>
+                  <div className={`flex justify-between items-center p-5 rounded-[20px] border transition-all relative group overflow-hidden ${isDigitalPayment ? 'bg-primary-50 border-primary-100 text-primary-vibrant' : 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'}`}>
+                    {isDigitalPayment && <div className="absolute top-0 right-0 w-20 h-20 bg-primary-200/20 rounded-full -mr-6 -mt-6 group-hover:scale-110 transition-transform"></div>}
                     <div className="flex items-center gap-4 relative z-10">
-                      <div className="size-10 bg-white rounded-lg flex items-center justify-center shadow-sm border border-primary-100">
-                        <span className="material-symbols-outlined text-xl font-black">gpp_good</span>
+                      <div className={`size-10 rounded-lg flex items-center justify-center shadow-sm border ${isDigitalPayment ? 'bg-white border-primary-100' : 'bg-slate-100 border-slate-200'}`}>
+                        <span className={`material-symbols-outlined text-xl font-black ${isDigitalPayment ? 'text-primary-vibrant' : 'text-slate-300'}`}>
+                          {isDigitalPayment ? 'gpp_good' : 'lock_open'}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-primary-700 leading-none mb-1 flex items-center gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-widest leading-none mb-1 flex items-center gap-1.5 ${isDigitalPayment ? 'text-primary-700' : 'text-slate-500'}`}>
                           Protección Pago Protegido
-                          <span className="relative group/tip2 cursor-help">
-                            <span className="material-symbols-outlined text-[14px] text-primary-400 hover:text-primary-700 transition-colors">help</span>
-                            <span className="invisible group-hover/tip2:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-dark-800 text-white text-[9px] font-bold normal-case tracking-normal leading-relaxed p-3 rounded-xl shadow-xl z-50 pointer-events-none">
-                              Tarifa de custodia que garantiza que tu dinero está protegido hasta que recibas el producto conforme. Si hay un problema, te devolvemos el dinero.
-                              <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-dark-800"></span>
+                          {isDigitalPayment && (
+                            <span className="relative group/tip2 cursor-help">
+                              <span className="material-symbols-outlined text-[14px] text-primary-400 hover:text-primary-700 transition-colors">help</span>
+                              <span className="invisible group-hover/tip2:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-dark-800 text-white text-[9px] font-bold normal-case tracking-normal leading-relaxed p-3 rounded-xl shadow-xl z-50 pointer-events-none">
+                                Tarifa de custodia que garantiza que tu dinero está protegido hasta que recibas el producto conforme. Si hay un problema, te devolvemos el dinero.
+                                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-dark-800"></span>
+                              </span>
                             </span>
-                          </span>
+                          )}
                         </span>
-                        <span className="text-[8px] font-bold text-primary-600/60 uppercase tracking-widest leading-none">Safe Deal Fee</span>
+                        <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest leading-none">
+                          {isDigitalPayment ? 'Safe Deal Fee' : 'No aplica en trato directo'}
+                        </span>
                       </div>
                     </div>
                     <div className="text-right relative z-10">
-                      <span className="font-black text-base block text-dark-800">$ {protectionFee.toLocaleString()}</span>
+                      <span className={`font-black text-base block ${isDigitalPayment ? 'text-dark-800' : 'text-slate-400'}`}>$ {protectionFee.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>

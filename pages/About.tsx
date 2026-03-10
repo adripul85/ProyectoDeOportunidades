@@ -53,7 +53,7 @@ export default function About() {
                         </div>
                         <div className="text-gray-600 font-bold text-lg leading-relaxed space-y-6">
                             <p>
-                                Durante años, Mercado Libre fue la única opción. Pero con el tiempo, las comisiones se volvieron imposibles. Vender un artículo hoy significa perder entre un 15% y un 30% del valor solo en "costos de plataforma".
+                                Durante años, las plataformas tradicionales de venta online dominaron el mercado. Pero con el tiempo, sus comisiones se volvieron imposibles de sostener. Vender un artículo hoy significa perder entre un 15% y un 30% del valor solo en "costos de plataforma".
                             </p>
                             <p>
                                 Si a eso le sumamos los costos de envío y las retenciones impositivas, el pequeño vendedor o quien solo quiere vender lo que no usa, termina regalando su trabajo. <strong>Eso nos pareció injusto.</strong>

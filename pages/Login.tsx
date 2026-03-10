@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNotification } from '../context/NotificationContext';
 import { useAuth } from '../lib/auth';
+import { mapAuthError } from '../lib/error-map';
 
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,7 +15,7 @@ const Login = () => {
 
   const navigate = useNavigate();
   const { notify } = useNotification();
-  const { login, register, loginWithGoogle } = useAuth();
+  const { login, register, loginWithGoogle, resetPassword } = useAuth();
 
   const triggerShake = () => {
     setIsShaking(true);
@@ -42,7 +43,33 @@ const Login = () => {
       }
     } catch (err: any) {
       triggerShake();
-      notify({ type: 'error', title: 'Error de Autenticación', message: err.message || 'Credenciales inválidas.', icon: 'security' });
+      const friendlyMessage = mapAuthError(err.code);
+      notify({ type: 'error', title: 'Acceso Incorrecto', message: friendlyMessage, icon: 'security' });
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      notify({ type: 'info', title: 'Correo Requerido', message: 'Por favor, ingresa tu correo para reestablecer la contraseña.', icon: 'mail' });
+      triggerShake();
+      return;
+    }
+
+    setIsLoadingAuth(true);
+    try {
+      await resetPassword(email);
+      notify({
+        type: 'success',
+        title: 'Correo Enviado',
+        message: 'Revisa tu bandeja de entrada para reestablecer tu contraseña.',
+        icon: 'mark_email_read'
+      });
+    } catch (err: any) {
+      triggerShake();
+      const friendlyMessage = mapAuthError(err.code);
+      notify({ type: 'error', title: 'Error de Envío', message: friendlyMessage, icon: 'security' });
     } finally {
       setIsLoadingAuth(false);
     }
@@ -73,11 +100,11 @@ const Login = () => {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-md relative z-10"
+        className="w-full max-w-sm relative z-10"
       >
 
         {/* --- GLASS CARD --- */}
-        <div className={`bg-dark-900/40 backdrop-blur-3xl rounded-[60px] p-10 md:p-14 border border-white/10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] relative transition-all duration-300 ${isShaking ? 'animate-shake ring-4 ring-red-500/30' : 'hover:border-white/20'}`}>
+        <div className={`bg-dark-900/40 backdrop-blur-3xl rounded-[60px] p-8 md:p-10 border border-white/10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] relative transition-all duration-300 ${isShaking ? 'animate-shake ring-4 ring-red-500/30' : 'hover:border-white/20'}`}>
 
           <AnimatePresence mode="wait">
             {showVerificationSent ? (
@@ -125,46 +152,53 @@ const Login = () => {
                 <div className="text-center mb-14">
                   <motion.div
                     whileHover={{ rotate: 15 }}
-                    className="size-20 bg-gradient-to-br from-primary-600 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-10 shadow-2xl shadow-primary-900/60 ring-4 ring-white/5"
+                    className="size-16 bg-gradient-to-br from-primary-600 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-primary-900/60 ring-4 ring-white/5"
                   >
-                    <span className="material-symbols-outlined text-white text-4xl font-black">lock</span>
+                    <span className="material-symbols-outlined text-white text-3xl font-black">lock</span>
                   </motion.div>
-                  <h1 className="text-4xl font-black text-white mb-4 uppercase tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-gray-500">
-                    {isLogin ? 'Acceso Seguro' : 'Registrar'}
+                  <h1 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-gray-500">
+                    {isLogin ? 'Bienvenido' : 'Registrar'}
                   </h1>
                   <div className="flex items-center justify-center gap-3">
                     <div className="size-1.5 bg-primary-vibrant rounded-full animate-pulse"></div>
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em]">
-                      {isLogin ? 'Infraestructura Protegida' : 'Crea Tu Identidad'}
+                      {isLogin ? 'Ingresa tus datos' : 'Crea Tu Identidad'}
                     </p>
                   </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-8">
+                <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="group">
-                    <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-500 mb-4 ml-2 group-focus-within:text-primary-400 transition-colors">Identificador Electrónico</label>
+                    <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-500 mb-4 ml-2 group-focus-within:text-primary-400 transition-colors">Correo Electrónico</label>
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="MAIL@SISTEMA.COM"
-                      className="w-full px-8 py-5 rounded-[28px] border-2 border-white/5 bg-dark-800/30 font-black text-[11px] text-white tracking-widest focus:bg-dark-800 focus:border-primary-500/50 outline-none transition-all placeholder:text-gray-700 uppercase"
+                      className="w-full px-8 py-4 rounded-[28px] border-2 border-white/5 bg-dark-800/30 font-black text-[11px] text-white tracking-widest focus:bg-dark-800 focus:border-primary-500/50 outline-none transition-all placeholder:text-gray-700 uppercase"
                     />
                   </div>
                   <div className="group">
-                    <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-500 mb-4 ml-2 group-focus-within:text-primary-400 transition-colors">Clave de Nodo</label>
+                    <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-gray-500 mb-4 ml-2 group-focus-within:text-primary-400 transition-colors">Contraseña</label>
                     <input
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full px-8 py-5 rounded-[28px] border-2 border-white/5 bg-dark-800/30 font-bold text-[11px] text-white tracking-widest focus:bg-dark-800 focus:border-primary-500/50 outline-none transition-all placeholder:text-gray-700"
+                      className="w-full px-8 py-4 rounded-[28px] border-2 border-white/5 bg-dark-800/30 font-bold text-[11px] text-white tracking-widest focus:bg-dark-800 focus:border-primary-500/50 outline-none transition-all placeholder:text-gray-700"
                     />
                   </div>
 
                   {isLogin && (
                     <div className="text-right px-2">
-                      <button type="button" className="text-[10px] font-black text-gray-600 hover:text-primary-400 uppercase tracking-[0.2em] transition-colors">¿Olvidaste el acceso?</button>
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        disabled={isLoadingAuth}
+                        className="text-[10px] font-black text-gray-600 hover:text-primary-400 uppercase tracking-[0.2em] transition-colors disabled:opacity-50"
+                      >
+                        ¿Olvidaste el acceso?
+                      </button>
                     </div>
                   )}
 
@@ -172,18 +206,18 @@ const Login = () => {
                     type="submit"
                     whileTap={{ scale: 0.98 }}
                     disabled={isLoadingAuth}
-                    className={`w-full py-6 text-[10px] font-black uppercase tracking-[0.3em] rounded-[32px] transition-all flex items-center justify-center gap-4 shadow-2xl ${isLoadingAuth
+                    className={`w-full py-5 text-[10px] font-black uppercase tracking-[0.3em] rounded-[32px] transition-all flex items-center justify-center gap-4 shadow-2xl ${isLoadingAuth
                       ? 'bg-dark-800 text-gray-600 cursor-not-allowed border border-white/5'
                       : 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white hover:shadow-primary-900/40 hover:scale-[1.02]'
                       }`}
                   >
-                    <span>{isLoadingAuth ? 'AUTENTICANDO...' : isLogin ? 'VALIDAR Y ACCEDER' : 'INICIALIZAR'}</span>
+                    <span>{isLoadingAuth ? 'INGRESANDO...' : isLogin ? 'ENTRAR' : 'CREAR CUENTA'}</span>
                     {!isLoadingAuth && <span className="material-symbols-outlined text-lg">arrow_forward</span>}
                   </motion.button>
                 </form>
 
-                <div className="mt-14">
-                  <div className="relative flex items-center justify-center mb-12">
+                <div className="mt-10">
+                  <div className="relative flex items-center justify-center mb-8">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-white/5"></div>
                     </div>
@@ -206,9 +240,15 @@ const Login = () => {
                   </motion.button>
                 </div>
 
-                <div className="mt-16 text-center">
+                <div className="mt-12 text-center">
                   <button
-                    onClick={() => setIsLogin(!isLogin)}
+                    onClick={() => {
+                      if (isLogin) {
+                        navigate('/register');
+                      } else {
+                        setIsLogin(true);
+                      }
+                    }}
                     className="text-gray-500 font-black text-[9px] uppercase tracking-[0.3em] hover:text-white transition-all border-b-2 border-transparent hover:border-primary-500 pb-2"
                   >
                     {isLogin ? "¿NO TIENES CUENTA? REGISTRO" : "¿YA ESTÁS REGISTRADO? ACCESO"}

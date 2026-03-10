@@ -8,6 +8,7 @@ import Profile from './pages/Profile';
 import Wallet from './pages/Wallet';
 import Verification from './pages/Verification';
 import Login from './pages/Login';
+import RegisterWizard from './pages/RegisterWizard';
 import Publish from './pages/publish/Publish';
 import Messages from './pages/Messages';
 import ProductDetail from './pages/marketplace/ProductDetail';
@@ -116,13 +117,14 @@ function App() {
                     <Route path="/dashboard" element={<RequireProfile><Dashboard /></RequireProfile>} />
                     <Route path="/messages" element={<RequireProfile><Messages /></RequireProfile>} />
                     <Route path="/messages/:chatId" element={<RequireProfile><Messages /></RequireProfile>} />
-                    <Route path="/wallet" element={<Wallet />} />
+                    <Route path="/wallet" element={<RequireProfile><Wallet /></RequireProfile>} />
                     <Route path="/profile/:uid?" element={<Profile />} />
                     <Route path="/complete-profile" element={<CompleteProfile />} />
                     <Route path="/settings" element={<RequireProfile><Settings /></RequireProfile>} />
                     <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<RegisterWizard />} />
 
-                    <Route path="/checkout" element={<Checkout />} />
+                    <Route path="/checkout" element={<RequireProfile><Checkout /></RequireProfile>} />
                     <Route path="/success" element={<Success />} />
                     <Route path="/payment/success" element={<PaymentSuccess />} />
                     <Route path="/payment/failure" element={<PaymentFailure />} />

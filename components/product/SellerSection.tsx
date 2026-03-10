@@ -144,8 +144,10 @@ const SellerSection: React.FC<Props> = ({ seller }) => {
                     <span className="material-symbols-outlined text-primary-vibrant text-2xl font-black">bolt</span>
                 </div>
                 <div>
-                    <p className="text-[11px] font-black text-primary-950 uppercase tracking-tight">Nodo de Respuesta</p>
-                    <p className="text-[10px] font-bold text-primary-800/60 uppercase tracking-wide mt-1">Sincronización: {seller.responseTime || 'No especificada'}</p>
+                    <p className="text-[11px] font-black text-primary-950 uppercase tracking-tight">Velocidad de Respuesta</p>
+                    <p className="text-[10px] font-bold text-primary-800/60 uppercase tracking-wide mt-1">
+                        Respuesta estimada: {seller.responseTime || 'Cerca de 24h'}
+                    </p>
                 </div>
             </div>
         </div>
