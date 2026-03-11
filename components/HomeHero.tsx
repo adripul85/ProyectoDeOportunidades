@@ -1,13 +1,39 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ItemData } from '../lib/items';
+import { CATEGORIES } from '../lib/constants';
+
+const CATEGORY_IMAGE_MAP: Record<string, string> = {
+    'Tecnología': '1460925895917-afdab827c52f',
+    'Hogar y Muebles': '1586023434215-84af6eb08b56',
+    'Electrodomésticos': '1556910103-1c02745aae4d',
+    'Herramientas': '1581092115919-093a8d467727',
+    'Construcción': '1503387762-592deb58ef4e',
+    'Moda': '1483985988355-763728e1935b',
+    'Deportes y Fitness': '1517836357463-d25dfeac3438',
+    'Vehículos': '1533473359331-013f956ce11c',
+    'Accesorios Vehículos': '1592853625511-df73cfcb4006',
+    'Bebés': '1519689680058-324335c77eba',
+    'Belleza y Cuidado': '1596462502278-27bf850333ce',
+    'Juegos y Juguetes': '1566576912321-7053e1eb4d3f',
+    'Alimentos y Bebidas': '1542838132-92c53300491e',
+    'default': '1472851294608-062e24dadaea' // generic shop
+};
 
 interface HomeHeroProps {
     featuredItems?: (ItemData & { id: string })[];
 }
 
 export default function HomeHero({ featuredItems }: HomeHeroProps) {
-    const mainItem = featuredItems?.[0];
+    const mainItem = featuredItems && featuredItems.length > 0 ? featuredItems[0] : null;
+    const categoryName = mainItem ? mainItem.category : 'Tecnología';
+    
+    // Buscar los datos en el mapa de categorías unificado
+    const categoryObj = CATEGORIES.find(c => c.name === categoryName);
+    const categoryIcon = categoryObj ? categoryObj.icon : 'devices';
+
+    const unsplashId = CATEGORY_IMAGE_MAP[categoryName] || CATEGORY_IMAGE_MAP['default'];
+    const imageUrl = `https://images.unsplash.com/photo-${unsplashId}?q=80&w=2426&auto=format&fit=crop`;
 
     return (
         <section className="bg-white border-b border-gray-100 font-sans mb-12">
@@ -49,35 +75,43 @@ export default function HomeHero({ featuredItems }: HomeHeroProps) {
                     </div>
 
                     {/* ESPACIO PARA IMAGEN O ILUSTRACIÓN (5 columnas en MD) */}
-                    <div className="md:col-span-5 relative group">
-                        <div className="aspect-[5/4] bg-slate-100 rounded-4xl overflow-hidden border border-gray-100 shadow-premium group-hover:shadow-2xl transition-all duration-700">
-                            {mainItem ? (
-                                <Link to={`/search?category=${encodeURIComponent(mainItem.category)}`}>
-                                    <img
-                                        src={mainItem.images?.[0] || "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop"}
-                                        alt={mainItem.category}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-dark-900/40 via-transparent to-transparent"></div>
-                                    <div className="absolute bottom-6 left-6 right-6">
-                                        <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/20">
-                                            <p className="text-[10px] text-primary-600 font-black uppercase tracking-widest mb-1">Categoría más buscada</p>
-                                            <h3 className="text-lg font-black text-slate-950 truncate uppercase tracking-tighter">{mainItem.category}</h3>
-                                            <p className="text-primary-600 font-black text-sm tracking-tight mt-1">Explorar tendencias</p>
-                                        </div>
-                                    </div>
-                                </Link>
-                            ) : (
+                    <div className="md:col-span-5 relative group mt-10 md:mt-0">
+                        <Link to={`/search?category=${encodeURIComponent(categoryName)}`} className="block relative cursor-pointer">
+                            <div className="aspect-[5/4] bg-slate-100 rounded-[40px] overflow-hidden shadow-2xl relative">
                                 <img
-                                    src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop"
-                                    alt="Ilustración Vendelo Ya!"
+                                    src={imageUrl}
+                                    alt={`Categoría destacada: ${categoryName}`}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                 />
-                            )}
-                        </div>
+                                <div className="absolute inset-0 bg-gradient-to-t from-dark-900/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                            </div>
+
+                            <style>
+                                {`
+                                    @keyframes bounce-slow {
+                                        0%, 100% { transform: translateY(0); }
+                                        50% { transform: translateY(-10px); }
+                                    }
+                                `}
+                            </style>
+                            {/* FLOATING CARD: "Categoría del Momento" - AGREGADA AFUERA DEL DOM PRINCIPAL DE LA IMAGEN */}
+                            <div 
+                                className="absolute -bottom-6 -left-6 md:-left-12 bg-white rounded-3xl p-5 shadow-2xl flex items-center gap-4 border border-slate-50 min-w-[280px] z-20 group-hover:-translate-y-2 group-hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] transition-all duration-500"
+                                style={{ animation: 'bounce-slow 4s ease-in-out infinite' }}
+                            >
+                                <div className="bg-primary-50 text-primary-500 rounded-2xl w-14 h-14 flex items-center justify-center shrink-0">
+                                    <span className="material-symbols-outlined text-2xl font-black">{categoryIcon}</span>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">Categoría del momento</p>
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tighter uppercase line-clamp-1">{categoryName}</h3>
+                                </div>
+                                <span className="material-symbols-outlined text-primary-200 text-3xl font-light group-hover:text-primary-500 group-hover:translate-x-1 transition-all">arrow_forward</span>
+                            </div>
+                        </Link>
 
                         {/* Decoración de Fondo */}
-                        <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary-100 rounded-full blur-3xl opacity-30 animate-pulse"></div>
+                        <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary-100 rounded-full blur-3xl opacity-30 animate-pulse -z-10 pointer-events-none"></div>
                     </div>
 
                 </div>

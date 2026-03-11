@@ -9,11 +9,53 @@ interface MyPurchasesProps {
 }
 
 export default function MyPurchases({ purchases, formatDate, onConfirmReceipt }: MyPurchasesProps) {
+    // KPIs para Compradores
+    const totalPurchases = purchases.length;
+    const totalSpent = purchases.filter(p => p.status === 'COMPLETED').reduce((acc, curr) => acc + (curr.amountTotal || curr.total || curr.amount || 0), 0);
+    const moneyProtected = purchases.filter(p => ['PAID_HELD', 'SHIPPED', 'DELIVERED_PENDING_REVIEW'].includes(p.status)).reduce((acc, curr) => acc + (curr.amountTotal || curr.total || curr.amount || 0), 0);
+    const activeOrders = purchases.filter(p => p.status !== 'COMPLETED' && p.status !== 'CANCELLED').length;
+
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex items-center justify-between pl-2">
                 <h2 className="text-2xl font-black text-dark-800 tracking-tighter uppercase">Compras Recientes</h2>
                 <p className="text-[10px] font-black text-primary-vibrant uppercase tracking-widest">Protección de Pago Activa 🛡️</p>
+            </div>
+
+            {/* ANALÍTICAS Y KPIs DE COMPRADOR */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="bg-white p-6 rounded-3xl border border-light-200 shadow-sm flex flex-col justify-between">
+                    <span className="material-symbols-outlined text-dark-800 mb-2">shopping_bag</span>
+                    <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total de Compras</p>
+                        <p className="text-2xl font-black text-dark-800 tracking-tighter">{totalPurchases}</p>
+                    </div>
+                </div>
+
+                <div className="bg-primary-50 p-6 rounded-3xl border border-primary-100 shadow-sm flex flex-col justify-between">
+                    <span className="material-symbols-outlined text-primary-500 mb-2">payments</span>
+                    <div>
+                        <p className="text-[10px] font-black text-primary-600 uppercase tracking-widest mb-1">Inversión Total</p>
+                        <p className="text-2xl font-black text-primary-700 tracking-tighter">${totalSpent.toLocaleString('es-AR')}</p>
+                    </div>
+                </div>
+
+                <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 shadow-sm flex flex-col justify-between">
+                    <span className="material-symbols-outlined text-emerald-500 mb-2">gpp_good</span>
+                    <div>
+                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Dinero Protegido</p>
+                        <p className="text-2xl font-black text-emerald-700 tracking-tighter">${moneyProtected.toLocaleString('es-AR')}</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl border border-light-200 shadow-sm flex flex-col justify-between">
+                    <span className="material-symbols-outlined text-amber-500 mb-2">local_shipping</span>
+                    <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Órdenes Activas</p>
+                        <p className="text-2xl font-black text-dark-800 tracking-tighter">{activeOrders}</p>
+                    </div>
+                </div>
             </div>
 
             <div className="grid gap-6">

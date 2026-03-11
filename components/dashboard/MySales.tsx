@@ -28,11 +28,53 @@ export default function MySales({
     handleUpdateTracking,
     handleManualDelivery
 }: MySalesProps) {
+    // Cálculos de KPIs
+    const totalSales = sales.length;
+    const totalRevenue = sales.filter(s => s.status === 'COMPLETED').reduce((acc, curr) => acc + (curr.amountProduct || curr.amount), 0);
+    // Ganancia asumiendo fee del 7%
+    const estimatedProfit = totalRevenue * 0.93; 
+    const moneyInEscrow = sales.filter(s => ['PAID_HELD', 'SHIPPED', 'DELIVERED_PENDING_REVIEW'].includes(s.status)).reduce((acc, curr) => acc + (curr.amountProduct || curr.amount), 0);
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex items-center justify-between pl-2">
                 <h2 className="text-2xl font-black text-dark-800 tracking-tighter uppercase">Mis Ventas</h2>
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Seguimiento de Cobros</p>
+            </div>
+
+            {/* ANALÍTICAS Y KPIs */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="bg-white p-6 rounded-3xl border border-light-200 shadow-sm flex flex-col justify-between">
+                    <span className="material-symbols-outlined text-primary-500 mb-2">trending_up</span>
+                    <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Vendido</p>
+                        <p className="text-2xl font-black text-dark-800 tracking-tighter">${totalRevenue.toLocaleString('es-AR')}</p>
+                    </div>
+                </div>
+
+                <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 shadow-sm flex flex-col justify-between">
+                    <span className="material-symbols-outlined text-emerald-500 mb-2">savings</span>
+                    <div>
+                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Tu Ganancia Neta</p>
+                        <p className="text-2xl font-black text-emerald-700 tracking-tighter">${estimatedProfit.toLocaleString('es-AR')}</p>
+                    </div>
+                </div>
+
+                <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 shadow-sm flex flex-col justify-between">
+                    <span className="material-symbols-outlined text-amber-500 mb-2">lock_clock</span>
+                    <div>
+                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">En Custodia</p>
+                        <p className="text-2xl font-black text-amber-700 tracking-tighter">${moneyInEscrow.toLocaleString('es-AR')}</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl border border-light-200 shadow-sm flex flex-col justify-between">
+                    <span className="material-symbols-outlined text-gray-400 mb-2">receipt_long</span>
+                    <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Ventas Históricas</p>
+                        <p className="text-2xl font-black text-dark-800 tracking-tighter">{totalSales}</p>
+                    </div>
+                </div>
             </div>
 
             <div className="grid gap-6">

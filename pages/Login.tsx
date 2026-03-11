@@ -30,6 +30,12 @@ const Login = () => {
       return;
     }
 
+    if (!isLogin && password.length < 8) {
+      notify({ type: 'error', title: 'Contraseña débil', message: 'La contraseña debe tener al menos 8 caracteres.', icon: 'error' });
+      triggerShake();
+      return;
+    }
+
     setIsLoadingAuth(true);
     try {
       if (isLogin) {

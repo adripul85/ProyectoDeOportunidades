@@ -34,6 +34,10 @@ const RegisterWizard = () => {
                 notify({ type: 'error', title: 'Faltan datos', message: 'Email y contraseña son obligatorios.', icon: 'error' });
                 return;
             }
+            if (formData.password.length < 8) {
+                notify({ type: 'error', title: 'Contraseña débil', message: 'La contraseña debe tener al menos 8 caracteres.', icon: 'error' });
+                return;
+            }
             setIsLoading(true);
             try {
                 await register(formData.email, formData.password);
@@ -73,7 +77,7 @@ const RegisterWizard = () => {
                 });
 
                 await refreshProfile();
-                notify({ type: 'success', title: '¡Bienvenido!', message: 'Tu cuenta ha sido configurada con éxito.', icon: 'verified_user' });
+                notify({ type: 'success', title: '¡Bienvenido!', message: 'Cuenta configurada con éxito. Por favor, revisa tu casilla de correo para verificar tu email.', icon: 'mark_email_read' });
                 navigate('/dashboard');
             } catch (error: any) {
                 notify({ type: 'error', title: 'Error Final', message: error.message || 'No se pudo completar el perfil.', icon: 'error' });
