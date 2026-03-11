@@ -522,22 +522,29 @@ export default function Settings() {
                                                 <div className="flex gap-3 items-center">
                                                     <input 
                                                         type="color" 
-                                                        value={formData.shopTheme.primaryColor}
+                                                        value={formData.shopTheme.primaryColor.startsWith('rgb') ? '#4f46e5' : formData.shopTheme.primaryColor}
                                                         onChange={(e) => setFormData({
                                                             ...formData,
                                                             shopTheme: { ...formData.shopTheme, primaryColor: e.target.value }
                                                         })}
                                                         className="size-12 rounded-xl cursor-pointer border-none bg-transparent"
                                                     />
-                                                    <input 
-                                                        type="text"
-                                                        value={formData.shopTheme.primaryColor}
-                                                        onChange={(e) => setFormData({
-                                                            ...formData,
-                                                            shopTheme: { ...formData.shopTheme, primaryColor: e.target.value }
-                                                        })}
-                                                        className="flex-1 bg-slate-50 border-2 border-transparent rounded-xl py-3 px-4 font-mono font-bold text-slate-600 outline-none"
-                                                    />
+                                                    <div className="flex-1 relative">
+                                                        <input 
+                                                            type="text"
+                                                            value={formData.shopTheme.primaryColor}
+                                                            onChange={(e) => setFormData({
+                                                                ...formData,
+                                                                shopTheme: { ...formData.shopTheme, primaryColor: e.target.value }
+                                                            })}
+                                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-100 rounded-xl py-3 px-4 font-mono font-bold text-slate-600 outline-none"
+                                                            placeholder="#000000 o rgb(0,0,0)"
+                                                        />
+                                                        <div 
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 size-4 rounded-full border border-slate-200"
+                                                            style={{ backgroundColor: formData.shopTheme.primaryColor }}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
@@ -545,22 +552,29 @@ export default function Settings() {
                                                 <div className="flex gap-3 items-center">
                                                     <input 
                                                         type="color" 
-                                                        value={formData.shopTheme.secondaryColor}
+                                                        value={formData.shopTheme.secondaryColor.startsWith('rgb') ? '#9333ea' : formData.shopTheme.secondaryColor}
                                                         onChange={(e) => setFormData({
                                                             ...formData,
                                                             shopTheme: { ...formData.shopTheme, secondaryColor: e.target.value }
                                                         })}
                                                         className="size-12 rounded-xl cursor-pointer border-none bg-transparent"
                                                     />
-                                                    <input 
-                                                        type="text"
-                                                        value={formData.shopTheme.secondaryColor}
-                                                        onChange={(e) => setFormData({
-                                                            ...formData,
-                                                            shopTheme: { ...formData.shopTheme, secondaryColor: e.target.value }
-                                                        })}
-                                                        className="flex-1 bg-slate-50 border-2 border-transparent rounded-xl py-3 px-4 font-mono font-bold text-slate-600 outline-none"
-                                                    />
+                                                    <div className="flex-1 relative">
+                                                        <input 
+                                                            type="text"
+                                                            value={formData.shopTheme.secondaryColor}
+                                                            onChange={(e) => setFormData({
+                                                                ...formData,
+                                                                shopTheme: { ...formData.shopTheme, secondaryColor: e.target.value }
+                                                            })}
+                                                            className="w-full bg-slate-50 border-2 border-transparent focus:border-purple-100 rounded-xl py-3 px-4 font-mono font-bold text-slate-600 outline-none"
+                                                            placeholder="#000000 o rgb(0,0,0)"
+                                                        />
+                                                        <div 
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 size-4 rounded-full border border-slate-200"
+                                                            style={{ backgroundColor: formData.shopTheme.secondaryColor }}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -980,44 +994,101 @@ export default function Settings() {
                             </motion.div>
                         )}
 
-                        {/* TAB: DATOS DE COBRO */}
+                        {/* TAB: DATOS DE COBRO & MERCADO PAGO */}
                         {activeTab === 'billing' && (
                             <motion.div
                                 key="billing"
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
-                                className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-8"
+                                className="space-y-6"
                             >
-                                <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
-                                    <span className="material-symbols-outlined text-amber-600">info</span>
-                                    <div>
-                                        <p className="text-sm font-bold text-amber-800">Transferencias de Ventas</p>
-                                        <p className="text-xs font-medium text-amber-700 mt-1">Asegúrate de que los datos coincidan con tu DNI para evitar demoras en los cobros reales.</p>
-                                    </div>
-                                </div>
+                                {/* MERCADO PAGO OAUTH SECTION */}
+                                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 overflow-hidden relative">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-[#009ee3]/5 rounded-full blur-[60px] pointer-events-none -mt-20 -mr-20"></div>
 
-                                <div className="space-y-4">
-                                    <div className="space-y-4 p-6 bg-slate-50 rounded-[24px] border border-slate-100">
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between items-center px-1">
-                                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">CBU / CVU o Alias</label>
+                                    <div className="flex items-start md:items-center justify-between flex-col md:flex-row gap-6 relative z-10">
+                                        <div className="flex items-center gap-4">
+                                            <div className="size-16 rounded-[20px] bg-[#009ee3] flex items-center justify-center p-3 shadow-lg shadow-[#009ee3]/20">
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Mercado_Libre_logo.svg/1200px-Mercado_Libre_logo.svg.png" className="w-full h-full object-contain brightness-0 invert" alt="Mercado Pago" />
                                             </div>
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={formData.bankDetails.cbu || formData.bankDetails.alias}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        if (/^\d+$/.test(val)) {
-                                                            setFormData({ ...formData, bankDetails: { ...formData.bankDetails, cbu: val, alias: '' } });
-                                                        } else {
-                                                            setFormData({ ...formData, bankDetails: { ...formData.bankDetails, alias: val, cbu: '' } });
-                                                        }
-                                                    }}
-                                                    className="flex-1 bg-white border-2 border-slate-200 focus:border-slate-900 rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all font-mono text-sm"
-                                                    placeholder="22 dígitos o alias.ejemplo"
-                                                />
+                                            <div>
+                                                <h4 className="text-xl font-black text-slate-900 tracking-tight">Cobros Automáticos</h4>
+                                                <p className="text-slate-500 text-sm font-medium mt-0.5">Recibe el dinero de tus ventas directo en tu cuenta.</p>
+                                            </div>
+                                        </div>
+
+                                        {userProfile.mercadoPagoOAuth ? (
+                                            <div className="flex items-center gap-3 bg-emerald-50 text-emerald-600 px-4 py-3 rounded-2xl border border-emerald-100/50">
+                                                <span className="material-symbols-outlined font-black">check_circle</span>
+                                                <div>
+                                                    <p className="text-xs font-black uppercase tracking-widest">Cuenta Vinculada</p>
+                                                    <p className="text-[10px] font-bold opacity-80 uppercase">ID: {userProfile.mercadoPagoOAuth.userId}</p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    // In production, use your actual environment variables
+                                                    const clientId = import.meta.env.VITE_MP_CLIENT_ID || 'PENDING_CLIENT_ID';
+                                                    const redirectUri = `${window.location.origin}/api/mercadopago-oauth`;
+                                                    const authUrl = `https://auth.mercadopago.com/authorization?client_id=${clientId}&response_type=code&platform_id=mp&redirect_uri=${redirectUri}&state=${user.uid}`;
+                                                    window.location.href = authUrl;
+                                                }}
+                                                className="bg-[#009ee3] text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-[#009ee3]/20 hover:bg-[#008cc7] transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap w-full md:w-auto justify-center"
+                                            >
+                                                <span className="material-symbols-outlined text-base">link</span>
+                                                Vincular Cuenta
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {!userProfile.mercadoPagoOAuth && (
+                                        <div className="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-100 flex gap-3 relative z-10">
+                                            <span className="material-symbols-outlined text-amber-600 text-sm mt-0.5">security</span>
+                                            <p className="text-xs font-bold text-amber-800 leading-relaxed">
+                                                Para vender en la plataforma usando "Pago Protegido", es obligatorio vincular tu cuenta de Mercado Pago. Nosotros dividimos el pago automáticamente, dejándote el 100% de tu ganancia al confirmar la entrega, sin intermediarios.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* TRANSFERENCIAS BANCARIAS MANUALES (LEGACY/RECAUDADORA) */}
+                                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 space-y-8 opacity-60 hover:opacity-100 transition-opacity">
+                                    <div className="flex items-center justify-between pb-4 border-b border-light-100">
+                                        <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">CBU de Respaldo (Opcional)</h4>
+                                    </div>
+                                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4">
+                                        <span className="material-symbols-outlined text-slate-400">info</span>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-700">Liquidaciones Manuales</p>
+                                            <p className="text-xs font-medium text-slate-500 mt-1">Si Mercado Pago no está disponible, usaremos estos datos bancarios para transferirte tus ganancias. Asegúrate de que coincida con tu DNI.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="space-y-4 p-6 bg-slate-50 rounded-[24px] border border-slate-100">
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center px-1">
+                                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">CBU / CVU o Alias</label>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={formData.bankDetails.cbu || formData.bankDetails.alias}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            if (/^\d+$/.test(val)) {
+                                                                setFormData({ ...formData, bankDetails: { ...formData.bankDetails, cbu: val, alias: '' } });
+                                                            } else {
+                                                                setFormData({ ...formData, bankDetails: { ...formData.bankDetails, alias: val, cbu: '' } });
+                                                            }
+                                                        }}
+                                                        className="flex-1 bg-white border-2 border-slate-200 focus:border-slate-900 rounded-2xl py-4 px-6 outline-none font-bold text-slate-700 transition-all font-mono text-sm"
+                                                        placeholder="22 dígitos o alias.ejemplo"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
 

@@ -1,17 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-
-// Inicializar Firebase Admin si no está inicializado
-if (!getApps().length) {
-    initializeApp({
-        // En Vercel, usaremos service account desde env var si es necesario, 
-        // o las credenciales por defecto si tiene permisos asignados.
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID
-    });
-}
-
-const db = getFirestore();
+import { adminDb } from '../lib/firebase-admin';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
@@ -21,47 +9,69 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Mercado Pago envía notificaciones por query params o body dependiendo del tipo
     const { action, data, type } = req.body;
 
+    // A veces MercadoPago envía un ping de confirmación
+    if (action === "test.created") {
+        return res.status(200).send('OK');
+    }
+
     try {
         // Solo nos interesan los pagos (payment)
         if (type === "payment" || action === "payment.created" || action === "payment.updated") {
-            const paymentId = data?.id || req.query.id;
+            const paymentId = data?.id || req.query.data?.id || req.body?.data?.id;
 
-            if (!paymentId) return res.status(400).send('No payment ID');
+            if (!paymentId) {
+                 // Si MP envía un POST simple sin ID claro, logueamos
+                 console.log("No payment ID in body:", req.body);
+                 return res.status(400).send('No payment ID');
+            }
 
-            // Consultar estado del pago a Mercado Pago
+            // ATENCIÓN: Con Split Payments, el pago se hizo a nombre del vendedor.
+            // Necesitamos consultar con Credenciales (Access Token) que tenga acceso a ese cobro,
+            // pero normalmente el webhook lo configuraste en TÚ aplicación (APP OWNER), 
+            // así que el Bearer Token del App Owner DEBERÍA tener acceso a ver la transacción de su Marketplace.
+            
             const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
                 headers: { 'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}` }
             });
 
-            if (!mpResponse.ok) throw new Error('Error fetching payment from MP');
+            if (!mpResponse.ok) {
+                const errData = await mpResponse.json();
+                console.error("Error fetching MP payment (Is API Key Valid?):", errData);
+                throw new Error('Error fetching payment from MP');
+            }
 
             const paymentData = await mpResponse.json();
 
             if (paymentData.status === 'approved') {
-                const productId = paymentData.external_reference;
+                const productId = paymentData.metadata?.product_id;
+                const buyerId = paymentData.metadata?.buyer_id || 'unknown';
+                const sellerId = paymentData.metadata?.seller_id || 'unknown';
+                const platformFee = paymentData.metadata?.platform_fee || 0;
 
                 if (productId) {
                     // Actualizar estado del producto en Firestore usando ADMIN SDK
-                    // Esto es necesario porque el webhook no está autenticado como usuario
-                    const productRef = db.collection('items').doc(productId);
+                    // El dinero AHORA está en la cuenta MP del vendedor (Split Payment)
+                    const productRef = adminDb.collection('items').doc(productId);
                     await productRef.update({
-                        status: 'PAID_IN_CUSTODY', // El dinero está en Vendelo Ya (Escrow)
+                        status: 'PAID_IN_CUSTODY', 
                         paymentId: paymentId,
                         updatedAt: new Date()
                     });
 
-                    // También podríamos crear una transacción en una colección 'orders' o 'transactions'
-                    await db.collection('transactions').add({
+                    // Registrar Transacción y Escrow
+                    await adminDb.collection('transactions').add({
                         productId,
                         paymentId,
                         amount: paymentData.transaction_amount,
-                        status: 'PAID',
-                        buyerId: paymentData.metadata?.buyer_id || 'unknown',
-                        sellerId: paymentData.metadata?.seller_id || 'unknown',
-                        createdAt: new Date()
+                        platformFee: platformFee, // Lo que ganó la plataforma
+                        status: 'IN_ESCROW', // El vendedor tiene la plata, pero debe entregar
+                        buyerId: buyerId,
+                        sellerId: sellerId,
+                        createdAt: new Date(),
+                        paymentPlatform: 'MercadoPago_Split'
                     });
 
-                    console.log(`✅ Pago aprobado y producto ${productId} actualizado.`);
+                    console.log(`✅ Pago Split aprobado y producto ${productId} en Escrow simulado.`);
                 }
             }
         }

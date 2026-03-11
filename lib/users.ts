@@ -93,6 +93,14 @@ export interface UserProfile {
         backgroundImage?: string;
         accentColor?: string;
     };
+    mercadoPagoOAuth?: {
+        accessToken: string;
+        refreshToken: string;
+        publicKey: string;
+        userId: string;
+        expiresIn: number;
+        updatedAt: any;
+    };
 
     createdAt: any;
     updatedAt?: any;

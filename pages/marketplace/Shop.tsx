@@ -101,28 +101,25 @@ const Shop = () => {
         ? { backgroundColor: theme.backgroundColor || '#0f172a' }
         : theme.backgroundType === 'image'
         ? { backgroundImage: `url(${theme.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-        : {};
+        : { 
+            // Better gradient implementation for dark/all colors
+            background: `linear-gradient(135deg, ${theme.primaryColor}80 0%, transparent 100%), 
+                         radial-gradient(circle at top right, ${theme.primaryColor} 0%, transparent 60%),
+                         radial-gradient(circle at bottom left, ${theme.secondaryColor} 0%, transparent 60%),
+                         #0f172a` 
+          }; // #0f172a acts as a solid deeply dark fallback base ensuring blacks blend smoothly
 
     return (
         <div className="bg-light-50 min-h-screen">
             {/* SHOP HEADER */}
             <div 
-                className={`relative overflow-hidden pt-32 pb-20 transition-colors duration-1000 ${!theme.backgroundColor && theme.backgroundType !== 'image' ? 'bg-dark-950' : ''}`}
+                className={`relative overflow-hidden pt-32 pb-20 transition-colors duration-1000 ${!theme.backgroundColor && theme.backgroundType !== 'image' && theme.backgroundType !== 'gradient' ? 'bg-dark-950' : ''}`}
                 style={headerStyle}
             >
-                {/* Background Effects */}
-                <div className="absolute inset-0">
+                {/* Background Effects Overlay */}
+                <div className="absolute inset-0 z-0">
                     {theme.backgroundType === 'gradient' && (
-                        <>
-                            <div 
-                                className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full blur-[150px] opacity-20" 
-                                style={{ backgroundColor: theme.primaryColor || '#e11d48' }}
-                            />
-                            <div 
-                                className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full blur-[120px] opacity-10" 
-                                style={{ backgroundColor: theme.secondaryColor || '#4f46e5' }}
-                            />
-                        </>
+                        <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
                     )}
                     {theme.backgroundType === 'image' && (
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />

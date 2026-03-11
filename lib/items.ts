@@ -123,8 +123,8 @@ export const getFeaturedItems = async (userLocation?: string) => {
             const urgencyScore = Math.max(0, 1 - (msLeft / (48 * 3600 * 1000))); // normalizado 0-1
             // Más vistas = más popular
             const engagementScore = Math.min(1, (item.views || 0) / 100); // normalizado 0-1
-            // Ponderación: 60% urgencia, 40% engagement
-            const totalScore = (urgencyScore * 0.6) + (engagementScore * 0.4);
+            // Scoring: combinar urgencia + engagement
+            const totalScore = (urgencyScore * 0.2) + (engagementScore * 0.8);
             // Match de ubicación
             const isLocal = userLocation && item.location
                 ? item.location.toLowerCase().includes(userLocation.toLowerCase())
@@ -268,6 +268,26 @@ export const getSmartSuggestions = async (uid: string, limitCount: number = 8): 
         return items;
     } catch (error) {
         console.error("Error fetching smart suggestions:", error);
+        return [];
+    }
+};
+
+/**
+ * Fetch top trending items by views
+ */
+export const getTrendingItems = async (limitCount: number = 3): Promise<(ItemData & { id: string })[]> => {
+    try {
+        const itemsRef = collection(db, "items");
+        const q = query(
+            itemsRef,
+            where("status", "==", "AVAILABLE"),
+            orderBy("views", "desc"),
+            limit(limitCount)
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ItemData & { id: string }));
+    } catch (error) {
+        console.error("Error fetching trending items:", error);
         return [];
     }
 };

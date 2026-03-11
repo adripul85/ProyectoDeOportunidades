@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { getItems, ItemData, ItemCondition, getFeaturedItems, getSmartSuggestions } from '../../lib/items';
+import { getItems, ItemData, ItemCondition, getFeaturedItems, getSmartSuggestions, getTrendingItems } from '../../lib/items';
 import { CATEGORIES } from '../../lib/constants';
 import { LOCATION_DATA } from '../../lib/locations';
 import HomeHero from '../../components/HomeHero';
@@ -397,6 +397,7 @@ const Home = () => {
   const [activeProvince, setActiveProvince] = useState<string>('');
   const [activeCity, setActiveCity] = useState<string>('');
   const [activeCondition, setActiveCondition] = useState<string>('');
+  const [trendingItems, setTrendingItems] = useState<(ItemData & { id: string })[]>([]);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -408,8 +409,12 @@ const Home = () => {
   useEffect(() => {
     const fetchRecent = async () => {
       setLoading(true);
-      const items = await getItems();
+      const [items, trending] = await Promise.all([
+        getItems(),
+        getTrendingItems(3)
+      ]);
       setRecentProducts(items);
+      setTrendingItems(trending);
       setLoading(false);
     };
     fetchRecent();
@@ -616,7 +621,33 @@ const Home = () => {
       <main className="flex-1 p-6 sm:p-12 relative z-10 pt-28 sm:pt-12 w-full ml-auto lg:w-[calc(100%-256px)]">
         <div className="max-w-7xl mx-auto">
 
-          {!activeCategory && <HomeHero />}
+          {!activeCategory && (
+            <>
+              <HomeHero featuredItems={trendingItems} />
+              
+              {/* OPORTUNIDADES YA BANNER */}
+              <Link to="/deals" className="mt-8 mb-12 relative group block overflow-hidden rounded-[32px] sm:rounded-[40px] shadow-premium hover:shadow-premium-lg transition-all duration-500 transform hover:-translate-y-1">
+                <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-rose-500 to-orange-500" />
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" />
+                <div className="absolute -inset-x-full h-full w-1/2 block z-10 bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:translate-x-[200%] transition-transform duration-1000 ease-in-out" />
+                
+                <div className="relative z-20 px-8 py-6 sm:px-12 sm:py-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-6">
+                    <div className="size-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 text-white shrink-0 shadow-inner">
+                      <span className="material-symbols-outlined text-4xl animate-pulse">timer</span>
+                    </div>
+                    <div>
+                      <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tighter mb-1">Oportunidades Flash 12Hs</h3>
+                      <p className="text-white/90 font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em]">Activos premium con descuentos exclusivos y tiempo limitado</p>
+                    </div>
+                  </div>
+                  <div className="bg-white text-red-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] whitespace-nowrap group-hover:bg-light-50 transition-colors w-full sm:w-auto text-center shadow-lg active:scale-95">
+                    Ver Oportunidades Ya
+                  </div>
+                </div>
+              </Link>
+            </>
+          )}
 
           {/* --- MOBILE FILTER EXPERIENCE --- */}
           <FilterChipsBar

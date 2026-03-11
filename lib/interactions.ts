@@ -201,3 +201,16 @@ export const checkIsFollowing = async (followerId: string, followedId: string) =
     }
 };
 
+// --- INTERACTION TRACKING ---
+
+export const trackProductView = async (productId: string) => {
+    try {
+        const { increment, updateDoc } = await import("firebase/firestore");
+        const productRef = doc(db, "items", productId);
+        await updateDoc(productRef, {
+            views: increment(1)
+        });
+    } catch (error) {
+        console.error("Error tracking product view:", error);
+    }
+};

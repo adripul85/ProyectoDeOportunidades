@@ -261,6 +261,43 @@ export default function Publish() {
         setStep(prev => prev - 1);
     };
 
+    const hasMercadoPago = !!userProfile?.mercadoPagoOAuth;
+
+    // BLOQUEO: Obligatorio Mercado Pago OAuth (Split Payments)
+    if (userProfile && !hasMercadoPago) {
+        return (
+            <div className="bg-light-50 min-h-screen flex items-center justify-center p-6 animate-in fade-in duration-500">
+                <div className="bg-white rounded-[40px] shadow-premium border border-light-200 p-8 lg:p-12 max-w-lg text-center overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-[#009ee3]/5 rounded-full blur-[60px] pointer-events-none -mt-20 -mr-20"></div>
+
+                    <div className="size-24 bg-[#009ee3] text-white rounded-[24px] flex items-center justify-center mx-auto mb-8 shadow-lg shadow-[#009ee3]/20 relative z-10 p-4">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Mercado_Libre_logo.svg/1200px-Mercado_Libre_logo.svg.png" className="w-full h-full object-contain brightness-0 invert" alt="Mercado Pago" />
+                    </div>
+                    
+                    <h2 className="text-3xl font-black text-dark-800 tracking-tighter mb-4 uppercase relative z-10">Vinculá tu Cuenta</h2>
+                    
+                    <p className="text-sm font-bold text-gray-500 mb-8 leading-relaxed relative z-10">
+                        Para poder vender y operar con <strong>Pago Protegido</strong> de forma automática y que el dinero te ingrese directamente a vos, es obligatorio vincular tu cuenta de <strong>Mercado Pago</strong> como vendedor.
+                    </p>
+                    
+                    <button
+                        onClick={() => navigate('/settings')}
+                        className="w-full bg-[#009ee3] text-white py-5 rounded-3xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-[#009ee3]/20 hover:bg-[#008cc7] transition-all active:scale-95 flex items-center justify-center gap-3 relative z-10"
+                    >
+                        <span className="material-symbols-outlined text-sm">link</span>
+                        Vincular Cuenta Ahora
+                    </button>
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="w-full mt-6 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-dark-800 transition-colors"
+                    >
+                        Volver Atrás
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-light-50 min-h-screen">
             <div className="max-w-3xl mx-auto px-6 py-6 lg:py-12 font-sans">

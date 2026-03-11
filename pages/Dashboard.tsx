@@ -419,6 +419,95 @@ export default function Dashboard() {
           <div className="lg:col-span-3 space-y-8">
 
             {/* Context-Specific Sidebars */}
+            {activeTab === 'publicaciones' && (
+              <div className="bg-white p-6 rounded-[40px] border border-light-200 shadow-premium">
+                <h3 className="text-[10px] font-black text-dark-800 uppercase tracking-[0.2em] pl-1 mb-6 text-center">
+                  {new Date().toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
+                </h3>
+                <div className="grid grid-cols-7 gap-y-4 text-center">
+                  {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => <span key={i} className="text-[9px] font-black text-gray-300">{d}</span>)}
+                  {(() => {
+                    const today = new Date();
+                    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).getDay();
+                    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+                    
+                    // Get activity days with details
+                    const activityDays = new Set<number>();
+                    const dayActivities = new Map<number, { type: string, detail: string }[]>();
+
+                    [...transactions.compras, ...transactions.ventas].forEach(t => {
+                      const date = t.createdAt?.toDate ? t.createdAt.toDate() : new Date(t.createdAt);
+                      if (date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear()) {
+                        const d = date.getDate();
+                        activityDays.add(d);
+                        if (!dayActivities.has(d)) dayActivities.set(d, []);
+                        dayActivities.get(d)!.push({ type: t.type === 'compra' ? 'Compra' : 'Venta', detail: t.itemTitle || 'Producto' });
+                      }
+                    });
+                    userItems.forEach(item => {
+                      const date = item.createdAt?.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
+                      if (date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear()) {
+                        const d = date.getDate();
+                        activityDays.add(d);
+                        if (!dayActivities.has(d)) dayActivities.set(d, []);
+                        dayActivities.get(d)!.push({ type: 'Publicación', detail: item.title });
+                      }
+                    });
+
+                    return (
+                      <>
+                        {[...Array(firstDayOfMonth)].map((_, i) => <span key={`empty-${i}`} />)}
+                        {[...Array(daysInMonth)].map((_, i) => {
+                          const day = i + 1;
+                          const isToday = day === today.getDate();
+                          const hasActivity = activityDays.has(day);
+                          const activities = dayActivities.get(day) || [];
+                          
+                          return (
+                            <div key={day} className="relative group cursor-default">
+                              <span className={`text-[10px] font-bold p-1 rounded-lg block transition-all ${
+                                isToday 
+                                  ? 'bg-primary-vibrant text-white font-black' 
+                                  : hasActivity 
+                                    ? 'bg-amber-100 text-amber-700 font-black hover:bg-amber-200'
+                                    : 'text-dark-800 hover:bg-light-50'
+                              }`}>
+                                {day}
+                              </span>
+                              {hasActivity && !isToday && (
+                                <div className="absolute -top-1 -right-1 size-1.5 bg-primary-vibrant rounded-full border border-white" />
+                              )}
+
+                              {/* Hover Tooltip for Activity Details */}
+                              {hasActivity && (
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-dark-800 text-white p-3 rounded-2xl shadow-premium-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] pointer-events-none origin-bottom">
+                                  <h5 className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-700 pb-2">
+                                    Revisión de Actividad
+                                  </h5>
+                                  <ul className="space-y-1.5 text-left text-[10px] font-bold">
+                                    {activities.slice(0, 4).map((act, idx) => (
+                                      <li key={idx} className="truncate">
+                                        <span className={`mr-1.5 ${act.type === 'Compra' ? 'text-indigo-400' : act.type === 'Venta' ? 'text-emerald-400' : 'text-amber-400'}`}>[{act.type}]</span>
+                                        <span className="text-gray-200">{act.detail}</span>
+                                      </li>
+                                    ))}
+                                    {activities.length > 4 && (
+                                      <li className="text-gray-500 italic pt-1">y {activities.length - 4} más...</li>
+                                    )}
+                                  </ul>
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-[5px] border-transparent border-t-dark-800"></div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
             {activeTab === 'compras' && (
               <>
                 <div className="bg-white p-8 rounded-[40px] border border-light-200 shadow-premium space-y-8">
@@ -496,14 +585,18 @@ export default function Dashboard() {
                 </div>
 
                 <div className="bg-white p-8 rounded-[40px] border border-light-200 shadow-premium">
-                  <h3 className="text-[10px] font-black text-dark-800 uppercase tracking-[0.2em] pl-1 mb-8 text-center uppercase">October 2023</h3>
-                  <div className="grid grid-cols-7 gap-y-6 text-center">
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <span key={i} className="text-[9px] font-black text-gray-300">{d}</span>)}
-                    {[...Array(31)].map((_, i) => (
-                      <span key={i} className={`text-[10px] font-bold p-1 rounded-lg cursor-pointer hover:bg-light-50 transition-colors ${i + 1 === 6 ? 'bg-primary-vibrant text-white font-black' : 'text-dark-800'}`}>
-                        {i + 1}
-                      </span>
-                    ))}
+                  <h3 className="text-[10px] font-black text-dark-800 uppercase tracking-[0.2em] pl-1 mb-8">
+                    Resumen Rápido
+                  </h3>
+                  <div className="space-y-4">
+                    <p className="text-[11px] font-bold text-gray-400 flex justify-between">
+                      <span className="uppercase tracking-widest">En preparación:</span>
+                      <span className="text-dark-800 font-black">{transactions.ventas.filter(t => t.status === 'PAID_HELD').length}</span>
+                    </p>
+                    <p className="text-[11px] font-bold text-gray-400 flex justify-between">
+                      <span className="uppercase tracking-widest">Enviados:</span>
+                      <span className="text-dark-800 font-black">{transactions.ventas.filter(t => t.status === 'SHIPPED').length}</span>
+                    </p>
                   </div>
                 </div>
               </>
@@ -573,12 +666,12 @@ export default function Dashboard() {
             {/* TRANSACTIONS LIST */}
             <div className="space-y-8">
               {loading ? (
-                <div className="flex flex-col items-center justify-center py-32">
-                  <LoadingSpinner size="lg" text="Sincronizando historial..." />
-                </div>
-              ) : activeTab === 'publicaciones' ? (
-                filteredUserItems.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="flex flex-col items-center justify-center py-32">
+                    <LoadingSpinner size="lg" text="Sincronizando historial..." />
+                  </div>
+                ) : activeTab === 'publicaciones' ? (
+                  filteredUserItems.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {filteredUserItems.map(item => (
                       <div key={item.id} className="bg-white rounded-[40px] border border-light-200 shadow-premium overflow-hidden transition-all hover:shadow-premium-lg group animate-in fade-in duration-500">
                         <div className="p-8">
@@ -760,23 +853,9 @@ export default function Dashboard() {
             </button>
           </div>
         ) : (
-          <div className="max-w-[1440px] mx-auto px-6 py-8 flex justify-center">
-            <button
-              onClick={async () => {
-                if (!user) return;
-                if (confirm("¿Promover tu usuario a ADMIN? Esto te dará acceso a herramientas de desarrollador.")) {
-                  const { updateUserRole } = await import('../lib/admin');
-                  await updateUserRole(user.uid, 'admin');
-                  alert("¡Ahora eres Admin!");
-                  window.location.reload();
-                }
-              }}
-              className="bg-indigo-50 border border-indigo-200 text-indigo-600 px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-indigo-100 transition-colors flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined text-lg">admin_panel_settings</span>
-              Promover a Admin (Dev Tool)
-            </button>
-          </div>
+      <div className="max-w-[1440px] mx-auto px-6 py-8 flex justify-center">
+        {/* Herramienta de promoción a admin removida por seguridad */}
+      </div>
         )
       }
 

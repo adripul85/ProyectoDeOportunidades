@@ -22,10 +22,13 @@ if (!firebaseConfig.apiKey) {
 
 const app = initializeApp(firebaseConfig);
 
+import { initializeFirestore } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
 // Exportamos las herramientas listas para usar
-export const db = getFirestore(app);       // Base de datos
+export const db = initializeFirestore(app, {
+    experimentalForceLongPolling: true, // Use experimental prefix if standard fails
+} as any);
 export const auth = getAuth(app);          // Usuarios
 export const storage = getStorage(app);    // Para subir fotos
 export const functions = getFunctions(app); // Funciones Cloud

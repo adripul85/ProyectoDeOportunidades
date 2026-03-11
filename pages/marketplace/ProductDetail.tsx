@@ -21,7 +21,7 @@ import QuestionsSection from '../../components/product/QuestionsSection';
 import ProductActions from '../../components/product/ProductActions';
 import SellerStoreBanner from '../../components/product/SellerStoreBanner';
 
-import { toggleFavorite, checkIsFavorite, toggleProductAlert, checkHasAlert, reportItem } from '../../lib/interactions';
+import { toggleFavorite, checkIsFavorite, toggleProductAlert, checkHasAlert, reportItem, trackProductView as incrementProductViews } from '../../lib/interactions';
 import { trackProductView } from '../../lib/users';
 import ReportModal from '../../components/product/ReportModal';
 import { useCart } from '../../context/CartContext';
@@ -62,8 +62,9 @@ const ProductDetail = () => {
       checkIsFavorite(user.uid, product.id).then(setIsSaved);
       checkHasAlert(user.uid, product.id).then(setHasAlert);
 
-      // Track behavior
+      // Track behavior (personalization + popularity)
       trackProductView(user.uid, product.id, product.category);
+      incrementProductViews(product.id);
     }
   }, [user, product.id, product.category]);
 
