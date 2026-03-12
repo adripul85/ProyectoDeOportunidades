@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.autoReleaseEscrow = exports.submitEvidence = exports.addEscrowNote = exports.refundFunds = exports.releaseFunds = exports.updateTracking = exports.updateTransactionStatus = exports.createPayment = void 0;
+exports.mercadoPagoWebhook = exports.autoReleaseEscrow = exports.submitEvidence = exports.addEscrowNote = exports.refundFunds = exports.releaseFunds = exports.updateTracking = exports.updateTransactionStatus = exports.createPayment = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const mercadopago_1 = require("mercadopago");
@@ -22,13 +22,19 @@ async function distributeEscrowFunds(transactionId, data) {
     const adminId = await getSystemAdminId();
     const sellerRef = db.collection('users').doc(data.sellerId);
     // Calculated based on new model (Step Id 5789 logic)
-    const sellerProceeds = data.amountProduct || data.amount;
-    const platformRevenue = data.amountPlatformFee || data.amountPlatformFee || 0;
+    // amountProduct is the net for the seller, amountPlatformFee is for the platform
+    const baseSellerProceeds = data.amountProduct || data.amount || 0;
+    const basePlatformRevenue = data.amountPlatformFee || data.platformFee || 0;
+    // Apply Flash Deal Commission (if applicable)
+    const featuredCommission = data.featuredFeeApplied ? Math.round(baseSellerProceeds * data.featuredFeeApplied) : 0;
+    const sellerProceeds = baseSellerProceeds - featuredCommission;
+    const platformRevenue = basePlatformRevenue + featuredCommission;
     const batch = db.batch();
-    // A. Pay Seller
+    // A. Pay Seller & Increment Sales
     batch.update(sellerRef, {
         "wallet.available": admin.firestore.FieldValue.increment(sellerProceeds),
-        "wallet.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
+        "wallet.lastUpdated": admin.firestore.FieldValue.serverTimestamp(),
+        "successfulSales": admin.firestore.FieldValue.increment(1)
     });
     // B. Pay Admin
     if (adminId && platformRevenue > 0) {
@@ -47,6 +53,53 @@ async function distributeEscrowFunds(transactionId, data) {
             relatedUser: data.sellerId,
             timestamp: admin.firestore.FieldValue.serverTimestamp()
         });
+        // D. Admin Wallet Movement
+        const adminMovementRef = db.collection('wallet_movements').doc();
+        batch.set(adminMovementRef, {
+            uid: adminId,
+            type: 'PLATFORM_REVENUE',
+            amount: platformRevenue,
+            referenceId: transactionId,
+            itemTitle: data.itemTitle,
+            description: `Comisión Pago Protegido: ${data.itemTitle}`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+        // E. LOG WALLET MOVEMENTS (Seller)
+        // 1. Release from Escrow
+        const escrowReleaseRef = db.collection('wallet_movements').doc();
+        batch.set(escrowReleaseRef, {
+            uid: data.sellerId,
+            type: 'ESCROW_RELEASE',
+            amount: baseSellerProceeds,
+            referenceId: transactionId,
+            itemTitle: data.itemTitle,
+            description: `Liberación de garantía: ${data.itemTitle}`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+        // 2. Add to Available Revenue
+        const saleRevenueRef = db.collection('wallet_movements').doc();
+        batch.set(saleRevenueRef, {
+            uid: data.sellerId,
+            type: 'SALE_REVENUE',
+            amount: sellerProceeds,
+            referenceId: transactionId,
+            itemTitle: data.itemTitle,
+            description: `Ganancia por venta: ${data.itemTitle}`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+        // 3. Log Feature Commission (if any)
+        if (featuredCommission > 0) {
+            const penaltyRef = db.collection('wallet_movements').doc();
+            batch.set(penaltyRef, {
+                uid: data.sellerId,
+                type: 'PENALTY', // Categorized as penalty/fee
+                amount: featuredCommission,
+                referenceId: transactionId,
+                itemTitle: data.itemTitle,
+                description: `Comisión por producto destacado`,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+        }
     }
     await batch.commit();
 }
@@ -145,7 +198,7 @@ exports.releaseFunds = functions.https.onCall(async (request) => {
     const isBuyer = data.buyerId === request.auth.uid;
     const isAdmin = false; // TODO: Implement real admin check via custom claims
     // Validar token si es intercambio en persona
-    if (data.deliveryMethod === 'MEETING' && data.qrCode !== qrToken) {
+    if (data.deliveryMethod === 'en_mano' && data.qrCode !== qrToken) {
         throw new functions.https.HttpsError('invalid-argument', 'Token de seguridad inválido.');
     }
     if (!isBuyer && !isAdmin) {
@@ -254,11 +307,11 @@ exports.submitEvidence = functions.https.onCall(async (request) => {
  * Runs every hour to check for SHIPPED transactions older than 48 hours.
  */
 exports.autoReleaseEscrow = functions.pubsub.schedule('every 1 hours').onRun(async (context) => {
-    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
-    // Query transactions that are SHIPPED and haven't been updated in 48h
+    const now = new Date();
+    // Query transactions that are DELIVERED_PENDING_REVIEW and deadline has passed
     const snapshot = await db.collection('transactions')
-        .where('status', '==', 'SHIPPED')
-        .where('updatedAt', '<=', fortyEightHoursAgo)
+        .where('status', '==', 'DELIVERED_PENDING_REVIEW')
+        .where('inspectionDeadline', '<=', now)
         .get();
     if (snapshot.empty) {
         console.log('No transactions to auto-release.');
@@ -289,5 +342,42 @@ exports.autoReleaseEscrow = functions.pubsub.schedule('every 1 hours').onRun(asy
         }
     }
     return results;
+});
+/**
+ * 10. MERCADO PAGO WEBHOOK (Payment Confirmation)
+ */
+exports.mercadoPagoWebhook = functions.https.onRequest(async (req, res) => {
+    var _a;
+    const { type, data } = req.body;
+    // We only care about payment events
+    if (type === 'payment') {
+        const paymentId = data.id;
+        try {
+            // Get payment detail from MP
+            const { Payment } = await Promise.resolve().then(() => require('mercadopago'));
+            const mpPayment = new Payment(client);
+            const paymentDetail = await mpPayment.get({ id: paymentId });
+            if (paymentDetail.status === 'approved') {
+                const txId = paymentDetail.external_reference;
+                if (txId) {
+                    const txRef = db.collection('transactions').doc(txId);
+                    const txDoc = await txRef.get();
+                    if (txDoc.exists && ((_a = txDoc.data()) === null || _a === void 0 ? void 0 : _a.status) === 'PENDING_PAYMENT') {
+                        await txRef.update({
+                            status: 'PAID_HELD',
+                            mpPaymentId: paymentId,
+                            lastSystemMessage: '✅ Pago confirmado via Mercado Pago. Fondos en garantía.',
+                            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log(`Transaction ${txId} marked as PAID_HELD.`);
+                    }
+                }
+            }
+        }
+        catch (error) {
+            console.error('Error processing MP Webhook:', error);
+        }
+    }
+    res.status(200).send('OK');
 });
 //# sourceMappingURL=index.js.map

@@ -25,15 +25,22 @@ async function distributeEscrowFunds(transactionId: string, data: any) {
 
     // Calculated based on new model (Step Id 5789 logic)
     // amountProduct is the net for the seller, amountPlatformFee is for the platform
-    const sellerProceeds = data.amountProduct || data.amount || 0;
-    const platformRevenue = data.amountPlatformFee || 0;
+    const baseSellerProceeds = data.amountProduct || data.amount || 0;
+    const basePlatformRevenue = data.amountPlatformFee || data.platformFee || 0;
+
+    // Apply Flash Deal Commission (if applicable)
+    const featuredCommission = data.featuredFeeApplied ? Math.round(baseSellerProceeds * data.featuredFeeApplied) : 0;
+
+    const sellerProceeds = baseSellerProceeds - featuredCommission;
+    const platformRevenue = basePlatformRevenue + featuredCommission;
 
     const batch = db.batch();
 
-    // A. Pay Seller
+    // A. Pay Seller & Increment Sales
     batch.update(sellerRef, {
         "wallet.available": admin.firestore.FieldValue.increment(sellerProceeds),
-        "wallet.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
+        "wallet.lastUpdated": admin.firestore.FieldValue.serverTimestamp(),
+        "successfulSales": admin.firestore.FieldValue.increment(1)
     });
 
     // B. Pay Admin
@@ -54,6 +61,58 @@ async function distributeEscrowFunds(transactionId: string, data: any) {
             relatedUser: data.sellerId,
             timestamp: admin.firestore.FieldValue.serverTimestamp()
         });
+
+        // D. Admin Wallet Movement
+        const adminMovementRef = db.collection('wallet_movements').doc();
+        batch.set(adminMovementRef, {
+            uid: adminId,
+            type: 'PLATFORM_REVENUE',
+            amount: platformRevenue,
+            referenceId: transactionId,
+            itemTitle: data.itemTitle,
+            description: `Comisión Pago Protegido: ${data.itemTitle}`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // E. LOG WALLET MOVEMENTS (Seller)
+
+        // 1. Release from Escrow
+        const escrowReleaseRef = db.collection('wallet_movements').doc();
+        batch.set(escrowReleaseRef, {
+            uid: data.sellerId,
+            type: 'ESCROW_RELEASE',
+            amount: baseSellerProceeds,
+            referenceId: transactionId,
+            itemTitle: data.itemTitle,
+            description: `Liberación de garantía: ${data.itemTitle}`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // 2. Add to Available Revenue
+        const saleRevenueRef = db.collection('wallet_movements').doc();
+        batch.set(saleRevenueRef, {
+            uid: data.sellerId,
+            type: 'SALE_REVENUE',
+            amount: sellerProceeds,
+            referenceId: transactionId,
+            itemTitle: data.itemTitle,
+            description: `Ganancia por venta: ${data.itemTitle}`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // 3. Log Feature Commission (if any)
+        if (featuredCommission > 0) {
+            const penaltyRef = db.collection('wallet_movements').doc();
+            batch.set(penaltyRef, {
+                uid: data.sellerId,
+                type: 'PENALTY', // Categorized as penalty/fee
+                amount: featuredCommission,
+                referenceId: transactionId,
+                itemTitle: data.itemTitle,
+                description: `Comisión por producto destacado`,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+        }
     }
 
     await batch.commit();
