@@ -1027,20 +1027,48 @@ export default function Settings() {
                                                 </div>
                                             </div>
                                         ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    // In production, use your actual environment variables
-                                                    const clientId = import.meta.env.VITE_MP_CLIENT_ID || 'PENDING_CLIENT_ID';
-                                                    const redirectUri = `${window.location.origin}/api/mercadopago-oauth`;
-                                                    const authUrl = `https://auth.mercadopago.com/authorization?client_id=${clientId}&response_type=code&platform_id=mp&redirect_uri=${redirectUri}&state=${user.uid}`;
-                                                    window.location.href = authUrl;
-                                                }}
-                                                className="bg-[#009ee3] text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-[#009ee3]/20 hover:bg-[#008cc7] transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap w-full md:w-auto justify-center"
-                                            >
-                                                <span className="material-symbols-outlined text-base">link</span>
-                                                Vincular Cuenta
-                                            </button>
+                                            <div className="flex flex-col gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const clientId = import.meta.env.VITE_MP_CLIENT_ID || 'PENDING_CLIENT_ID';
+                                                        const redirectUri = `${window.location.origin}/api/mercadopago-oauth`;
+                                                        const authUrl = `https://auth.mercadopago.com/authorization?client_id=${clientId}&response_type=code&platform_id=mp&redirect_uri=${redirectUri}&state=${user.uid}`;
+                                                        window.location.href = authUrl;
+                                                    }}
+                                                    className="bg-[#009ee3] text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-[#009ee3]/20 hover:bg-[#008cc7] transition-all active:scale-[0.98] flex items-center gap-2 whitespace-nowrap w-full md:w-auto justify-center"
+                                                >
+                                                    <span className="material-symbols-outlined text-base">link</span>
+                                                    Vincular Cuenta
+                                                </button>
+                                                
+                                                {/* MOCK LINK FOR TESTING (NO CLIENT SECRET NEEDED) */}
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        if (window.confirm("¿Vincular usando el Access Token de Prueba proporcionado?")) {
+                                                            setIsSaving(true);
+                                                            const testToken = "APP_USR-4773832435343676-031310-0064546a2496fc97279e7909f582cab5-3117965906";
+                                                            const res = await updateUserProfile(user.uid, {
+                                                                mercadoPagoOAuth: {
+                                                                    accessToken: testToken,
+                                                                    publicKey: "APP_USR-32ad7602-56a5-4d63-b13b-503512d4f1e5",
+                                                                    userId: "3117965906",
+                                                                    updatedAt: new Date()
+                                                                }
+                                                            });
+                                                            if (res.success) {
+                                                                refreshProfile();
+                                                                notify({ type: 'success', title: 'Test Linked', message: 'Modo test activado.', icon: 'science' });
+                                                            }
+                                                            setIsSaving(false);
+                                                        }
+                                                    }}
+                                                    className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors py-2"
+                                                >
+                                                    [ Modulo de Testeo: Vincular Manualmente ]
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
 
