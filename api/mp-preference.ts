@@ -15,6 +15,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'Falta el ID del vendedor' });
         }
 
+        // Validación de Firebase Admin
+        if (!adminDb) {
+            console.error("[MP API] Error Crítico: Firebase Admin SDK no se inicializó correctamente en Vercel. Faltan variables de entorno.");
+            return res.status(500).json({ error: 'Fallo interno de servidor: Credenciales de Base de Datos ausentes.' });
+        }
+
         // Buscar las credenciales de Mercado Pago del vendedor
         console.log(`[MP API] Fetching seller doc from Firestore: ${sellerId}`);
         const sellerDoc = await adminDb.collection('users').doc(sellerId).get();
@@ -28,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         if (!sellerOAuth || !sellerOAuth.accessToken) {
             console.error(`[MP API] Error: Seller ${sellerId} has no MP OAuth Access Token linked`);
-            return res.status(400).json({ error: 'El vendedor no tiene tu cuenta de Mercado Pago vinculada. No se puede usar Split Payments.' });
+            return res.status(400).json({ error: 'El vendedor no tiene vinculada su cuenta de Mercado Pago. (Modo Testing Válido)' });
         }
 
         console.log(`[MP API] Seller OK. Calculating Fees. AccessToken prefix: ${sellerOAuth.accessToken.substring(0, 15)}...`);
@@ -38,7 +44,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const totalAmmount = Number(price) * Number(quantity);
         const marketplaceFee = Math.round(totalAmmount * platformFeePercentage);
 
-        const mpPayload = {
+        const isLocalHost = req.headers.host?.includes('localhost');
+        
+        const mpPayload: any = {
             items: [
                 {
                     title: title,
@@ -47,7 +55,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     currency_id: 'ARS'
                 }
             ],
-            // ... y ACA nos quedamos con nuestra comisión (va a la cuenta atada al APP ID que generó el Access Token OAuth)
             marketplace_fee: marketplaceFee,
             external_reference: productId,
             metadata: {
@@ -55,7 +62,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 product_id: productId,
                 platform_fee: marketplaceFee
             },
-            notification_url: `https://${req.headers.host}/api/mercadopago-webhook`,
             back_urls: {
                 success: `https://${req.headers.host}/payment/success`,
                 failure: `https://${req.headers.host}/payment/failure`,
@@ -63,6 +69,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
             auto_return: 'approved'
         };
+
+        // MercadoPago a menudo bloquea webhooks hacia "localhost" con un error 400.
+        if (!isLocalHost) {
+            mpPayload.notification_url = `https://${req.headers.host}/api/mercadopago-webhook`;
+        }
 
         console.log(`[MP API] Sending Payload to Mercado Pago:`, JSON.stringify(mpPayload, null, 2));
         

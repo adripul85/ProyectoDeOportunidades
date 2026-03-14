@@ -74,7 +74,7 @@ const FilterChipsBar = ({ activeCategory, activeSubcategory, priceRange, activeC
   const hasActiveFilters = activeCategory || activeSubcategory || priceRange.min || priceRange.max || activeCondition;
 
   return (
-    <div className="lg:hidden sticky top-[72px] z-30 bg-light-50/80 backdrop-blur-md -mx-6 px-6 py-3 border-b border-light-200">
+    <div className="lg:hidden sticky top-[64px] z-30 bg-light-50/90 backdrop-blur-md pb-3 border-b border-light-200">
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
         <button
           onClick={onOpenDrawer}
@@ -360,7 +360,7 @@ const FlashDealsSection = () => {
         <Link to="/deals" className="text-[10px] font-black text-primary-vibrant uppercase tracking-widest hover:underline">Explorar Todas</Link>
       </div>
 
-      <div className="flex gap-6 overflow-x-auto pb-6 -mx-2 px-2 no-scrollbar scroll-smooth">
+      <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide snap-x px-2">
         {featured.slice(0, 6).map((product) => (
           <div key={product.id} className="w-[260px] md:w-[300px] flex-shrink-0">
             <div className="relative group h-full">
@@ -618,8 +618,8 @@ const Home = () => {
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 p-6 sm:p-12 relative z-10 pt-28 sm:pt-12 w-full ml-auto lg:w-[calc(100%-256px)]">
-        <div className="max-w-7xl mx-auto">
+      <main className="flex-1 w-full lg:w-[calc(100%-256px)] mt-[64px] sm:mt-12 p-3 sm:p-6 lg:p-12 relative z-10 overflow-hidden">
+        <div className="w-full max-w-7xl mx-auto">
 
           {!activeCategory && (
             <>

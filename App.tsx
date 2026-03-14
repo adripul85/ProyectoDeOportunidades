@@ -95,7 +95,7 @@ function App() {
         <CartProvider>
           <BrowserRouter>
             <ScrollToTop />
-            <div className="flex flex-col min-h-screen relative font-body text-dark-charcoal">
+            <div className="flex flex-col min-h-screen relative font-body text-dark-charcoal overflow-x-hidden w-full">
               <Header />
               <main className="flex-grow">
                 <PageTransition>

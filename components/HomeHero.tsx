@@ -94,9 +94,9 @@ export default function HomeHero({ featuredItems }: HomeHeroProps) {
                                     }
                                 `}
                             </style>
-                            {/* FLOATING CARD: "Categoría del Momento" - AGREGADA AFUERA DEL DOM PRINCIPAL DE LA IMAGEN */}
+                            {/* FLOATING CARD: "Categoría del Momento" */}
                             <div 
-                                className="absolute -bottom-6 -left-6 md:-left-12 bg-white rounded-3xl p-5 shadow-2xl flex items-center gap-4 border border-slate-50 min-w-[280px] z-20 group-hover:-translate-y-2 group-hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] transition-all duration-500"
+                                className="absolute -bottom-6 left-4 right-4 md:right-auto md:-left-12 bg-white rounded-3xl p-4 sm:p-5 shadow-2xl flex items-center gap-3 sm:gap-4 border border-slate-50 md:min-w-[280px] z-20 group-hover:-translate-y-2 group-hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] transition-all duration-500"
                                 style={{ animation: 'bounce-slow 4s ease-in-out infinite' }}
                             >
                                 <div className="bg-primary-50 text-primary-500 rounded-2xl w-14 h-14 flex items-center justify-center shrink-0">
