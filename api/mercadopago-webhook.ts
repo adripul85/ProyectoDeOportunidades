@@ -17,7 +17,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         // Solo nos interesan los pagos (payment)
         if (type === "payment" || action === "payment.created" || action === "payment.updated") {
-            const paymentId = data?.id || req.query.data?.id || req.body?.data?.id;
+            const queryId = req.query['data.id'] || (req.query.data as any)?.id;
+            const paymentId = data?.id || queryId || req.body?.data?.id;
 
             if (!paymentId) {
                  // Si MP envía un POST simple sin ID claro, logueamos
