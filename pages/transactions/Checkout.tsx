@@ -163,29 +163,46 @@ export default function Checkout() {
 
     if (selectedMethod === 'MERCADO_PAGO') {
       try {
-        const createPaymentFunc = httpsCallable(functions, 'createPayment');
-        const response = await createPaymentFunc({
-          price: total,
-          title: productTitle,
-          transactionId: transactionId
-        }) as { data: { url: string } };
+        // Nueva llamada a API Vercel de Split Payments
+        const response = await fetch('/api/mp-preference', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title: productTitle,
+            price: total,
+            quantity: 1,
+            productId: productId || transactionId,
+            sellerId: sellerId
+          })
+        });
 
-        if (response.data && response.data.url) {
-          window.location.href = response.data.url;
+        const data = await response.json();
+
+        if (!response.ok) {
+           throw new Error(data.error || 'Error al conectar con Mercado Pago (Split Payment)');
+        }
+
+        if (data.id) {
+          // Redirección directa al checkout de MP con el ID de preferencia generado
+          window.location.href = `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=${data.id}`;
+        } else if (data.url || data.init_point) {
+          window.location.href = data.url || data.init_point;
         } else {
-          throw new Error("No URL returned from backend");
+          throw new Error("Respuesta inválida desde la pasarela de pagos.");
         }
 
       } catch (error: any) {
-        if (window.location.hostname === "localhost") {
-          notify({ type: 'warning', title: 'Modo de Depuración', message: 'Bypass del emulador: Simulando pago exitoso.', icon: 'developer_mode' });
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+          notify({ type: 'warning', title: 'Modo de Depuración', message: 'Bypass del emulador o error de API local: Simulando confirmación de pago para testing.', icon: 'developer_mode' });
           setTimeout(() => {
             navigate(`/success?collection_status=approved&external_reference=${transactionId}&payment_type=credit_card`);
           }, 1500);
           return;
         }
 
-        const backendMessage = error.details?.message || error.message || 'Error de protocolo desconocido';
+        const backendMessage = error.message || 'Error de protocolo desconocido';
         notify({ type: 'error', title: 'Excepción de Pago', message: backendMessage, icon: 'cloud_off' });
         setLoading(false);
         return;
