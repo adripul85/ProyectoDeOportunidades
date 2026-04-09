@@ -195,146 +195,34 @@ export const updateTransactionStatus = async (id: string, status: TransactionSta
 };
 
 /**
- * SECURE: Release funds (Hybrid: Cloud Function with Direct Fallback)
- * Diverts 10% to Admin, Remainder to Seller.
+ * SECURE: Release funds (Cloud Function ONLY)
+ * Directs funds securely and updates wallets in a single transaction
  */
 export const releaseFunds = async (id: string, qrToken?: string) => {
     try {
-        // 1. Try Cloud Function first
-        throw new Error("Skipping function call - using direct fallback");
-    } catch (error) {
-        // Fallback directo a Firestore
+        const docRef = doc(db, "transactions", id);
+        const docSnap = await getDoc(docRef);
 
+        if (!docSnap.exists()) return { success: false, error: 'Transacción no encontrada' };
+        const data = docSnap.data() as TransactionData;
+
+        // 1. Execute secure cloud function
+        const releaseFundsFunc = httpsCallable(functions, 'releaseFunds');
+        await releaseFundsFunc({ transactionId: id, qrToken });
+
+        // Trigger reputation recalculation purely on the frontend (non-critical client update)
         try {
-            // 2. Direct Firestore Fallback
-            const docRef = doc(db, "transactions", id);
-            const docSnap = await getDoc(docRef);
-
-            if (!docSnap.exists()) return { success: false, error: 'Transacción no encontrada' };
-
-            const data = docSnap.data() as TransactionData;
-
-            // QR Validation (Client-Side) - OPTIONAL NOW
-            if (data.deliveryMethod === 'en_mano' && qrToken) {
-                if (data.qrCode !== qrToken) {
-                    return { success: false, error: 'Token de seguridad inválido' };
-                }
-            }
-
-            if (data.status === 'COMPLETED') return { success: true }; // Idempotency check
-
-            // Update Status
-            await import("firebase/firestore").then(({ updateDoc, increment }) =>
-                updateDoc(docRef, {
-                    status: 'COMPLETED',
-                    escrowReleased: true,
-                    updatedAt: serverTimestamp()
-                })
-            );
-
-            // Increment successful sales for seller
-            await import("firebase/firestore").then(({ updateDoc, increment }) =>
-                updateDoc(sellerRef, {
-                    successfulSales: increment(1)
-                })
-            );
-
-            // Trigger reputation recalculation
             const { recalculateReputation } = await import("./users");
             await recalculateReputation(data.sellerId);
-
-            // 3. DISTRIBUTE FUNDS
-            const { getSystemAdminId } = await import('./admin');
-            const adminId = await getSystemAdminId();
-
-            const sellerRef = doc(db, "users", data.sellerId);
-
-            // In the new model, amountProduct is what the seller receives.
-            // amountPlatformFee is the protection fee that goes to Admin.
-            const baseSellerProceeds = data.amountProduct || data.amount;
-            const basePlatformRevenue = data.amountPlatformFee || data.platformFee;
-
-            // Apply Flash Deal Commission (if applicable)
-            const featuredCommission = data.featuredFeeApplied ? Math.round(baseSellerProceeds * data.featuredFeeApplied) : 0;
-
-            const sellerProceeds = baseSellerProceeds - featuredCommission;
-            const platformRevenue = basePlatformRevenue + featuredCommission;
-
-            // A. Pay Seller (Product Price)
-            await import("firebase/firestore").then(({ updateDoc, increment }) =>
-                updateDoc(sellerRef, { "wallet.available": increment(sellerProceeds) })
-            );
-
-            // B. Pay Admin (Protection Fee)
-            if (adminId && platformRevenue > 0) {
-                const adminRef = doc(db, "users", adminId);
-                await import("firebase/firestore").then(({ updateDoc, increment }) =>
-                    updateDoc(adminRef, { "wallet.available": increment(platformRevenue) })
-                );
-
-                // D. LOG REVENUE (Admin)
-                await addDoc(collection(db, "financial_logs"), {
-                    transactionId: id,
-                    type: 'platform_fee',
-                    amount: platformRevenue,
-                    currency: 'ARS',
-                    relatedUser: data.sellerId,
-                    timestamp: serverTimestamp()
-                });
-
-                const { logWalletMovement } = await import('./users');
-
-                // NEW: Admin Wallet Movement
-                await logWalletMovement({
-                    uid: adminId,
-                    type: 'PLATFORM_REVENUE',
-                    amount: platformRevenue,
-                    referenceId: id,
-                    itemTitle: data.itemTitle,
-                    description: `Comisión Pago Protegido: ${data.itemTitle}`
-                });
-
-                // E. LOG WALLET MOVEMENTS (Seller)
-
-                // 1. Release from Escrow (Sign: - because it leaves the "inEscrow" state)
-                await logWalletMovement({
-                    uid: data.sellerId,
-                    type: 'ESCROW_RELEASE',
-                    amount: data.amountProduct,
-                    referenceId: id,
-                    itemTitle: data.itemTitle,
-                    description: `Liberación de garantía: ${data.itemTitle}`
-                });
-
-                // 2. Add to Available Revenue
-                await logWalletMovement({
-                    uid: data.sellerId,
-                    type: 'SALE_REVENUE',
-                    amount: sellerProceeds,
-                    referenceId: id,
-                    itemTitle: data.itemTitle,
-                    description: `Ganancia por venta: ${data.itemTitle}`
-                });
-
-                // 3. Log Feature Commission (if any)
-                if (featuredCommission > 0) {
-                    await logWalletMovement({
-                        uid: data.sellerId,
-                        type: 'PENALTY', // Categorized as penalty/fee
-                        amount: featuredCommission,
-                        referenceId: id,
-                        itemTitle: data.itemTitle,
-                        description: `Comisión por producto destacado`
-                    });
-                }
-            }
-
-            return { success: true };
-
-        } catch (fbError: any) {
-            console.error("Direct fallback failed:", fbError);
-            return { success: false, error: fbError.message };
+        } catch (repError) {
+            console.warn("Failed to recalculate reputation locally:", repError);
         }
+
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("Error releasing funds via Cloud Function:", error);
+        return { success: false, error: error.message };
     }
 };
 
